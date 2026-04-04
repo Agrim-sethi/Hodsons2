@@ -133,10 +133,27 @@ const Hodsons: React.FC = () => {
     const [downloadFormat, setDownloadFormat] = useState<'xlsx' | 'docx'>('xlsx');
     const [isDownloading, setIsDownloading] = useState(false);
 
+    // Passcode State
+    const [showPasscodeModal, setShowPasscodeModal] = useState(false);
+    const [passcodeInput, setPasscodeInput] = useState('');
+    const [passcodeError, setPasscodeError] = useState(false);
+
     useEffect(() => {
         loadData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const handlePasscodeSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (passcodeInput === '0001') {
+            setShowPasscodeModal(false);
+            setPasscodeInput('');
+            setPasscodeError(false);
+            setShowModal(true);
+        } else {
+            setPasscodeError(true);
+        }
+    };
 
     const loadData = () => {
         const skippedCategories = getSkipQualifyingCategories();
@@ -617,6 +634,37 @@ const Hodsons: React.FC = () => {
         loadData();
     };
 
+    const handleRestoreQualifyingPhase = (cat: HodsonsCategory) => {
+        const confirmed = window.confirm(
+            `Restore the qualifying phase for ${cat}?\n\nThis will remove skip-qualifying mode for this category and reset auto-filled pre-finals entries back to pending where no qualifying result exists. Finals data will be kept.`
+        );
+
+        if (!confirmed) return;
+
+        const nextResults = results.map(result => {
+            const student = mockStudents.find(s => s.id === result.studentId);
+            if (!student || student.category !== cat) return result;
+
+            if (result.qualifyingType === 'pending' && result.preFinalsType === 'participating') {
+                return {
+                    ...result,
+                    preFinalsType: 'pending' as const
+                };
+            }
+
+            return result;
+        });
+
+        const nextSkippedCategories = skipQualifyingCategories.filter(category => category !== cat);
+
+        setResults(nextResults);
+        setSkipQualifyingCategories(nextSkippedCategories);
+        saveHodsonsResults(nextResults);
+        saveSkipQualifyingCategories(nextSkippedCategories);
+        setActivePhase('qualifying');
+        loadData();
+    };
+
     const handleResultChange = (
         stuId: string,
         phase: 'qualifying' | 'finals',
@@ -950,7 +998,7 @@ const Hodsons: React.FC = () => {
                         <span>View All Results</span>
                     </button>
                     <button
-                        onClick={() => setShowModal(true)}
+                        onClick={() => setShowPasscodeModal(true)}
                         className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/20 whitespace-nowrap"
                     >
                         <Icon name="edit_document" />
@@ -2149,6 +2197,53 @@ const Hodsons: React.FC = () => {
                 document.body
             )}
 
+            {/* Modal for Passcode */}
+            {showPasscodeModal && createPortal(
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => { setShowPasscodeModal(false); setPasscodeInput(''); setPasscodeError(false); }}></div>
+                    <div className="relative w-full max-w-sm bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4 shadow-inner">
+                                <Icon name="lock" size="24" />
+                            </div>
+                            <h2 className="text-xl font-black text-white mb-2">Enter Passcode</h2>
+                            <p className="text-sm text-slate-400 mb-6">Please enter the 4-digit passcode to access the results editor.</p>
+                            
+                            <form onSubmit={handlePasscodeSubmit} className="w-full">
+                                <input
+                                    type="password"
+                                    maxLength={4}
+                                    value={passcodeInput}
+                                    onChange={(e) => { setPasscodeInput(e.target.value); setPasscodeError(false); }}
+                                    className={`w-full text-center text-4xl tracking-[0.5em] font-mono bg-white/5 border ${passcodeError ? 'border-red-500' : 'border-white/10 focus:border-primary'} rounded-xl p-4 text-white outline-none transition-colors mb-4`}
+                                    placeholder="••••"
+                                    autoFocus
+                                />
+                                {passcodeError && (
+                                    <p className="text-red-400 text-xs font-bold mb-4 animate-in slide-in-from-top-1">Incorrect passcode.</p>
+                                )}
+                                <div className="flex gap-3">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => { setShowPasscodeModal(false); setPasscodeInput(''); setPasscodeError(false); }}
+                                        className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        type="submit"
+                                        className="flex-1 py-3 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl transition-colors shadow-lg shadow-primary/20"
+                                    >
+                                        Unlock
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
             {/* Modal for "Add Results" */}
             {showModal && !editCategory && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -2293,12 +2388,19 @@ const Hodsons: React.FC = () => {
                                 })()}
 
                                 <div className="flex flex-wrap items-center gap-3 mt-4">
-                                    {!skipQualifyingCategories.includes(editCategory) && (
+                                    {!skipQualifyingCategories.includes(editCategory) ? (
                                         <button
                                             onClick={() => handleSkipQualifyingPhase(editCategory)}
                                             className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-amber-500/20 bg-amber-500/10 border-amber-500/20 text-amber-300"
                                         >
                                             <Icon name="fast_forward" size="16" /> Skip Qualifying Phase
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleRestoreQualifyingPhase(editCategory)}
+                                            className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-blue-500/20 bg-blue-500/10 border-blue-500/20 text-blue-300"
+                                        >
+                                            <Icon name="restore" size="16" /> Restore Qualifying Phase
                                         </button>
                                     )}
 
