@@ -617,6 +617,37 @@ const Hodsons: React.FC = () => {
         loadData();
     };
 
+    const handleRestoreQualifyingPhase = (cat: HodsonsCategory) => {
+        const confirmed = window.confirm(
+            `Restore the qualifying phase for ${cat}?\n\nThis will remove skip-qualifying mode for this category and reset auto-filled pre-finals entries back to pending where no qualifying result exists. Finals data will be kept.`
+        );
+
+        if (!confirmed) return;
+
+        const nextResults = results.map(result => {
+            const student = mockStudents.find(s => s.id === result.studentId);
+            if (!student || student.category !== cat) return result;
+
+            if (result.qualifyingType === 'pending' && result.preFinalsType === 'participating') {
+                return {
+                    ...result,
+                    preFinalsType: 'pending' as const
+                };
+            }
+
+            return result;
+        });
+
+        const nextSkippedCategories = skipQualifyingCategories.filter(category => category !== cat);
+
+        setResults(nextResults);
+        setSkipQualifyingCategories(nextSkippedCategories);
+        saveHodsonsResults(nextResults);
+        saveSkipQualifyingCategories(nextSkippedCategories);
+        setActivePhase('qualifying');
+        loadData();
+    };
+
     const handleResultChange = (
         stuId: string,
         phase: 'qualifying' | 'finals',
@@ -2293,12 +2324,19 @@ const Hodsons: React.FC = () => {
                                 })()}
 
                                 <div className="flex flex-wrap items-center gap-3 mt-4">
-                                    {!skipQualifyingCategories.includes(editCategory) && (
+                                    {!skipQualifyingCategories.includes(editCategory) ? (
                                         <button
                                             onClick={() => handleSkipQualifyingPhase(editCategory)}
                                             className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-amber-500/20 bg-amber-500/10 border-amber-500/20 text-amber-300"
                                         >
                                             <Icon name="fast_forward" size="16" /> Skip Qualifying Phase
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleRestoreQualifyingPhase(editCategory)}
+                                            className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-blue-500/20 bg-blue-500/10 border-blue-500/20 text-blue-300"
+                                        >
+                                            <Icon name="restore" size="16" /> Restore Qualifying Phase
                                         </button>
                                     )}
 
