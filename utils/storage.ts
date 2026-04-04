@@ -1,0 +1,158 @@
+
+export interface Event {
+    id: string;
+    sport: string;
+    sportIcon: string;
+    participation: 'houses' | 'whole_school' | 'inter_school' | 'individual';
+    houses?: string[]; // e.g., ['Himalaya', 'Nilgiri']
+    homeSchool?: string;
+    opponentSchool?: string;
+    ageCategory: string;
+    time: string;
+    date: string; // ISO string or specific format
+    venue: string;
+    teachers: string;
+    title: string;
+    subtext: string;
+    athleticsDetail?: string; // New field for specific athletics events
+    completed?: boolean;
+    result?: string;
+    resultDetails?: {
+        winner: string;
+        score: string;
+        points: string;
+        scorers: string;
+        mvp: string;
+        comments: string;
+    };
+}
+
+export interface Session {
+    id: string;
+    activity: string;
+    startTime: string;
+    endTime: string;
+    description: string; // "For whom"
+}
+
+export interface AttendanceRecord {
+    id: string;
+    date: string;
+    activity: string;
+    house: string;
+    players: string[];
+}
+
+export interface InjuryRecord {
+    id: string;
+    playerName: string;
+    house: string;
+    sport: string;
+    injuryType: string;
+    severity: 'Low' | 'Medium' | 'High';
+    date: string;
+    comments: string;
+}
+
+export interface UserProfile {
+    name: string;
+    role: string;
+    department: string;
+    email: string;
+    phone: string;
+    avatar: string;
+}
+
+const STORAGE_KEY = 'sanawar_events';
+const SESSIONS_KEY = 'sanawar_sessions';
+const ATTENDANCE_KEY = 'sanawar_attendance';
+const INJURIES_KEY = 'sanawar_injuries';
+const PROFILE_KEY = 'sanawar_profile';
+
+export const getEvents = (): Event[] => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+};
+
+export const updateEvent = (updatedEvent: Event) => {
+    const events = getEvents();
+    const index = events.findIndex(e => e.id === updatedEvent.id);
+    if (index !== -1) {
+        events[index] = updatedEvent;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+    }
+};
+
+export const deleteEvent = (id: string) => {
+    const events = getEvents();
+    const filtered = events.filter(e => e.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+};
+
+export const saveEvent = (event: Event) => {
+    const events = getEvents();
+    events.push(event);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+};
+
+export const clearEvents = () => {
+    localStorage.removeItem(STORAGE_KEY);
+};
+
+// Session Helpers
+export const getSessions = (): Session[] => {
+    const stored = localStorage.getItem(SESSIONS_KEY);
+    return stored ? JSON.parse(stored) : [];
+};
+
+export const saveSession = (session: Session) => {
+    const sessions = getSessions();
+    sessions.push(session);
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+};
+
+export const deleteSession = (id: string) => {
+    const sessions = getSessions();
+    const filtered = sessions.filter(s => s.id !== id);
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(filtered));
+};
+
+// Attendance Helpers
+export const getAttendance = (): AttendanceRecord[] => {
+    const stored = localStorage.getItem(ATTENDANCE_KEY);
+    return stored ? JSON.parse(stored) : [];
+};
+
+export const saveAttendance = (record: AttendanceRecord) => {
+    const records = getAttendance();
+    records.push(record);
+    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(records));
+};
+
+// Injury Helpers
+export const getInjuries = (): InjuryRecord[] => {
+    const stored = localStorage.getItem(INJURIES_KEY);
+    return stored ? JSON.parse(stored) : [];
+};
+
+export const saveInjury = (record: InjuryRecord) => {
+    const records = getInjuries();
+    records.push(record);
+    localStorage.setItem(INJURIES_KEY, JSON.stringify(records));
+};
+
+export const deleteInjury = (id: string) => {
+    const records = getInjuries();
+    const filtered = records.filter(r => r.id !== id);
+    localStorage.setItem(INJURIES_KEY, JSON.stringify(filtered));
+};
+
+// Profile Helpers
+export const getUserProfile = (): UserProfile | null => {
+    const stored = localStorage.getItem(PROFILE_KEY);
+    return stored ? JSON.parse(stored) : null;
+};
+
+export const saveUserProfile = (profile: UserProfile) => {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+};

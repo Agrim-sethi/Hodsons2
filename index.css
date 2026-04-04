@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #0f172a;
+    color: white;
+    font-family: "Lexend", sans-serif;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    background: rgba(30, 41, 59, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-sidebar {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+  }
+}
+
+@layer utilities {
+  .neon-glow-red {
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+  }
+
+  .neon-glow-blue {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+  }
+
+  .neon-glow-green {
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+  }
+
+  .neon-glow-yellow {
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.3);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
