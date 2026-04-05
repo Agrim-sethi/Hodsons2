@@ -178,7 +178,10 @@ const Hodsons: React.FC = () => {
                 finalsPosition: r.finalsPosition ?? r.position
             };
 
-            if (['pending', 'medically_excused', 'on_leave'].includes(migrated.preQualifyingType as string)) {
+            const stu = mockStudents.find((s: any) => s.id === migrated.studentId);
+            const skipsQualifying = stu ? skippedCategories.includes(stu.category) : false;
+
+            if (!skipsQualifying && ['pending', 'medically_excused', 'on_leave'].includes(migrated.preQualifyingType as string)) {
                 migrated.qualifyingType = 'pending';
                 migrated.qualifyingPosition = undefined;
                 migrated.qualifyingTiming = undefined;
@@ -187,9 +190,6 @@ const Hodsons: React.FC = () => {
                 migrated.finalsPosition = undefined;
                 migrated.finalsTiming = undefined;
             }
-
-            const stu = mockStudents.find((s: any) => s.id === migrated.studentId);
-            const skipsQualifying = stu ? skippedCategories.includes(stu.category) : false;
 
             if (!skipsQualifying && migrated.qualifyingType !== 'qualified') {
                 migrated.preFinalsType = 'pending';
@@ -622,7 +622,7 @@ const Hodsons: React.FC = () => {
 
     const handleSkipQualifyingPhase = (cat: HodsonsCategory) => {
         const confirmed = window.confirm(
-            `Skip the qualifying phase for ${cat}?\n\nThis will delete all qualifying-stage data for this category, allow the full enrolled list to move directly to finals, and reset the pre-finals list to participating for all students in this category.`
+            `Skip the qualifying phase for ${cat}?\n\nThis will delete all qualifying-stage data for this category, allow the full enrolled list to move directly to finals, and reset the pre-finals list to pending for all students in this category.`
         );
 
         if (!confirmed) return;
@@ -639,7 +639,7 @@ const Hodsons: React.FC = () => {
                 return {
                     studentId: student.id,
                     preQualifyingType: current?.preQualifyingType ?? 'pending',
-                    preFinalsType: 'participating' as const,
+                    preFinalsType: 'pending' as const,
                     qualifyingType: 'pending' as const,
                     qualifyingPosition: undefined,
                     qualifyingTiming: undefined,
@@ -715,7 +715,10 @@ const Hodsons: React.FC = () => {
             let nextFinalTiming = phase === 'finals' ? timing : (idx >= 0 ? newRes[idx].finalsTiming : undefined);
             let nextPreFinalsType = preFinalsType;
 
-            if (['pending', 'medically_excused', 'on_leave'].includes(preQualifyingType as string)) {
+            const categoryObj = mockStudents.find((s: any) => s.id === stuId)?.category;
+            const skipsQualifying = categoryObj ? skipQualifyingCategories.includes(categoryObj as HodsonsCategory) : false;
+
+            if (!skipsQualifying && ['pending', 'medically_excused', 'on_leave'].includes(preQualifyingType as string)) {
                 nextQualType = 'pending';
                 nextQualPos = undefined;
                 nextQualTiming = undefined;
@@ -724,9 +727,6 @@ const Hodsons: React.FC = () => {
                 nextFinalPos = undefined;
                 nextFinalTiming = undefined;
             }
-
-            const categoryObj = mockStudents.find((s: any) => s.id === stuId)?.category;
-            const skipsQualifying = categoryObj ? skipQualifyingCategories.includes(categoryObj as HodsonsCategory) : false;
 
             if (!skipsQualifying && nextQualType !== 'qualified') {
                 nextPreFinalsType = 'pending';
@@ -895,6 +895,87 @@ const Hodsons: React.FC = () => {
         }
     };
 
+    const downloadAllCompetitorsXlsx = () => {
+        try {
+            setIsDownloading(true);
+            const wb = XLSX.utils.book_new();
+            const timestamp = new Date().toISOString().slice(0, 10);
+
+            CATEGORIES_LIST.forEach(cat => {
+                const competitorRows = mockStudents
+                    .filter(s => s.category === cat)
+                    .map((stu, idx) => ({
+                        'SN': idx + 1,
+                        'Comp No': stu.id,
+                        'Name': stu.name,
+                        'House': stu.house,
+                        'Category': stu.category
+                    }));
+                
+                if (competitorRows.length > 0) {
+                    const ws = XLSX.utils.json_to_sheet(competitorRows);
+                    XLSX.utils.book_append_sheet(wb, ws, cat.slice(0, 31));
+                }
+            });
+
+            const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            downloadBlob(blob, `Hodsons 2026 All Competitors ${timestamp}.xlsx`);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    const downloadAllCompetitorsDocx = async () => {
+        try {
+            setIsDownloading(true);
+            const timestamp = new Date().toISOString().slice(0, 10);
+
+            const sections = CATEGORIES_LIST.map(cat => {
+                const students = mockStudents.filter(s => s.category === cat);
+                const table = new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: ['SN', 'Comp No', 'Name', 'House'].map(h => new TableCell({
+                                children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })] })],
+                                shading: { fill: 'EEEEEE', type: ShadingType.CLEAR }
+                            }))
+                        }),
+                        ...students.map((s, idx) => new TableRow({
+                            children: [String(idx + 1), s.id, s.name, s.house].map(v => new TableCell({
+                                children: [new Paragraph(String(v))]
+                            }))
+                        }))
+                    ]
+                });
+
+                return [
+                    new Paragraph({ children: [new TextRun({ text: cat, bold: true, size: 28 })], spacing: { before: 400, after: 200 } }),
+                    table
+                ];
+            }).flat();
+
+            const doc = new Document({
+                sections: [{
+                    children: [
+                        new Paragraph({ children: [new TextRun({ text: "HODSON'S RUN 2026 - COMPETITOR LIST", bold: true, size: 36 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+                        ...sections
+                    ]
+                }]
+            });
+
+            const blob = await Packer.toBlob(doc);
+            downloadBlob(blob, `Hodsons 2026 Competitor List ${timestamp}.docx`);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     const downloadCategoryStageList = async (category: string, stage: 'pre_qualifying' | 'qualifying' | 'pre_finals' | 'finals', format: 'xlsx' | 'docx') => {
         try {
             setIsDownloading(true);
@@ -1018,6 +1099,113 @@ const Hodsons: React.FC = () => {
 
             const blob = await Packer.toBlob(doc);
             downloadBlob(blob, `${fileBase}.docx`);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    const downloadCategoryCompetitorsXlsx = (category: string) => {
+        try {
+            setIsDownloading(true);
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const qualifyingPositions = getCategoryStagePositions(category, 'qualifying');
+            const finalsPositions = getCategoryStagePositions(category, 'finals');
+
+            const rows = mockStudents
+                .filter(s => s.category === category)
+                .map((stu, idx) => {
+                    const r = results.find(res => res.studentId === stu.id) || {
+                        studentId: stu.id,
+                        preQualifyingType: 'pending',
+                        preFinalsType: 'pending',
+                        qualifyingType: 'pending',
+                        finalsType: 'pending'
+                    };
+                    const qualPos = qualifyingPositions.get(stu.id) ?? r.qualifyingPosition;
+                    const finalsPos = finalsPositions.get(stu.id) ?? r.finalsPosition;
+
+                    return {
+                        'SN': idx + 1,
+                        'Comp No': stu.id,
+                        'Athlete Name': stu.name,
+                        'House': stu.house,
+                        'Qualifying Status': r.qualifyingType.replace('_', ' '),
+                        'Qualifying Time': r.qualifyingTiming || '—',
+                        'Qualifying Rank': qualPos ? `#${qualPos}` : '—',
+                        'Finals Status': r.finalsType.replace('_', ' '),
+                        'Finals Time': r.finalsTiming || '—',
+                        'Finals Rank': finalsPos ? `#${finalsPos}` : '—'
+                    };
+                });
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Competitors');
+            const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            downloadBlob(blob, `Hodsons 2026 ${category} Competitors ${timestamp}.xlsx`);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    const downloadCategoryCompetitorsDocx = async (category: string) => {
+        try {
+            setIsDownloading(true);
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const qualifyingPositions = getCategoryStagePositions(category, 'qualifying');
+            const finalsPositions = getCategoryStagePositions(category, 'finals');
+
+            const students = mockStudents.filter(s => s.category === category);
+            const table = new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: [
+                    new TableRow({
+                        children: ['SN', 'ID', 'Athlete Name', 'House', 'Qualifying', 'Finals'].map(h => new TableCell({
+                            children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 18 })] })],
+                            shading: { fill: 'EEEEEE', type: ShadingType.CLEAR }
+                        }))
+                    }),
+                    ...students.map((stu, idx) => {
+                        const r = results.find(res => res.studentId === stu.id) || { studentId: stu.id, qualifyingType: 'pending', finalsType: 'pending' };
+                        const qualPos = qualifyingPositions.get(stu.id) ?? r.qualifyingPosition;
+                        const finalsPos = finalsPositions.get(stu.id) ?? r.finalsPosition;
+
+                        const qualCell = `${r.qualifyingType.replace('_', ' ')}\nTime: ${r.qualifyingTiming || '—'}\nRank: ${qualPos ? '#' + qualPos : '—'}`;
+                        const finalsCell = `${r.finalsType.replace('_', ' ')}\nTime: ${r.finalsTiming || '—'}\nRank: ${finalsPos ? '#' + finalsPos : '—'}`;
+
+                        return new TableRow({
+                            children: [
+                                String(idx + 1),
+                                stu.id,
+                                stu.name,
+                                stu.house,
+                                qualCell,
+                                finalsCell
+                            ].map(v => new TableCell({
+                                children: v.split('\n').map(line => new Paragraph({ children: [new TextRun({ text: line, size: 16 })] }))
+                            }))
+                        });
+                    })
+                ]
+            });
+
+            const doc = new Document({
+                sections: [{
+                    children: [
+                        new Paragraph({ children: [new TextRun({ text: `HODSON'S RUN 2026 - ${category.toUpperCase()}`, bold: true, size: 32 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+                        new Paragraph({ children: [new TextRun({ text: "COMPETITOR LIST & RESULTS", bold: true, size: 24 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+                        table
+                    ]
+                }]
+            });
+
+            const blob = await Packer.toBlob(doc);
+            downloadBlob(blob, `Hodsons 2026 ${category} Competitors ${timestamp}.docx`);
         } catch (e) {
             console.error(e);
         } finally {
@@ -1225,21 +1413,63 @@ const Hodsons: React.FC = () => {
                                     </div>
                                     <h3 className="text-white text-3xl font-black">{selectedCategoryStats.name} Insights</h3>
                                 </div>
-                                <button onClick={() => setSelectedCategoryStats(null)} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10">
-                                    <Icon name="close" size="24" />
-                                </button>
+                                <div className="flex items-center gap-4">
+                                    {categoryModalTab === 'list' && (
+                                        <div className="hidden sm:flex items-center gap-2 animate-in fade-in zoom-in-95 bg-white/5 p-1 rounded-2xl border border-white/10">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3">Export:</span>
+                                            <button
+                                                onClick={() => downloadCategoryCompetitorsXlsx(selectedCategoryStats.name)}
+                                                disabled={isDownloading}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+                                            >
+                                                <Icon name="table_chart" size="16" /> .xlsx
+                                            </button>
+                                            <button
+                                                onClick={() => downloadCategoryCompetitorsDocx(selectedCategoryStats.name)}
+                                                disabled={isDownloading}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+                                            >
+                                                <Icon name="description" size="16" /> .docx
+                                            </button>
+                                        </div>
+                                    )}
+                                    <button onClick={() => setSelectedCategoryStats(null)} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10 self-start mt-1">
+                                        <Icon name="close" size="24" />
+                                    </button>
+                                </div>
                             </div>
-
-                            <div className="flex gap-2">
-                                <button onClick={() => setCategoryModalTab('qualifying')} className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'qualifying' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Icon name="history" size="16" /> 1. Qualifying Stats
-                                </button>
-                                <button onClick={() => setCategoryModalTab('finals')} className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'finals' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Icon name="emoji_events" size="16" /> 2. Finals Results
-                                </button>
-                                <button onClick={() => setCategoryModalTab('list')} className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'list' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Icon name="format_list_bulleted" size="16" /> Competitor List
-                                </button>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex flex-wrap gap-2">
+                                    <button onClick={() => setCategoryModalTab('qualifying')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'qualifying' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                        <Icon name="history" size="16" /> <span className="hidden sm:inline">1. </span>Qualifying Stats
+                                    </button>
+                                    <button onClick={() => setCategoryModalTab('finals')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'finals' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                        <Icon name="emoji_events" size="16" /> <span className="hidden sm:inline">2. </span>Finals Results
+                                    </button>
+                                    <button onClick={() => setCategoryModalTab('list')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'list' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                        <Icon name="format_list_bulleted" size="16" /> Competitor List
+                                    </button>
+                                </div>
+                                
+                                {categoryModalTab === 'list' && (
+                                    <div className="flex sm:hidden items-center gap-2 animate-in fade-in zoom-in-95 bg-white/5 p-1.5 rounded-xl border border-white/10 w-full justify-center">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Export:</span>
+                                        <button
+                                            onClick={() => downloadCategoryCompetitorsXlsx(selectedCategoryStats.name)}
+                                            disabled={isDownloading}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
+                                        >
+                                            <Icon name="table_chart" size="14" /> .xlsx
+                                        </button>
+                                        <button
+                                            onClick={() => downloadCategoryCompetitorsDocx(selectedCategoryStats.name)}
+                                            disabled={isDownloading}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
+                                        >
+                                            <Icon name="description" size="14" /> .docx
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1813,13 +2043,42 @@ const Hodsons: React.FC = () => {
                                                     </th>
                                                     <th className="px-6 py-5 text-center">Qualifying</th>
                                                     <th className="px-6 py-5 text-center">Finals</th>
-                                                    <th className="px-6 py-5 text-right">Result</th>
+                                                    <th className="px-6 py-5 text-right cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'performance' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('performance'); }}>
+                                                        <div className="flex items-center justify-end gap-1">Result {listSortField === 'performance' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
                                                 {mockStudents.filter(s => s.category === selectedCategoryStats.name)
                                                     .sort((a, b) => {
                                                         const factor = listSortOrder === 'asc' ? 1 : -1;
+                                                        
+                                                        if (listSortField === 'performance') {
+                                                            const resA = results.find(r => r.studentId === a.id);
+                                                            const resB = results.find(r => r.studentId === b.id);
+                                                            
+                                                            // Helper to calculate a rank score
+                                                            const getScore = (res: any, stuId: string) => {
+                                                                if (!res) return Infinity;
+                                                                const sType = res.finalsType === 'pending' || res.finalsType === 'participating' ? res.qualifyingType : res.finalsType;
+                                                                const fPos = finalsPositions.get(stuId) ?? res.finalsPosition;
+                                                                if (fPos) return fPos; // Ranks 1, 2, 3...
+                                                                if (sType === 'qualified_pos' || sType === 'qualified' || sType === 'finisher') return 1000;
+                                                                if (sType === 'pending' || sType === 'participating') return 2000;
+                                                                return 3000; // DNF, Absent, Excused, Leave
+                                                            };
+                                                            
+                                                            const scoreA = getScore(resA, a.id);
+                                                            const scoreB = getScore(resB, b.id);
+                                                            
+                                                            if (scoreA !== scoreB) return factor * (scoreA - scoreB);
+                                                            
+                                                            // If scores are tied and they have timings, compare timings string-wise
+                                                            const timeA = resA?.finalsTiming || resA?.qualifyingTiming || '99:99:99';
+                                                            const timeB = resB?.finalsTiming || resB?.qualifyingTiming || '99:99:99';
+                                                            if (timeA !== timeB) return factor * timeA.localeCompare(timeB);
+                                                        }
+
                                                         if (listSortField === 'house') return factor * a.house.localeCompare(b.house);
                                                         if (listSortField === 'name') return factor * a.name.localeCompare(b.name);
                                                         return factor * a.id.localeCompare(b.id);
@@ -2582,9 +2841,9 @@ const Hodsons: React.FC = () => {
                                             const preQualOk = res.preQualifyingType === 'participating';
                                             const skipsQualifying = !!editCategory && skipQualifyingCategories.includes(editCategory);
                                             const qualifiesForPreFinals = skipsQualifying || res.qualifyingType === 'qualified';
-                                            const preFinalsOk = skipsQualifying || res.preFinalsType === 'participating';
+                                            const preFinalsOk = res.preFinalsType === 'participating';
 
-                                            if (activePhase === 'qualifying' && !preQualOk) return false;
+                                            if (activePhase === 'qualifying' && !skipsQualifying && !preQualOk) return false;
                                             if (activePhase === 'pre_finals' && !qualifiesForPreFinals) return false;
                                             if (activePhase === 'finals' && (!qualifiesForPreFinals || !preFinalsOk)) return false;
                                             return true;
@@ -2592,6 +2851,7 @@ const Hodsons: React.FC = () => {
                                         .map((stu, index) => {
                                             const res = results.find(r => r.studentId === stu.id) || { studentId: stu.id, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
                                             const cfg = houseConfig(stu.house);
+                                            const skipsQualifying = !!editCategory && skipQualifyingCategories.includes(editCategory);
 
                                             return (
                                                 <tr key={stu.id} className="hover:bg-white/[0.02]">
@@ -2607,8 +2867,9 @@ const Hodsons: React.FC = () => {
                                                         {activePhase === 'pre_qualifying' ? (
                                                             <select
                                                                 value={res.preQualifyingType || 'pending'}
+                                                                disabled={skipsQualifying}
                                                                 onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', e.target.value, res.preFinalsType || 'pending')}
-                                                                className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-slate-400 w-full max-w-[200px]"
+                                                                className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-slate-400 w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                             >
                                                                 <option value="pending">Pending</option>
                                                                 <option value="participating">Participating</option>
@@ -2629,8 +2890,9 @@ const Hodsons: React.FC = () => {
                                                         ) : activePhase === 'qualifying' ? (
                                                             <select
                                                                 value={res.qualifyingType}
+                                                                disabled={skipsQualifying}
                                                                 onChange={(e) => handleResultChange(stu.id, 'qualifying', e.target.value, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
-                                                                className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-primary w-full max-w-[200px]"
+                                                                className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-primary w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                             >
                                                                 <option value="pending">Pending</option>
                                                                 <option value="qualified">Qualified</option>
@@ -2776,7 +3038,7 @@ function AllResultsModal({ categories, standings, onClose, onDownload, isDownloa
                             className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
                         >
                             <Icon name={isDownloading ? 'sync' : 'download'} className={isDownloading ? 'animate-spin' : ''} />
-                            <span>Download Summary .docx</span>
+                            <span>Download Full Results (.docx)</span>
                         </button>
                         <button onClick={onClose} className="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all">
                             <Icon name="close" />

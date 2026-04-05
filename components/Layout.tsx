@@ -78,7 +78,7 @@ const Layout: React.FC = () => {
 
       {/* Sidebar */}
       <aside 
-        className={`glass-sidebar w-64 flex-shrink-0 flex flex-col h-full fixed lg:relative z-40 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full absolute'}`}
+        className={`glass-sidebar flex-shrink-0 flex flex-col h-full fixed z-40 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full overflow-hidden'}`}
       >
         <div className="p-6 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -99,36 +99,14 @@ const Layout: React.FC = () => {
         </div>
 
         <nav className="flex-1 px-4 py-4 flex flex-col gap-2 overflow-y-auto">
-          <SidebarItem to="/dashboard" icon="dashboard" label="Overview" />
-          <SidebarItem to="/standings" icon="trophy" label="Standings" />
-          <SidebarItem to="/events" icon="calendar_month" label="Events" />
-          <SidebarItem to="/archive" icon="history" label="Archive" />
-          <SidebarItem to="/attendance" icon="analytics" label="Attendance" />
-          <SidebarItem to="/teams" icon="groups" label="School Teams" />
+          {/* Removed other navigation items */}
           <SidebarItem to="/hodsons" icon="directions_run" label="Hodsons 2026" />
         </nav>
 
-        <div className="p-4">
-          <NavLink to="/profile" className="block">
-            <div className="glass-panel p-4 rounded-xl flex items-center gap-3 hover:bg-white/5 transition-colors cursor-pointer group">
-              <div
-                className="size-10 rounded-full bg-cover bg-center border border-white/20 group-hover:border-primary/50 transition-colors"
-                style={{ backgroundImage: `url('${IMAGES.avatar}')` }}
-              ></div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate text-white group-hover:text-primary transition-colors">Coach Singh</p>
-                <p className="text-xs text-slate-400 truncate">Head of Football</p>
-              </div>
-              <button className="text-slate-400 group-hover:text-white transition-colors">
-                <Icon name="settings" className="text-sm border border-transparent group-hover:border-white/10 p-1 rounded-md" />
-              </button>
-            </div>
-          </NavLink>
-        </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative z-10 w-full">
+      <main className={`flex-1 flex flex-col h-full overflow-hidden relative z-10 w-full transition-all duration-300 ease-in-out ${isSidebarOpen ? 'lg:pl-64' : 'pl-0'}`}>
         {/* Header */}
         <header className="h-20 flex-shrink-0 px-4 md:px-8 flex items-center justify-between border-b border-white/5 bg-background-dark/50 backdrop-blur-sm z-20">
           <div className="flex items-center gap-4">
@@ -147,8 +125,7 @@ const Layout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Mobile Avatar */}
-            <NavLink to="/profile" className="lg:hidden size-10 rounded-full bg-cover bg-center border border-white/20" style={{ backgroundImage: `url('${IMAGES.avatar}')` }}></NavLink>
+            {/* Mobile Avatar (Hidden as Profile is removed) */}
           </div>
         </header>
 
