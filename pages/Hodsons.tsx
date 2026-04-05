@@ -177,6 +177,33 @@ const Hodsons: React.FC = () => {
                 finalsTiming: r.finalsTiming ?? r.timing,
                 finalsPosition: r.finalsPosition ?? r.position
             };
+
+            if (['pending', 'medically_excused', 'on_leave'].includes(migrated.preQualifyingType as string)) {
+                migrated.qualifyingType = 'pending';
+                migrated.qualifyingPosition = undefined;
+                migrated.qualifyingTiming = undefined;
+                migrated.preFinalsType = 'pending';
+                migrated.finalsType = 'pending';
+                migrated.finalsPosition = undefined;
+                migrated.finalsTiming = undefined;
+            }
+
+            const stu = mockStudents.find((s: any) => s.id === migrated.studentId);
+            const skipsQualifying = stu ? skippedCategories.includes(stu.category) : false;
+
+            if (!skipsQualifying && migrated.qualifyingType !== 'qualified') {
+                migrated.preFinalsType = 'pending';
+                migrated.finalsType = 'pending';
+                migrated.finalsPosition = undefined;
+                migrated.finalsTiming = undefined;
+            }
+
+            if (['pending', 'medically_excused', 'on_leave'].includes(migrated.preFinalsType as string)) {
+                migrated.finalsType = 'pending';
+                migrated.finalsPosition = undefined;
+                migrated.finalsTiming = undefined;
+            }
+
             return migrated;
         });
         setResults(storedResults);
@@ -604,7 +631,7 @@ const Hodsons: React.FC = () => {
             mockStudents.filter(student => student.category === cat).map(student => student.id)
         );
 
-        const existingByStudent = new Map(results.map(result => [result.studentId, result]));
+        const existingByStudent = new Map<string, HodsonsResult>(results.map(result => [result.studentId, result]));
         const updatedResults = mockStudents
             .filter(student => student.category === cat)
             .map(student => {
@@ -680,31 +707,56 @@ const Hodsons: React.FC = () => {
             const pos = posStr ? parseInt(posStr) : undefined;
             const timing = timingStr || undefined;
 
+            let nextQualType = phase === 'qualifying' ? type : (idx >= 0 ? newRes[idx].qualifyingType : 'pending');
+            let nextFinalType = phase === 'finals' ? type : (idx >= 0 ? newRes[idx].finalsType : 'pending');
+            let nextQualPos = phase === 'qualifying' ? pos : (idx >= 0 ? newRes[idx].qualifyingPosition : undefined);
+            let nextQualTiming = phase === 'qualifying' ? timing : (idx >= 0 ? newRes[idx].qualifyingTiming : undefined);
+            let nextFinalPos = phase === 'finals' ? pos : (idx >= 0 ? newRes[idx].finalsPosition : undefined);
+            let nextFinalTiming = phase === 'finals' ? timing : (idx >= 0 ? newRes[idx].finalsTiming : undefined);
+            let nextPreFinalsType = preFinalsType;
+
+            if (['pending', 'medically_excused', 'on_leave'].includes(preQualifyingType as string)) {
+                nextQualType = 'pending';
+                nextQualPos = undefined;
+                nextQualTiming = undefined;
+                nextPreFinalsType = 'pending';
+                nextFinalType = 'pending';
+                nextFinalPos = undefined;
+                nextFinalTiming = undefined;
+            }
+
+            const categoryObj = mockStudents.find((s: any) => s.id === stuId)?.category;
+            const skipsQualifying = categoryObj ? skipQualifyingCategories.includes(categoryObj as HodsonsCategory) : false;
+
+            if (!skipsQualifying && nextQualType !== 'qualified') {
+                nextPreFinalsType = 'pending';
+                nextFinalType = 'pending';
+                nextFinalPos = undefined;
+                nextFinalTiming = undefined;
+            }
+
+            if (['pending', 'medically_excused', 'on_leave'].includes(nextPreFinalsType as string)) {
+                nextFinalType = 'pending';
+                nextFinalPos = undefined;
+                nextFinalTiming = undefined;
+            }
+
+            const newResult = {
+                studentId: stuId,
+                preQualifyingType,
+                preFinalsType: nextPreFinalsType,
+                qualifyingType: nextQualType,
+                finalsType: nextFinalType,
+                qualifyingPosition: nextQualPos,
+                qualifyingTiming: nextQualTiming,
+                finalsPosition: nextFinalPos,
+                finalsTiming: nextFinalTiming
+            };
+
             if (idx >= 0) {
-                const current = newRes[idx];
-                newRes[idx] = {
-                    ...current,
-                    preQualifyingType,
-                    preFinalsType,
-                    qualifyingType: phase === 'qualifying' ? type : current.qualifyingType,
-                    finalsType: phase === 'finals' ? type : current.finalsType,
-                    qualifyingPosition: phase === 'qualifying' ? pos : current.qualifyingPosition,
-                    qualifyingTiming: phase === 'qualifying' ? timing : current.qualifyingTiming,
-                    finalsPosition: phase === 'finals' ? pos : current.finalsPosition,
-                    finalsTiming: phase === 'finals' ? timing : current.finalsTiming
-                };
+                newRes[idx] = newResult;
             } else {
-                newRes.push({
-                    studentId: stuId,
-                    preQualifyingType,
-                    preFinalsType,
-                    qualifyingType: phase === 'qualifying' ? type : 'pending',
-                    finalsType: phase === 'finals' ? type : 'pending',
-                    qualifyingPosition: phase === 'qualifying' ? pos : undefined,
-                    qualifyingTiming: phase === 'qualifying' ? timing : undefined,
-                    finalsPosition: phase === 'finals' ? pos : undefined,
-                    finalsTiming: phase === 'finals' ? timing : undefined
-                });
+                newRes.push(newResult);
             }
             return newRes;
         });
