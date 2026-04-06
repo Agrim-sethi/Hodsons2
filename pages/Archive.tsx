@@ -233,7 +233,7 @@ const EventModal = ({ eventType, year, onClose }: { eventType: string, year: str
                             </p>
                         )}
                     </div>
-                    <button className="px-6 py-2 bg-primary hover:bg-blue-600 text-white font-bold rounded-lg shadow-lg shadow-blue-900/30 transition-all flex items-center gap-2">
+                    <button className="px-6 py-2 royal-primary-btn font-bold rounded-lg flex items-center gap-2">
                         <Icon name="description" />
                         Export Full Report
                     </button>
@@ -293,6 +293,7 @@ const Archive: React.FC = () => {
 
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
                 <div>
+                    <div className="royal-kicker mb-2">Championship Record Book</div>
                     <h1 className="text-white text-3xl font-black leading-tight">Event Archive Directory</h1>
                     <p className="text-slate-400 text-sm mt-2">Browse the complete history of inter-house sporting events.</p>
                 </div>
@@ -304,8 +305,8 @@ const Archive: React.FC = () => {
                         key={year}
                         onClick={() => setSelectedYear(year)}
                         className={`px-6 py-2 rounded-lg font-bold transition-all ${selectedYear === year
-                            ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-105'
-                            : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
+                            ? 'royal-primary-btn scale-105'
+                            : 'royal-secondary-btn text-slate-300'
                             }`}
                     >
                         {year}
@@ -313,24 +314,24 @@ const Archive: React.FC = () => {
                 ))}
             </div>
 
-            <div className="glass-panel rounded-xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="glass-panel section-plaque rounded-xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="relative flex-1 w-full">
                     <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input className="w-full bg-background-dark border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Search for matches, events, or players..." type="text" />
+                    <input className="w-full royal-input rounded-lg pl-10 pr-4 py-2.5 placeholder-slate-400 transition-all" placeholder="Search for matches, events, or players..." type="text" />
                 </div>
                 <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
                     <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(e.target.value)}
-                        className="bg-background-dark border border-white/10 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block p-2.5 min-w-[140px]"
+                        className="royal-input text-sm rounded-lg block p-2.5 min-w-[140px]"
                     >
                         {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
-                    <select className="bg-background-dark border border-white/10 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block p-2.5 min-w-[160px]">
+                    <select className="royal-input text-sm rounded-lg block p-2.5 min-w-[160px]">
                         <option>All Categories</option>
                         <option>Athletics</option>
                     </select>
-                    <button onClick={() => setSelectedYear("All Years")} className="flex items-center gap-1 text-slate-400 hover:text-white px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap">
+                    <button onClick={() => setSelectedYear("All Years")} className="flex items-center gap-1 royal-ghost-btn px-3 py-2 text-sm font-medium whitespace-nowrap rounded-lg">
                         <Icon name="filter_list_off" className="text-[18px]" /> Clear
                     </button>
                 </div>

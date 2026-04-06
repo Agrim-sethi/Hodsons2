@@ -4,6 +4,15 @@ import { HOUSE_COLORS } from '../constants';
 import { getEvents } from '../utils/storage';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
+const standingsTooltipStyle = {
+  backgroundColor: 'rgba(10, 20, 34, 0.96)',
+  borderColor: 'rgba(201,163,74,0.28)',
+  color: '#fff7e4',
+  borderRadius: '14px',
+  padding: '10px 14px',
+  boxShadow: '0 14px 32px rgba(0, 0, 0, 0.42)'
+};
+
 const HouseCard = ({ house, place, points, change, isUp, colorConfig }: any) => (
   <div className={`glass-panel rounded-2xl p-6 relative overflow-hidden group border-t-4 ${colorConfig.border} ${colorConfig.glow ? 'shadow-lg ' + colorConfig.glow.replace('box-shadow:', '') : ''}`}>
     <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity`}>
@@ -170,7 +179,7 @@ const Standings: React.FC = () => {
       {/* Hero */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 pt-10">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-primary font-medium text-sm uppercase tracking-wider">
+          <div className="royal-kicker flex items-center gap-2">
             <Icon name="emoji_events" className="text-lg" />
             <span>Annual Championship</span>
           </div>
@@ -184,7 +193,7 @@ const Standings: React.FC = () => {
         <div className="flex gap-3">
           <button
             onClick={exportToCSV}
-            className="flex items-center gap-2 bg-slate-800 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-slate-700 transition-colors border border-white/5"
+            className="flex items-center gap-2 royal-secondary-btn px-5 py-2.5 rounded-lg font-medium"
           >
             <Icon name="download" className="text-xl" />
             <span>Export Report</span>
@@ -210,20 +219,20 @@ const Standings: React.FC = () => {
       {/* Standings Grid containing Table and Chart */}
       <div className="flex flex-col gap-8">
         {/* League Table with Form */}
-        <div className="glass-panel w-full rounded-2xl p-8 flex flex-col">
+        <div className="glass-panel royal-table-shell w-full rounded-2xl p-8 flex flex-col">
           <div className="flex items-center gap-3 mb-6">
             <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
               <Icon name="table_chart" size="24" />
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">League Table</h3>
-              <p className="text-sm text-slate-400">Current season standings & form</p>
+              <p className="text-sm royal-subtitle">Current season standings and recent form</p>
             </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-400 min-w-[500px]">
-              <thead className="text-xs uppercase bg-white/5 text-slate-300">
+              <thead className="text-xs uppercase royal-table-head">
                 <tr>
                   <th className="px-6 py-4 rounded-l-lg font-bold">Pos</th>
                   <th className="px-6 py-4 font-bold">House</th>
@@ -233,7 +242,7 @@ const Standings: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {sortedHouses.map(([name, stats]: [string, any], index) => (
-                  <tr key={name} className="hover:bg-white/5 transition-colors">
+                  <tr key={name} className="hover:bg-primary/[0.05] transition-colors">
                     <td className="px-6 py-4 font-bold text-white text-lg">
                       {index + 1}
                     </td>
@@ -272,14 +281,14 @@ const Standings: React.FC = () => {
         </div>
 
         {/* Breakdown Grid */}
-        <div className="glass-panel w-full rounded-2xl p-8 flex flex-col">
+        <div className="glass-panel royal-chart-panel w-full rounded-2xl p-8 flex flex-col">
           <div className="flex items-center gap-3 mb-6">
             <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
               <Icon name="analytics" size="24" />
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">Category Breakdown</h3>
-              <p className="text-sm text-slate-400">Points distribution across different sports</p>
+              <p className="text-sm royal-subtitle">Points distribution across different sports</p>
             </div>
           </div>
 
@@ -287,15 +296,15 @@ const Standings: React.FC = () => {
             {categoryBreakdown.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={categoryBreakdown} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,163,74,0.12)" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fill: '#c7d2e0', fontSize: 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#f8f1de', fontSize: 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                    contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px' }}
-                    itemStyle={{ color: '#fff' }}
+                    cursor={{ fill: 'rgba(201,163,74,0.06)' }}
+                    contentStyle={standingsTooltipStyle}
+                    itemStyle={{ color: '#fff7e4' }}
                   />
-                  <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                  <Legend wrapperStyle={{ paddingTop: '20px', color: '#f3e4bd' }} />
                   <Bar dataKey="Vindhya" name="Vindhya" fill={HOUSE_COLORS.vindhya.hex || '#eab308'} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="Himalaya" name="Himalaya" fill={HOUSE_COLORS.himalaya.hex || '#3b82f6'} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="Nilgiri" name="Nilgiri" fill={HOUSE_COLORS.nilgiri.hex || '#22c55e'} radius={[4, 4, 0, 0]} />

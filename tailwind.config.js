@@ -48,18 +48,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#258cf4',
-        'background-light': '#f5f7f8',
-        'background-dark': '#0f172a',
-        'surface-dark': '#1e293b',
+        primary: '#c9a34a',
+        'background-light': '#f6efe0',
+        'background-dark': '#091423',
+        'surface-dark': '#11233a',
         'house-vindhya': '#ef4444',
         'house-himalaya': '#eab308',
         'house-nilgiri': '#3b82f6',
         'house-siwalik': '#10b981'
       },
       fontFamily: {
-        display: ['Lexend', 'sans-serif'],
-        sans: ['Lexend', 'sans-serif']
+        display: ['Cinzel', 'serif'],
+        sans: ['Source Sans 3', 'sans-serif']
       }
     }
   },

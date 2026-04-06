@@ -310,7 +310,7 @@ const SchoolTeams: React.FC = () => {
             {/* Hero */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 pt-10">
                 <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 text-primary font-medium text-sm uppercase tracking-wider">
+                    <div className="royal-kicker flex items-center gap-2">
                         <Icon name="groups" className="text-lg" />
                         <span>Squads &amp; Rosters</span>
                     </div>
@@ -324,7 +324,7 @@ const SchoolTeams: React.FC = () => {
             </div>
 
             {/* Filters */}
-            <div className="glass-panel rounded-2xl p-6 mb-8">
+            <div className="glass-panel section-plaque rounded-2xl p-6 mb-8">
                 <div className="flex flex-col md:flex-row gap-6">
                     {/* Sport Filter */}
                     <div className="flex-1">
@@ -334,7 +334,7 @@ const SchoolTeams: React.FC = () => {
                                 onClick={() => setActiveSport('All')}
                                 className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all ${activeSport === 'All'
                                     ? 'bg-primary/20 border-primary/30 text-primary shadow-lg shadow-primary/10'
-                                    : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                                    : 'royal-secondary-btn text-slate-300'
                                     }`}
                             >
                                 All Sports
@@ -345,7 +345,7 @@ const SchoolTeams: React.FC = () => {
                                     onClick={() => setActiveSport(sport.name)}
                                     className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all flex items-center gap-2 ${activeSport === sport.name
                                         ? 'bg-primary/20 border-primary/30 text-primary shadow-lg shadow-primary/10'
-                                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                                        : 'royal-secondary-btn text-slate-300'
                                         }`}
                                 >
                                     <Icon name={sport.icon} className="text-base" />
@@ -362,7 +362,7 @@ const SchoolTeams: React.FC = () => {
                                 onClick={() => setActiveAge('All')}
                                 className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all ${activeAge === 'All'
                                     ? 'bg-primary/20 border-primary/30 text-primary shadow-lg shadow-primary/10'
-                                    : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                                    : 'royal-secondary-btn text-slate-300'
                                     }`}
                             >
                                 All Ages
@@ -373,7 +373,7 @@ const SchoolTeams: React.FC = () => {
                                     onClick={() => setActiveAge(age)}
                                     className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all ${activeAge === age
                                         ? 'bg-primary/20 border-primary/30 text-primary shadow-lg shadow-primary/10'
-                                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                                        : 'royal-secondary-btn text-slate-300'
                                         }`}
                                 >
                                     {age}
@@ -390,7 +390,7 @@ const SchoolTeams: React.FC = () => {
                     <div
                         key={team.id}
                         onClick={() => setSelectedTeam(team.id)}
-                        className="glass-panel rounded-2xl p-6 relative overflow-hidden group hover:border-primary/20 border border-white/5 transition-all hover:shadow-lg hover:shadow-primary/5 cursor-pointer"
+                        className="glass-panel rounded-2xl p-6 relative overflow-hidden group hover:border-primary/20 border border-primary/10 transition-all hover:shadow-lg hover:shadow-primary/5 cursor-pointer"
                     >
                         {/* Background icon watermark */}
                         <div className="absolute -bottom-4 -right-4 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity">

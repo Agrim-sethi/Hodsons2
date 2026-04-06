@@ -6,20 +6,37 @@ import { getEvents, Event } from '../utils/storage';
 const EventCard = ({ sport, date, h1, h2, time, location, title, subtext, color, participation, houses, school1, school2, onViewDetails }: any) => {
     // Determine which houses to show
     const houseList = houses || (h1 && h2 ? [h1, h2] : []);
+    const accentMap: Record<string, string> = {
+        red: '#b91c1c',
+        orange: '#c97d21',
+        amber: '#c9a34a',
+        yellow: '#c9a34a',
+        green: '#15803d',
+        emerald: '#1f8b5b',
+        teal: '#0f766e',
+        blue: '#2f5c8f',
+        indigo: '#3f4d8c',
+        purple: '#6b4ea0',
+        pink: '#b55f89'
+    };
+    const accent = accentMap[color] ?? '#c9a34a';
 
     return (
-        <div className={`glass-panel rounded-xl p-5 flex flex-col gap-4 border border-white/5 hover:border-${color}-500/50 hover:shadow-[0_0_15px_rgba(0,0,0,0.2)] transition-all group relative overflow-hidden`}>
-            {/* Glow effect on hover */}
-            <div className={`absolute inset-0 rounded-xl border border-transparent group-hover:border-${color}-500/30 pointer-events-none transition-all duration-300`}></div>
+        <div
+            className="glass-panel rounded-xl p-5 flex flex-col gap-4 border border-primary/10 transition-all group relative overflow-hidden hover:-translate-y-0.5"
+            style={{ boxShadow: `inset 0 1px 0 rgba(255,244,214,0.04), 0 16px 32px rgba(0,0,0,0.18), 0 0 0 1px ${accent}22` }}
+        >
+            <div className="absolute inset-0 rounded-xl border border-transparent pointer-events-none transition-all duration-300" style={{ borderColor: `${accent}33` }}></div>
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
 
             <div className="flex justify-between items-start relative z-10">
                 <div className="flex flex-col gap-1">
-                    <span className="text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span className="royal-kicker flex items-center gap-1">
                         <Icon name={sport.icon || sport} className="text-[14px]" /> {sport.name || sport} • {subtext}
                     </span>
                     <h3 className="text-white text-lg font-bold leading-tight">{title}</h3>
                 </div>
-                <div className="px-2 py-1 bg-surface-dark rounded text-xs font-medium text-white text-center border border-white/5 min-w-[40px]">
+                <div className="px-2 py-1 royal-stat-card rounded text-xs font-medium text-white text-center min-w-[40px]">
                     <span className="block text-[10px] text-slate-400 uppercase">{typeof date === 'string' ? new Date(date).toLocaleString('default', { month: 'short' }) : date.month}</span>
                     <span className="block text-sm font-bold">{typeof date === 'string' ? new Date(date).getDate() : date.day}</span>
                 </div>
@@ -41,7 +58,7 @@ const EventCard = ({ sport, date, h1, h2, time, location, title, subtext, color,
                             <span className="text-xs text-slate-400 font-mono bg-background-dark px-2 py-0.5 rounded">{time}</span>
                         </div>
                         <div className="flex flex-col items-center gap-2 w-1/3">
-                            <div className="size-14 rounded-full bg-background-dark p-1 ring-2 ring-red-500 shadow-lg flex items-center justify-center">
+                            <div className="size-14 rounded-full bg-background-dark p-1 ring-2 ring-primary shadow-lg flex items-center justify-center">
                                 <div className="w-full h-full rounded-full bg-red-500/20 flex items-center justify-center text-red-500 font-bold">
                                     <Icon name="school" size="24" />
                                 </div>
@@ -93,7 +110,7 @@ const EventCard = ({ sport, date, h1, h2, time, location, title, subtext, color,
                 <div className="flex items-center justify-between gap-3 mt-1">
                     <button
                         onClick={onViewDetails}
-                        className="w-full bg-white/5 hover:bg-white/10 text-white text-sm font-medium py-2 rounded-lg border border-white/10 transition-colors"
+                        className="w-full royal-secondary-btn text-sm font-medium py-2 rounded-lg"
                     >
                         View Details
                     </button>
@@ -125,12 +142,16 @@ const Events: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto w-full py-10">
-            <h1 className="text-3xl font-bold text-white mb-8 px-4">Sports Events</h1>
+            <div className="px-4 mb-8">
+                <div className="royal-kicker mb-2">Fixtures Desk</div>
+                <h1 className="text-3xl font-bold text-white">Sports Events</h1>
+                <p className="royal-subtitle mt-2 max-w-2xl">Upcoming fixtures, house matchups, and school contests in one cleaner view.</p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
                 {/* User Added Events */}
                 {userEvents.length === 0 ? (
-                    <div className="col-span-full py-20 text-center glass-panel rounded-2xl border-2 border-dashed border-white/5">
+                    <div className="col-span-full py-20 text-center glass-panel section-plaque rounded-2xl border-2 border-dashed border-primary/10">
                         <Icon name="event_busy" className="text-5xl text-slate-700 mb-4" />
                         <h3 className="text-xl font-bold text-white mb-2">No Events Found</h3>
                         <p className="text-slate-400">Scheduled events will appear here once they are created from the profile.</p>

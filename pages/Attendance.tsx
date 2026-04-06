@@ -110,6 +110,7 @@ const Attendance: React.FC = () => {
             {/* Header Area */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
+                    <div className="royal-kicker mb-2">Attendance Ledger</div>
                     <h1 className="text-3xl font-black text-white tracking-tight">Student Attendance Lookup</h1>
                     <p className="text-slate-400 mt-1 font-medium">Verify sports sessions attended by computer number</p>
                 </div>
@@ -170,7 +171,7 @@ const Attendance: React.FC = () => {
 
                 {/* Main Content Area: Search & Display */}
                 <div className="lg:col-span-8 space-y-6">
-                    <div className="glass-panel p-8 rounded-2xl border border-white/5 flex flex-col">
+                    <div className="glass-panel section-plaque p-8 rounded-2xl border border-white/5 flex flex-col">
                         <h2 className="text-xl font-bold text-white mb-6">Search Student Records</h2>
                         <form onSubmit={handleSearch} className="flex gap-4">
                             <div className="relative flex-1">
@@ -180,11 +181,11 @@ const Attendance: React.FC = () => {
                                     placeholder="Enter Computer Number (e.g. 1001)"
                                     value={searchCompNum}
                                     onChange={(e) => setSearchCompNum(e.target.value)}
-                                    className="w-full bg-background-dark/80 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white placeholder-slate-500 focus:outline-none focus:border-primary transition-all text-lg font-bold tracking-widest"
+                                    className="w-full royal-input rounded-xl pl-12 pr-4 py-4 placeholder-slate-500 transition-all text-lg font-bold tracking-widest"
                                     required
                                 />
                             </div>
-                            <button type="submit" className="px-8 py-4 rounded-xl bg-primary hover:bg-blue-600 text-white font-bold transition-all flex items-center gap-2 shadow-lg shadow-primary/20">
+                            <button type="submit" className="px-8 py-4 rounded-xl royal-primary-btn font-bold flex items-center gap-2">
                                 <Icon name="search" /> Lookup
                             </button>
                         </form>

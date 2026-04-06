@@ -232,7 +232,7 @@ const Profile: React.FC = () => {
                             setProfileFormData(userProfile);
                             setShowProfileModal(true);
                         }}
-                        className="px-6 py-3 rounded-lg bg-primary hover:bg-blue-600 text-white font-bold transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                        className="px-6 py-3 rounded-lg royal-primary-btn font-bold flex items-center justify-center gap-2"
                     >
                         <Icon name="edit" /> Edit Profile
                     </button>
@@ -242,7 +242,7 @@ const Profile: React.FC = () => {
                             setFormData(initialFormState);
                             setShowModal(true);
                         }}
-                        className="px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold transition-colors border border-white/10 flex items-center justify-center gap-2"
+                        className="px-6 py-3 rounded-lg royal-secondary-btn font-bold flex items-center justify-center gap-2"
                     >
                         <Icon name="add_circle" /> Add Event
                     </button>
@@ -547,13 +547,13 @@ const Profile: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowModal(false)}
-                                    className="flex-1 px-6 py-3 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-colors border border-white/10"
+                                className="flex-1 px-6 py-3 rounded-lg royal-secondary-btn font-bold"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-[2] px-6 py-3 rounded-lg bg-primary hover:bg-blue-600 text-white font-bold transition-colors shadow-lg shadow-primary/20"
+                                    className="flex-[2] px-6 py-3 rounded-lg royal-primary-btn font-bold"
                                 >
                                     Create Event
                                 </button>
@@ -656,13 +656,13 @@ const Profile: React.FC = () => {
                             <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={() => setShowResultModal(false)}
-                                    className="flex-1 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-colors border border-white/10"
+                                    className="flex-1 px-4 py-2 rounded-lg royal-secondary-btn font-bold"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={submitResult}
-                                    className="flex-1 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white font-bold transition-colors shadow-lg shadow-primary/20"
+                                    className="flex-1 px-4 py-2 rounded-lg royal-primary-btn font-bold"
                                 >
                                     Save Result
                                 </button>
@@ -752,7 +752,7 @@ const Profile: React.FC = () => {
                                         />
                                         <label
                                             htmlFor="avatar-upload"
-                                            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-bold cursor-pointer transition-colors border border-white/10 flex items-center gap-2"
+                                            className="px-4 py-2 rounded-lg royal-secondary-btn text-sm font-bold cursor-pointer flex items-center gap-2"
                                         >
                                             <Icon name="upload" size="18" /> Upload New Photo
                                         </label>
@@ -764,13 +764,13 @@ const Profile: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowProfileModal(false)}
-                                    className="flex-1 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold transition-all border border-white/20 flex items-center justify-center gap-2"
+                                    className="flex-1 px-4 py-3 rounded-xl royal-secondary-btn font-bold flex items-center justify-center gap-2"
                                 >
                                     <Icon name="close" size="20" /> Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-[2] px-4 py-3 rounded-xl bg-primary hover:bg-blue-600 text-white font-bold transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2"
+                                    className="flex-[2] px-4 py-3 rounded-xl royal-primary-btn font-bold flex items-center justify-center gap-2"
                                 >
                                     <Icon name="save" size="20" /> Save Changes
                                 </button>

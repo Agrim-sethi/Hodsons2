@@ -484,7 +484,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <button
                   onClick={handleAddSession}
-                  className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-2 rounded-lg transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                  className="w-full royal-primary-btn font-bold py-2 rounded-lg flex items-center justify-center gap-2"
                 >
                   <Icon name="add_circle" size="20" />
                   Start Session
@@ -554,7 +554,7 @@ const Dashboard: React.FC = () => {
                 <button
                   onClick={handleSubmitAttendance}
                   disabled={!attendanceForm.compNumber.trim()}
-                  className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-lg uppercase tracking-wider"
+                  className="w-full royal-primary-btn font-bold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 text-lg uppercase tracking-wider"
                 >
                   <Icon name="check_circle" />
                   Submit Attendance

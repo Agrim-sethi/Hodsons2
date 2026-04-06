@@ -114,30 +114,30 @@ const RESULTS_DEPARTMENTS = [
         label: "Boys' Department",
         shortLabel: 'BD',
         icon: 'male',
-        accent: 'text-blue-300',
-        chip: 'border-blue-400/20 bg-blue-500/10',
-        buttonActive: 'border-blue-400/30 bg-blue-500/15 text-blue-200 shadow-lg shadow-blue-500/10',
-        buttonIdle: 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-blue-400/20 hover:text-white hover:bg-blue-500/5'
+        accent: 'text-[#d7bf86]',
+        chip: 'border-primary/20 bg-primary/10',
+        buttonActive: 'border-primary/30 bg-[linear-gradient(135deg,rgba(201,163,74,0.16),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-primary/10',
+        buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-primary/20 hover:text-white hover:bg-primary/[0.05]'
     },
     {
         key: 'GD',
         label: "Girls' Department",
         shortLabel: 'GD',
         icon: 'female',
-        accent: 'text-pink-300',
-        chip: 'border-pink-400/20 bg-pink-500/10',
-        buttonActive: 'border-pink-400/30 bg-pink-500/15 text-pink-200 shadow-lg shadow-pink-500/10',
-        buttonIdle: 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-pink-400/20 hover:text-white hover:bg-pink-500/5'
+        accent: 'text-[#f0d8a1]',
+        chip: 'border-[#e2c98d]/20 bg-[#e2c98d]/10',
+        buttonActive: 'border-[#e2c98d]/30 bg-[linear-gradient(135deg,rgba(226,201,141,0.16),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-[#e2c98d]/10',
+        buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-[#e2c98d]/20 hover:text-white hover:bg-[#e2c98d]/[0.05]'
     },
     {
         key: 'PD',
         label: 'Prep Department',
         shortLabel: 'PD',
         icon: 'child_care',
-        accent: 'text-amber-300',
+        accent: 'text-[#eed59a]',
         chip: 'border-amber-400/20 bg-amber-500/10',
-        buttonActive: 'border-amber-400/30 bg-amber-500/15 text-amber-100 shadow-lg shadow-amber-500/10',
-        buttonIdle: 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-amber-400/20 hover:text-white hover:bg-amber-500/5'
+        buttonActive: 'border-amber-400/30 bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-amber-500/10',
+        buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-amber-400/20 hover:text-white hover:bg-amber-500/[0.05]'
     }
 ] as const;
 
@@ -155,6 +155,19 @@ const ACCESS_PASSCODES: Record<string, string> = {
     Nilgiri: '3232',
     Himalaya: '4343',
     All: '5454'
+};
+
+const chartGridStroke = 'rgba(201,163,74,0.12)';
+const chartTickStyle = { fill: '#c7d2e0', fontSize: 11, fontWeight: 'bold' as const };
+const chartYAxisStyle = { fill: '#f8f1de', fontSize: 12, fontWeight: 'bold' as const };
+const chartLegendFormatter = (value: string) => <span style={{ color: '#f3e4bd', fontWeight: 700 }}>{value}</span>;
+const chartTooltipStyle = {
+    backgroundColor: 'rgba(10, 20, 34, 0.96)',
+    borderColor: 'rgba(201,163,74,0.28)',
+    color: '#fff7e4',
+    borderRadius: '14px',
+    padding: '10px 14px',
+    boxShadow: '0 14px 32px rgba(0, 0, 0, 0.42)'
 };
 
 const Hodsons: React.FC = () => {
@@ -1014,7 +1027,7 @@ const Hodsons: React.FC = () => {
                         'House': stu.house,
                         'Category': stu.category
                     }));
-                
+
                 if (competitorRows.length > 0) {
                     const ws = XLSX.utils.json_to_sheet(competitorRows);
                     XLSX.utils.book_append_sheet(wb, ws, cat.slice(0, 31));
@@ -1342,7 +1355,7 @@ const Hodsons: React.FC = () => {
                     </button>
                     <button
                         onClick={() => setShowModal(true)}
-                        className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/20 whitespace-nowrap"
+                        className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-[#b38b33] text-[#091423] hover:text-[#06101b] font-bold rounded-xl transition-all shadow-lg shadow-primary/20 border border-primary/30 whitespace-nowrap"
                     >
                         <Icon name="edit_document" />
                         <span>Add Results</span>
@@ -1400,7 +1413,7 @@ const Hodsons: React.FC = () => {
             {/* Intricate Visual Divider */}
             <div className="relative h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-20 flex justify-center items-center">
                 <div className="absolute size-12 rounded-full border border-white/10 bg-[#0f172a] flex items-center justify-center shadow-2xl">
-                    <div className="size-8 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center animate-pulse">
+                    <div className="size-8 rounded-full bg-gradient-to-br from-[#f1d386] via-primary to-[#8d6b23] flex items-center justify-center animate-pulse">
                         <Icon name="expand_more" className="text-white text-xl" />
                     </div>
                 </div>
@@ -1414,6 +1427,7 @@ const Hodsons: React.FC = () => {
                     <Icon name="category" size="22" />
                 </div>
                 <div>
+                    <div className="royal-kicker mb-1">Championship Ledger</div>
                     <h3 className="text-2xl font-black text-white uppercase tracking-tight">Category Results</h3>
                     <p className="text-sm text-slate-400">Podium standings and detailed metrics for each age group</p>
                 </div>
@@ -1428,8 +1442,9 @@ const Hodsons: React.FC = () => {
 
                 return (
                     <>
-                        <div className="glass-panel rounded-[32px] border border-white/10 bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent p-5 sm:p-6 mb-8 overflow-hidden relative">
-                            <div className="absolute -top-8 -right-8 size-32 rounded-full bg-white/[0.03] blur-2xl pointer-events-none"></div>
+                        <div className="glass-panel section-plaque rounded-[32px] border border-primary/15 p-5 sm:p-6 mb-8 overflow-hidden relative">
+                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent pointer-events-none"></div>
+                            <div className="absolute -top-8 -right-8 size-32 rounded-full bg-primary/10 blur-2xl pointer-events-none"></div>
                             <div className="relative z-10 flex flex-col gap-5">
                                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                                     <div>
@@ -1441,7 +1456,7 @@ const Hodsons: React.FC = () => {
                                         <p className="text-sm text-slate-400 mt-1">Switch between `BD`, `GD`, and `PD` to jump straight to the age-category cards you need.</p>
                                     </div>
                                     <div className="flex items-center gap-3 self-start lg:self-auto">
-                                        <div className="px-4 py-2 rounded-2xl bg-black/20 border border-white/10">
+                                        <div className="royal-stat-card px-4 py-2 rounded-2xl shadow-[inset_0_1px_0_rgba(255,244,214,0.04)]">
                                             <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Showing</div>
                                             <div className="text-white text-lg font-black">{visibleCategories.length} Categories</div>
                                         </div>
@@ -1484,89 +1499,92 @@ const Hodsons: React.FC = () => {
                                 </div>
                                 <h4 className="text-white text-xl font-black mt-2">{activeDept.label}</h4>
                             </div>
-                            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/[0.03] text-xs font-bold uppercase tracking-widest text-slate-400">
+                            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-primary/15 bg-primary/[0.06] text-xs font-bold uppercase tracking-widest text-[#f2e2b7]">
                                 <Icon name="touch_app" size="14" />
                                 Select a card to open deeper stats
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {visibleCategories.map((cat, idx) => (
-                    <div
-                        key={`${selectedResultsDept}-${idx}`}
-                        onClick={() => setSelectedCategoryStats(cat)}
-                        className="glass-panel rounded-2xl p-6 relative overflow-hidden cursor-pointer border border-white/5 hover:border-primary/40 focus:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/10 flex flex-col h-full group outline-none"
-                    >
-                        <div className="absolute top-4 right-4 text-slate-500/20 pointer-events-none group-hover:text-primary/20 transition-colors">
-                            <Icon name="directions_run" className="text-6xl" />
-                        </div>
+                            {visibleCategories.map((cat, idx) => (
+                                <div
+                                    key={`${selectedResultsDept}-${idx}`}
+                                    onClick={() => setSelectedCategoryStats(cat)}
+                                    className="glass-panel rounded-[28px] p-6 relative overflow-hidden cursor-pointer border border-primary/12 hover:border-primary/35 focus:border-primary/40 transition-all hover:shadow-[0_24px_48px_rgba(0,0,0,0.32)] flex flex-col h-full group outline-none"
+                                >
+                                    <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent pointer-events-none"></div>
+                                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,163,74,0.10),transparent_34%)] opacity-80 pointer-events-none"></div>
+                                    <div className="absolute top-4 right-4 text-primary/10 pointer-events-none group-hover:text-primary/20 transition-colors">
+                                        <Icon name="directions_run" className="text-6xl" />
+                                    </div>
 
-                        <div className="mb-6 relative z-10 border-b border-white/5 pb-4">
-                            <h3 className="text-2xl font-black text-white uppercase tracking-wide group-hover:text-primary transition-colors">{cat.name}</h3>
-                            <p className="text-slate-400 text-sm mt-1">HODSON Podium</p>
-                        </div>
+                                    <div className="mb-6 relative z-10 border-b border-primary/10 pb-4">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.28em] text-primary/80 mb-2">Age Category Performance Cards</div>
+                                        <h3 className="text-2xl font-black text-white uppercase tracking-wide group-hover:text-primary transition-colors">{cat.name}</h3>
+                                        <p className="text-slate-400 text-sm mt-1">HODSON Podium and House Merit Snapshot</p>
+                                    </div>
 
-                        {/* Podium Display */}
-                        <div className="flex items-end justify-center gap-0 lg:gap-2 h-[260px] mb-8 relative z-10 w-full max-w-[400px] mx-auto opacity-90 group-hover:opacity-100 transition-opacity">
-                            {[cat.top3[1], cat.top3[0], cat.top3[2]].map((player: any, i: number) => (
-                                <PodiumStep key={i} player={player} rank={player ? player.rank : (i === 0 ? 2 : i === 1 ? 1 : 3)} />
+                                    {/* Podium Display */}
+                                    <div className="flex items-end justify-center gap-0 lg:gap-2 h-[260px] mb-8 relative z-10 w-full max-w-[400px] mx-auto opacity-90 group-hover:opacity-100 transition-opacity">
+                                        {[cat.top3[1], cat.top3[0], cat.top3[2]].map((player: any, i: number) => (
+                                            <PodiumStep key={i} player={player} rank={player ? player.rank : (i === 0 ? 2 : i === 1 ? 1 : 3)} />
+                                        ))}
+                                    </div>
+
+                                    <div className="flex flex-col gap-6 mb-8 mt-auto px-2 border-t border-primary/10 pt-6">
+                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                            {['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'].map(houseName => {
+                                                const house = cat.houseStats[houseName];
+                                                const cfg = houseConfig(houseName);
+                                                return (
+                                                    <div key={houseName} className="text-center bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(201,163,74,0.02))] p-3 rounded-xl border border-primary/10 group-hover:border-primary/20 transition-colors">
+                                                        <p className={`text-[8px] font-bold uppercase tracking-[0.2em] mb-1 ${cfg.text}`}>{houseName}</p>
+                                                        <p className="text-xl font-black text-white">
+                                                            {house.points > 0 ? `+${house.points}` : house.points}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-4 py-3 px-5 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(201,163,74,0.03))] rounded-2xl border border-primary/10">
+                                            <div className="flex flex-col flex-1">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Pre-Qualifying Off-Rolls</span>
+                                                    <Icon name="history" size="10" className="text-slate-600" />
+                                                </div>
+                                                <div className="flex gap-4">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
+                                                        <span className="text-[10px] font-black text-slate-300">MED: <span className="text-amber-500">{cat.stats.preQualMedExcused}</span></span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="size-1.5 rounded-full bg-[#d6bd84]/70 shadow-[0_0_8px_rgba(214,189,132,0.32)]"></div>
+                                                        <span className="text-[10px] font-black text-slate-300">LEAVE: <span className="text-[#e7cf96]">{cat.stats.preQualOnLeave}</span></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="w-px h-8 bg-white/5"></div>
+                                            <div className="flex flex-col flex-1 items-end">
+                                                <div className="flex justify-between items-center mb-2 w-full">
+                                                    <Icon name="emoji_events" size="10" className="text-slate-600" />
+                                                    <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Pre-Finals Off-Rolls</span>
+                                                </div>
+                                                <div className="flex gap-4">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
+                                                        <span className="text-[10px] font-black text-slate-300">MED: <span className="text-amber-500">{cat.stats.preFinalsMedExcused}</span></span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="size-1.5 rounded-full bg-[#d6bd84]/70 shadow-[0_0_8px_rgba(214,189,132,0.32)]"></div>
+                                                        <span className="text-[10px] font-black text-slate-300">LEAVE: <span className="text-[#e7cf96]">{cat.stats.preFinalsOnLeave}</span></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             ))}
-                        </div>
-
-                        <div className="flex flex-col gap-6 mb-8 mt-auto px-2 border-t border-white/5 pt-6">
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                {['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'].map(houseName => {
-                                    const house = cat.houseStats[houseName];
-                                    const cfg = houseConfig(houseName);
-                                    return (
-                                        <div key={houseName} className="text-center bg-white/[0.03] p-3 rounded-xl border border-white/5 group-hover:border-primary/20 transition-colors">
-                                            <p className={`text-[8px] font-bold uppercase tracking-[0.2em] mb-1 ${cfg.text}`}>{houseName}</p>
-                                            <p className="text-xl font-black text-white">
-                                                {house.points > 0 ? `+${house.points}` : house.points}
-                                            </p>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="flex items-center justify-between gap-4 py-3 px-5 bg-white/[0.03] rounded-2xl border border-white/5">
-                                <div className="flex flex-col flex-1">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Pre-Qualifying Off-Rolls</span>
-                                        <Icon name="history" size="10" className="text-slate-600" />
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
-                                            <span className="text-[10px] font-black text-slate-300">MED: <span className="text-amber-500">{cat.stats.preQualMedExcused}</span></span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="size-1.5 rounded-full bg-blue-400/60 shadow-[0_0_8px_rgba(96,165,250,0.4)]"></div>
-                                            <span className="text-[10px] font-black text-slate-300">LEAVE: <span className="text-blue-400">{cat.stats.preQualOnLeave}</span></span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="w-px h-8 bg-white/5"></div>
-                                <div className="flex flex-col flex-1 items-end">
-                                    <div className="flex justify-between items-center mb-2 w-full">
-                                        <Icon name="emoji_events" size="10" className="text-slate-600" />
-                                        <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Pre-Finals Off-Rolls</span>
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
-                                            <span className="text-[10px] font-black text-slate-300">MED: <span className="text-amber-500">{cat.stats.preFinalsMedExcused}</span></span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="size-1.5 rounded-full bg-blue-400/60 shadow-[0_0_8px_rgba(96,165,250,0.4)]"></div>
-                                            <span className="text-[10px] font-black text-slate-300">LEAVE: <span className="text-blue-400">{cat.stats.preFinalsOnLeave}</span></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
                         </div>
                     </>
                 );
@@ -1600,7 +1618,7 @@ const Hodsons: React.FC = () => {
                                             <button
                                                 onClick={() => downloadCategoryCompetitorsDocx(selectedCategoryStats.name)}
                                                 disabled={isDownloading}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50 border border-primary/20"
                                             >
                                                 <Icon name="description" size="16" /> .docx
                                             </button>
@@ -1613,17 +1631,17 @@ const Hodsons: React.FC = () => {
                             </div>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div className="flex flex-wrap gap-2">
-                                    <button onClick={() => setCategoryModalTab('qualifying')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'qualifying' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                    <button onClick={() => setCategoryModalTab('qualifying')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'qualifying' ? 'bg-primary text-[#091423] shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                         <Icon name="history" size="16" /> <span className="hidden sm:inline">1. </span>Qualifying Stats
                                     </button>
-                                    <button onClick={() => setCategoryModalTab('finals')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'finals' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                    <button onClick={() => setCategoryModalTab('finals')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'finals' ? 'bg-[linear-gradient(135deg,#f1d386,#c9a34a)] text-[#091423] shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                         <Icon name="emoji_events" size="16" /> <span className="hidden sm:inline">2. </span>Finals Results
                                     </button>
                                     <button onClick={() => setCategoryModalTab('list')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'list' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                         <Icon name="format_list_bulleted" size="16" /> Competitor List
                                     </button>
                                 </div>
-                                
+
                                 {categoryModalTab === 'list' && (
                                     <div className="flex sm:hidden items-center gap-2 animate-in fade-in zoom-in-95 bg-white/5 p-1.5 rounded-xl border border-white/10 w-full justify-center">
                                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Export:</span>
@@ -1637,7 +1655,7 @@ const Hodsons: React.FC = () => {
                                         <button
                                             onClick={() => downloadCategoryCompetitorsDocx(selectedCategoryStats.name)}
                                             disabled={isDownloading}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
                                         >
                                             <Icon name="description" size="14" /> .docx
                                         </button>
@@ -1650,7 +1668,7 @@ const Hodsons: React.FC = () => {
                             {categoryModalTab === 'qualifying' && (
                                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                     {/* Overall Category Summary */}
-                                    <div className="glass-panel p-6 border border-white/10 bg-gradient-to-br from-white/[0.03] to-transparent rounded-3xl mb-4">
+                                    <div className="glass-panel section-plaque p-6 border border-white/10 rounded-3xl mb-4">
                                         <div className="flex items-center gap-2 mb-5">
                                             <Icon name="analytics" size="18" className="text-primary" />
                                             <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Qualifying Stage Summary</span>
@@ -1679,12 +1697,12 @@ const Hodsons: React.FC = () => {
                                                     {Object.values(selectedCategoryStats.houseStats).reduce((acc: number, h: any) => acc + h.qual, 0)}
                                                 </span>
                                             </div>
-                                            <div className="bg-white/[0.04] rounded-xl p-4 border border-blue-500/10 hover:border-blue-500/20 transition-colors">
+                                            <div className="royal-stat-card rounded-xl p-4 border border-primary/10 hover:border-primary/20 transition-colors">
                                                 <div className="flex items-center gap-2 mb-2">
-                                                    <div className="size-7 rounded-lg bg-blue-500/10 flex items-center justify-center"><Icon name="check_circle" size="14" className="text-blue-400" /></div>
+                                                    <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center"><Icon name="check_circle" size="14" className="text-primary" /></div>
                                                     <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Finished</span>
                                                 </div>
-                                                <span className="text-blue-400 text-2xl font-black">
+                                                <span className="text-primary text-2xl font-black">
                                                     {Object.values(selectedCategoryStats.houseStats).reduce((acc: number, h: any) => acc + h.finishedQual, 0)}
                                                 </span>
                                             </div>
@@ -1766,7 +1784,7 @@ const Hodsons: React.FC = () => {
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span className="text-slate-400">Finished</span>
-                                                            <span className="text-blue-400 font-black">{h.finishedQual}</span>
+                                                            <span className="text-primary font-black">{h.finishedQual}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-[10px] italic border-t border-white/5 pt-3">
                                                             <span className="text-slate-500">Pre-Q Med: <span className="text-slate-300 font-bold">{h.preQualMedExcused}</span></span>
@@ -1793,14 +1811,14 @@ const Hodsons: React.FC = () => {
                                     {/* Charts Section */}
                                     <div className="space-y-6">
                                         {/* Row 1: Large Bar Chart */}
-                                        <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                                            <div className="flex items-center gap-3 mb-5">
+                                        <div className="glass-panel royal-chart-panel p-6 rounded-2xl">
+                                            <div className="flex items-center gap-3 mb-4">
                                                 <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                                                     <Icon name="bar_chart" size="20" />
                                                 </div>
                                                 <div>
                                                     <h4 className="text-white font-bold text-base leading-tight">House Participation Comparison</h4>
-                                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Enrolled vs Participated vs Qualified</p>
+                                                    <p className="text-[11px] royal-subtitle uppercase tracking-[0.18em]">Enrolled vs Participated vs Qualified</p>
                                                 </div>
                                             </div>
                                             <div className="w-full h-[350px]">
@@ -1817,16 +1835,16 @@ const Hodsons: React.FC = () => {
                                                     return (
                                                         <ResponsiveContainer width="100%" height="100%">
                                                             <BarChart data={compData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                                                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                                                                <YAxis dataKey="name" type="category" tick={{ fill: '#fff', fontSize: 12, fontWeight: 'bold' }} axisLine={false} tickLine={false} width={80} />
-                                                                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '12px' }} />
-                                                                <Bar dataKey="Enrolled" fill="#475569" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
-                                                                <Bar dataKey="Participated" fill="#22c55e" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
-                                                                <Bar dataKey="Qualified" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
-                                                                <Bar dataKey="Finished" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
-                                                                <Bar dataKey="DNF" fill="#94a3b8" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
-                                                                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} formatter={(value: string) => <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{value}</span>} />
+                                                                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
+                                                                <XAxis type="number" tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                                                <YAxis dataKey="name" type="category" tick={chartYAxisStyle} axisLine={false} tickLine={false} width={84} />
+                                                                <Tooltip cursor={{ fill: 'rgba(201,163,74,0.06)' }} contentStyle={chartTooltipStyle} itemStyle={{ color: '#fff7e4', fontWeight: 'bold', fontSize: '12px' }} />
+                                                                <Bar dataKey="Enrolled" fill="#6f7c90" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
+                                                                <Bar dataKey="Participated" fill="#3a7f5d" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
+                                                                <Bar dataKey="Qualified" fill="#c9a34a" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
+                                                                <Bar dataKey="Finished" fill="#e8cf93" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
+                                                                <Bar dataKey="DNF" fill="#9c7a47" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
+                                                                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} formatter={chartLegendFormatter} />
                                                             </BarChart>
                                                         </ResponsiveContainer>
                                                     );
@@ -1837,14 +1855,14 @@ const Hodsons: React.FC = () => {
                                         {/* Row 2: Two Donut Charts */}
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                             {/* Donut Pie Chart - Student Status Distribution */}
-                                            <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                                                <div className="flex items-center gap-3 mb-5">
+                                            <div className="glass-panel royal-chart-panel p-6 rounded-2xl">
+                                                <div className="flex items-center gap-3 mb-4">
                                                     <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                                                         <Icon name="donut_large" size="20" />
                                                     </div>
                                                     <div>
                                                         <h4 className="text-white font-bold text-base leading-tight">Student Status Distribution</h4>
-                                                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Qualifying Stage Overview</p>
+                                                        <p className="text-[11px] royal-subtitle uppercase tracking-[0.18em]">Qualifying Stage Overview</p>
                                                     </div>
                                                 </div>
                                                 <div className="w-full h-[320px]">
@@ -1857,11 +1875,11 @@ const Hodsons: React.FC = () => {
                                                         const totalOnLeave = vals.reduce((a: number, h: any) => a + h.onLeaveQual + h.preQualOnLeave, 0);
                                                         const totalPending = selectedCategoryStats.stats.totalCount - totalParticipated - totalAbsent - totalMedExcused - totalOnLeave;
                                                         const statusData = [
-                                                            { name: 'Participated', value: totalParticipated, color: '#22c55e' },
+                                                            { name: 'Participated', value: totalParticipated, color: '#3a7f5d' },
                                                             { name: 'Absent', value: totalAbsent, color: '#ef4444' },
-                                                            { name: 'Med. Excused', value: totalMedExcused, color: '#94a3b8' },
-                                                            { name: 'On Leave', value: totalOnLeave, color: '#3b82f6' },
-                                                            { name: 'Pending', value: totalPending > 0 ? totalPending : 0, color: '#334155' }
+                                                            { name: 'Med. Excused', value: totalMedExcused, color: '#8f9aae' },
+                                                            { name: 'On Leave', value: totalOnLeave, color: '#c9a34a' },
+                                                            { name: 'Pending', value: totalPending > 0 ? totalPending : 0, color: '#415065' }
                                                         ].filter(d => d.value > 0);
                                                         return (
                                                             <ResponsiveContainer width="100%" height="100%">
@@ -1869,8 +1887,8 @@ const Hodsons: React.FC = () => {
                                                                     <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={3} dataKey="value" animationDuration={800} stroke="none" labelLine={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }} label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}>
                                                                         {statusData.map((entry, idx) => <Cell key={idx} fill={entry.color} />)}
                                                                     </Pie>
-                                                                    <Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)', fontSize: '13px' }} itemStyle={{ color: '#fff' }} formatter={(value: number, name: string) => [`${value} students`, name]} />
-                                                                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '15px' }} formatter={(value: string) => <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{value}</span>} />
+                                                                    <Tooltip contentStyle={{ ...chartTooltipStyle, fontSize: '13px' }} itemStyle={{ color: '#fff7e4' }} formatter={(value: number, name: string) => [`${value} students`, name]} />
+                                                                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#c7d2e0', paddingTop: '15px' }} formatter={chartLegendFormatter} />
                                                                 </PieChart>
                                                             </ResponsiveContainer>
                                                         );
@@ -1879,14 +1897,14 @@ const Hodsons: React.FC = () => {
                                             </div>
 
                                             {/* Donut Pie Chart - Enrollment by House */}
-                                            <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                                                <div className="flex items-center gap-3 mb-5">
+                                            <div className="glass-panel royal-chart-panel p-6 rounded-2xl">
+                                                <div className="flex items-center gap-3 mb-4">
                                                     <div className="size-9 rounded-lg bg-white/10 flex items-center justify-center text-white shadow-inner">
                                                         <Icon name="school" size="20" />
                                                     </div>
                                                     <div>
                                                         <h4 className="text-white font-bold text-base leading-tight">Enrollment by House</h4>
-                                                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Total Enrolled Distribution</p>
+                                                        <p className="text-[11px] royal-subtitle uppercase tracking-[0.18em]">Total Enrolled Distribution</p>
                                                     </div>
                                                 </div>
                                                 <div className="w-full h-[320px]">
@@ -1901,8 +1919,8 @@ const Hodsons: React.FC = () => {
                                                                     <Pie data={enrollData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value" animationDuration={800} stroke="none" labelLine={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }} label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}>
                                                                         {enrollData.map((entry, idx) => <Cell key={idx} fill={entry.color} />)}
                                                                     </Pie>
-                                                                    <Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)', fontSize: '13px' }} itemStyle={{ color: '#fff' }} formatter={(value: number, name: string) => [`${value} students`, name]} />
-                                                                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '15px' }} formatter={(value: string) => <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{value}</span>} />
+                                                                    <Tooltip contentStyle={{ ...chartTooltipStyle, fontSize: '13px' }} itemStyle={{ color: '#fff7e4' }} formatter={(value: number, name: string) => [`${value} students`, name]} />
+                                                                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#c7d2e0', paddingTop: '15px' }} formatter={chartLegendFormatter} />
                                                                 </PieChart>
                                                             </ResponsiveContainer>
                                                         );
@@ -1917,7 +1935,7 @@ const Hodsons: React.FC = () => {
                             {categoryModalTab === 'finals' && (
                                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                     {/* Overall Category Results Summary */}
-                                    <div className="glass-panel p-6 border border-white/10 bg-gradient-to-br from-amber-500/[0.03] to-transparent rounded-3xl mb-4">
+                                    <div className="glass-panel section-plaque p-6 border border-primary/10 rounded-3xl mb-4">
                                         <div className="flex items-center gap-2 mb-5">
                                             <Icon name="emoji_events" size="18" className="text-amber-400" />
                                             <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Finals Stage Summary</span>
@@ -1946,12 +1964,12 @@ const Hodsons: React.FC = () => {
                                                 </div>
                                                 <span className="text-green-400 text-2xl font-black">{selectedCategoryStats.stats.qualifiedCount}</span>
                                             </div>
-                                            <div className="bg-white/[0.04] rounded-xl p-4 border border-blue-500/10 hover:border-blue-500/20 transition-colors">
+                                            <div className="royal-stat-card rounded-xl p-4 border border-primary/10 hover:border-primary/20 transition-colors">
                                                 <div className="flex items-center gap-2 mb-2">
-                                                    <div className="size-7 rounded-lg bg-blue-500/10 flex items-center justify-center"><Icon name="check_circle" size="14" className="text-blue-400" /></div>
+                                                    <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center"><Icon name="check_circle" size="14" className="text-primary" /></div>
                                                     <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Finished</span>
                                                 </div>
-                                                <span className="text-blue-400 text-2xl font-black">
+                                                <span className="text-primary text-2xl font-black">
                                                     {Object.values(selectedCategoryStats.houseStats).reduce((acc: number, h: any) => acc + h.finishedFinals, 0)}
                                                 </span>
                                             </div>
@@ -2082,14 +2100,14 @@ const Hodsons: React.FC = () => {
                                     {/* Finals Charts Section */}
                                     <div className="space-y-6">
                                         {/* Row 1: Large Bar Chart */}
-                                        <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                                            <div className="flex items-center gap-3 mb-5">
+                                        <div className="glass-panel royal-chart-panel p-6 rounded-2xl">
+                                            <div className="flex items-center gap-3 mb-4">
                                                 <div className="size-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 shadow-inner">
                                                     <Icon name="stacked_bar_chart" size="20" />
                                                 </div>
                                                 <div>
                                                     <h4 className="text-white font-bold text-base leading-tight">Finals Status Breakdown</h4>
-                                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Finishers vs Non-participants per House</p>
+                                                    <p className="text-[11px] royal-subtitle uppercase tracking-[0.18em]">Finishers vs non-participants per house</p>
                                                 </div>
                                             </div>
                                             <div className="w-full h-[350px]">
@@ -2105,15 +2123,15 @@ const Hodsons: React.FC = () => {
                                                     return (
                                                         <ResponsiveContainer width="100%" height="100%">
                                                             <BarChart data={finalsData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                                                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                                                                <YAxis dataKey="name" type="category" tick={{ fill: '#fff', fontSize: 12, fontWeight: 'bold' }} axisLine={false} tickLine={false} width={80} />
-                                                                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '12px' }} />
-                                                                <Bar dataKey="Finishers" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} barSize={25} animationDuration={800} />
+                                                                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
+                                                                <XAxis type="number" tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                                                <YAxis dataKey="name" type="category" tick={chartYAxisStyle} axisLine={false} tickLine={false} width={84} />
+                                                                <Tooltip cursor={{ fill: 'rgba(201,163,74,0.06)' }} contentStyle={chartTooltipStyle} itemStyle={{ color: '#fff7e4', fontWeight: 'bold', fontSize: '12px' }} />
+                                                                <Bar dataKey="Finishers" stackId="a" fill="#3a7f5d" radius={[0, 0, 0, 0]} barSize={25} animationDuration={800} />
                                                                 <Bar dataKey="Absent" stackId="a" fill="#ef4444" radius={[0, 0, 0, 0]} barSize={25} animationDuration={800} />
-                                                                <Bar dataKey="Med. Excused" stackId="a" fill="#94a3b8" radius={[0, 0, 0, 0]} barSize={25} animationDuration={800} />
-                                                                <Bar dataKey="On Leave" stackId="a" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={25} animationDuration={800} />
-                                                                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} formatter={(value: string) => <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{value}</span>} />
+                                                                <Bar dataKey="Med. Excused" stackId="a" fill="#8f9aae" radius={[0, 0, 0, 0]} barSize={25} animationDuration={800} />
+                                                                <Bar dataKey="On Leave" stackId="a" fill="#c9a34a" radius={[0, 4, 4, 0]} barSize={25} animationDuration={800} />
+                                                                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} formatter={chartLegendFormatter} />
                                                             </BarChart>
                                                         </ResponsiveContainer>
                                                     );
@@ -2124,14 +2142,14 @@ const Hodsons: React.FC = () => {
                                         {/* Row 2: Two Donut Charts */}
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                             {/* Donut Pie Chart - Points Distribution by House */}
-                                            <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                                                <div className="flex items-center gap-3 mb-5">
+                                            <div className="glass-panel royal-chart-panel p-6 rounded-2xl">
+                                                <div className="flex items-center gap-3 mb-4">
                                                     <div className="size-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 shadow-inner">
                                                         <Icon name="donut_large" size="20" />
                                                     </div>
                                                     <div>
                                                         <h4 className="text-white font-bold text-base leading-tight">Points Distribution</h4>
-                                                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">House-wise contribution to total points</p>
+                                                        <p className="text-[11px] royal-subtitle uppercase tracking-[0.18em]">House-wise contribution to total points</p>
                                                     </div>
                                                 </div>
                                                 <div className="w-full h-[300px]">
@@ -2147,8 +2165,8 @@ const Hodsons: React.FC = () => {
                                                                     <Pie data={pointsData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value" animationDuration={800} stroke="none" labelLine={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }} label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}>
                                                                         {pointsData.map((entry, idx) => <Cell key={idx} fill={entry.color} />)}
                                                                     </Pie>
-                                                                    <Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)', fontSize: '13px' }} itemStyle={{ color: '#fff' }} formatter={(value: number, name: string) => [`${value} pts`, name]} />
-                                                                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '15px' }} formatter={(value: string) => <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{value}</span>} />
+                                                                    <Tooltip contentStyle={{ ...chartTooltipStyle, fontSize: '13px' }} itemStyle={{ color: '#fff7e4' }} formatter={(value: number, name: string) => [`${value} pts`, name]} />
+                                                                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#c7d2e0', paddingTop: '15px' }} formatter={chartLegendFormatter} />
                                                                 </PieChart>
                                                             </ResponsiveContainer>
                                                         );
@@ -2157,14 +2175,14 @@ const Hodsons: React.FC = () => {
                                             </div>
 
                                             {/* Donut Pie Chart - Enrollment by House */}
-                                            <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                                                <div className="flex items-center gap-3 mb-5">
+                                            <div className="glass-panel royal-chart-panel p-6 rounded-2xl">
+                                                <div className="flex items-center gap-3 mb-4">
                                                     <div className="size-9 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400 shadow-inner">
                                                         <Icon name="check_circle" size="20" />
                                                     </div>
                                                     <div>
                                                         <h4 className="text-white font-bold text-base leading-tight">Moved to Finals</h4>
-                                                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Qualified Student Distribution</p>
+                                                        <p className="text-[11px] royal-subtitle uppercase tracking-[0.18em]">Qualified student distribution</p>
                                                     </div>
                                                 </div>
                                                 <div className="w-full h-[320px]">
@@ -2180,8 +2198,8 @@ const Hodsons: React.FC = () => {
                                                                     <Pie data={qualData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value" animationDuration={800} stroke="none" labelLine={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }} label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}>
                                                                         {qualData.map((entry, idx) => <Cell key={idx} fill={entry.color} />)}
                                                                     </Pie>
-                                                                    <Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)', fontSize: '13px' }} itemStyle={{ color: '#fff' }} formatter={(value: number, name: string) => [`${value} qualified students`, name]} />
-                                                                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '15px' }} formatter={(value: string) => <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{value}</span>} />
+                                                                    <Tooltip contentStyle={{ ...chartTooltipStyle, fontSize: '13px' }} itemStyle={{ color: '#fff7e4' }} formatter={(value: number, name: string) => [`${value} qualified students`, name]} />
+                                                                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#c7d2e0', paddingTop: '15px' }} formatter={chartLegendFormatter} />
                                                                 </PieChart>
                                                             </ResponsiveContainer>
                                                         );
@@ -2200,118 +2218,118 @@ const Hodsons: React.FC = () => {
                                         const finalsPositions = getCategoryStagePositions(selectedCategoryStats.name, 'finals');
 
                                         return (
-                                    <div className="glass-panel overflow-hidden border border-white/5 bg-white/[0.01] rounded-2xl shadow-xl">
-                                        <table className="w-full text-left text-sm text-slate-300">
-                                            <thead className="bg-white/5 text-[10px] uppercase font-black text-slate-500 tracking-widest">
-                                                <tr>
-                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">SN</th>
-                                                    <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'id' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('id'); }}>
-                                                        <div className="flex items-center gap-1">Computer No {listSortField === 'id' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
-                                                    </th>
-                                                    <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'name' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('name'); }}>
-                                                        <div className="flex items-center gap-1">Athlete Name {listSortField === 'name' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
-                                                    </th>
-                                                    <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
-                                                        <div className="flex items-center gap-1">House {listSortField === 'house' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
-                                                    </th>
-                                                    <th className="px-6 py-5 text-center">Qualifying</th>
-                                                    <th className="px-6 py-5 text-center">Finals</th>
-                                                    <th className="px-6 py-5 text-right cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'performance' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('performance'); }}>
-                                                        <div className="flex items-center justify-end gap-1">Result {listSortField === 'performance' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-white/5">
-                                                {mockStudents.filter(s => s.category === selectedCategoryStats.name)
-                                                    .sort((a, b) => {
-                                                        const factor = listSortOrder === 'asc' ? 1 : -1;
-                                                        
-                                                        if (listSortField === 'performance') {
-                                                            const resA = results.find(r => r.studentId === a.id);
-                                                            const resB = results.find(r => r.studentId === b.id);
-                                                            
-                                                            // Helper to calculate a rank score
-                                                            const getScore = (res: any, stuId: string) => {
-                                                                if (!res) return Infinity;
-                                                                const sType = res.finalsType === 'pending' || res.finalsType === 'participating' ? res.qualifyingType : res.finalsType;
-                                                                const fPos = finalsPositions.get(stuId) ?? res.finalsPosition;
-                                                                if (fPos) return fPos; // Ranks 1, 2, 3...
-                                                                if (sType === 'qualified_pos' || sType === 'qualified' || sType === 'finisher') return 1000;
-                                                                if (sType === 'pending' || sType === 'participating') return 2000;
-                                                                return 3000; // DNF, Absent, Excused, Leave
-                                                            };
-                                                            
-                                                            const scoreA = getScore(resA, a.id);
-                                                            const scoreB = getScore(resB, b.id);
-                                                            
-                                                            if (scoreA !== scoreB) return factor * (scoreA - scoreB);
-                                                            
-                                                            // If scores are tied and they have timings, compare timings string-wise
-                                                            const timeA = resA?.finalsTiming || resA?.qualifyingTiming || '99:99:99';
-                                                            const timeB = resB?.finalsTiming || resB?.qualifyingTiming || '99:99:99';
-                                                            if (timeA !== timeB) return factor * timeA.localeCompare(timeB);
-                                                        }
+                                            <div className="glass-panel overflow-hidden border border-primary/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(201,163,74,0.02))] rounded-[28px] shadow-[0_20px_44px_rgba(0,0,0,0.26)]">
+                                                <table className="w-full text-left text-sm text-slate-300">
+                                                    <thead className="bg-[linear-gradient(180deg,rgba(201,163,74,0.12),rgba(255,255,255,0.03))] text-[10px] uppercase font-black text-[#e2c989] tracking-widest">
+                                                        <tr>
+                                                            <th className="px-6 py-5 text-[10px] font-black text-[#d8be80] uppercase tracking-widest">SN</th>
+                                                            <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'id' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('id'); }}>
+                                                                <div className="flex items-center gap-1">Computer No {listSortField === 'id' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                                            </th>
+                                                            <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'name' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('name'); }}>
+                                                                <div className="flex items-center gap-1">Athlete Name {listSortField === 'name' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                                            </th>
+                                                            <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
+                                                                <div className="flex items-center gap-1">House {listSortField === 'house' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                                            </th>
+                                                            <th className="px-6 py-5 text-center">Qualifying</th>
+                                                            <th className="px-6 py-5 text-center">Finals</th>
+                                                            <th className="px-6 py-5 text-right cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'performance' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('performance'); }}>
+                                                                <div className="flex items-center justify-end gap-1">Result {listSortField === 'performance' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-primary/10">
+                                                        {mockStudents.filter(s => s.category === selectedCategoryStats.name)
+                                                            .sort((a, b) => {
+                                                                const factor = listSortOrder === 'asc' ? 1 : -1;
 
-                                                        if (listSortField === 'house') return factor * a.house.localeCompare(b.house);
-                                                        if (listSortField === 'name') return factor * a.name.localeCompare(b.name);
-                                                        return factor * a.id.localeCompare(b.id);
-                                                    })
-                                                    .map((stu, idx) => {
-                                                        const r = results.find(res => res.studentId === stu.id) || {
-                                                            studentId: stu.id,
-                                                            preQualifyingType: 'pending',
-                                                            preFinalsType: 'pending',
-                                                            qualifyingType: 'pending',
-                                                            finalsType: 'pending'
-                                                        };
-                                                        const liveQualifyingPosition = qualifyingPositions.get(stu.id) ?? r.qualifyingPosition;
-                                                        const liveFinalsPosition = finalsPositions.get(stu.id) ?? r.finalsPosition;
-                                                        const hInfo = houseConfig(stu.house);
-                                                        return (
-                                                            <tr key={stu.id} className="hover:bg-white/[0.02] transition-colors group">
-                                                                <td className="px-6 py-4 font-mono text-xs text-slate-500">{idx + 1}</td>
-                                                                <td className="px-6 py-4 font-mono text-xs text-slate-400">{stu.id}</td>
-                                                                <td className="px-6 py-4 font-bold text-white text-base">{stu.name}</td>
-                                                                <td className="px-6 py-4">
-                                                                    <span className={`inline-flex items-center gap-1.5 font-black ${hInfo.text} text-[10px] uppercase border ${hInfo.border}/20 px-2 py-0.5 rounded bg-white/5`}>
-                                                                        {stu.house}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-6 py-4">
-                                                                    <div className="flex flex-col">
-                                                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${r.qualifyingType === 'qualified' ? 'text-primary' : 'text-slate-500'}`}>
-                                                                            {r.qualifyingType.replace('_', ' ')}
-                                                                        </span>
-                                                                        {r.preQualifyingType !== 'participating' && r.preQualifyingType !== 'pending' && (
-                                                                            <span className="text-[8px] font-black text-amber-500/80 uppercase">{r.preQualifyingType.replace('_', ' ')}</span>
-                                                                        )}
-                                                                        {r.qualifyingTiming && <span className="text-[10px] font-mono text-slate-400">Time: {r.qualifyingTiming}</span>}
-                                                                        {liveQualifyingPosition && <span className="text-[9px] font-black text-slate-500">Rank: #{liveQualifyingPosition}</span>}
-                                                                    </div>
-                                                                </td>
-                                                                <td className="px-6 py-4">
-                                                                    <div className="flex flex-col">
-                                                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${r.finalsType === 'qualified_pos' || r.finalsType === 'finisher' ? 'text-amber-400' : 'text-slate-500'}`}>
-                                                                            {r.finalsType.replace('_', ' ')}
-                                                                        </span>
-                                                                        {r.preFinalsType !== 'participating' && r.preFinalsType !== 'pending' && (
-                                                                            <span className="text-[8px] font-black text-amber-500/80 uppercase">{r.preFinalsType.replace('_', ' ')}</span>
-                                                                        )}
-                                                                        {r.finalsTiming && <span className="text-[10px] font-mono text-slate-400">Time: {r.finalsTiming}</span>}
-                                                                        {liveFinalsPosition && <span className="text-[9px] font-black text-slate-500">Rank: #{liveFinalsPosition}</span>}
-                                                                    </div>
-                                                                </td>
-                                                                <td className="px-6 py-4 text-right">
-                                                                    {liveFinalsPosition && <span className="font-black text-amber-400 text-lg mr-2 italic">#{liveFinalsPosition}</span>}
-                                                                    {r.finalsTiming && <span className="text-slate-400 font-mono text-xs">[{r.finalsTiming}]</span>}
-                                                                    {!liveFinalsPosition && !r.finalsTiming && <span className="text-slate-600">—</span>}
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                                                if (listSortField === 'performance') {
+                                                                    const resA = results.find(r => r.studentId === a.id);
+                                                                    const resB = results.find(r => r.studentId === b.id);
+
+                                                                    // Helper to calculate a rank score
+                                                                    const getScore = (res: any, stuId: string) => {
+                                                                        if (!res) return Infinity;
+                                                                        const sType = res.finalsType === 'pending' || res.finalsType === 'participating' ? res.qualifyingType : res.finalsType;
+                                                                        const fPos = finalsPositions.get(stuId) ?? res.finalsPosition;
+                                                                        if (fPos) return fPos; // Ranks 1, 2, 3...
+                                                                        if (sType === 'qualified_pos' || sType === 'qualified' || sType === 'finisher') return 1000;
+                                                                        if (sType === 'pending' || sType === 'participating') return 2000;
+                                                                        return 3000; // DNF, Absent, Excused, Leave
+                                                                    };
+
+                                                                    const scoreA = getScore(resA, a.id);
+                                                                    const scoreB = getScore(resB, b.id);
+
+                                                                    if (scoreA !== scoreB) return factor * (scoreA - scoreB);
+
+                                                                    // If scores are tied and they have timings, compare timings string-wise
+                                                                    const timeA = resA?.finalsTiming || resA?.qualifyingTiming || '99:99:99';
+                                                                    const timeB = resB?.finalsTiming || resB?.qualifyingTiming || '99:99:99';
+                                                                    if (timeA !== timeB) return factor * timeA.localeCompare(timeB);
+                                                                }
+
+                                                                if (listSortField === 'house') return factor * a.house.localeCompare(b.house);
+                                                                if (listSortField === 'name') return factor * a.name.localeCompare(b.name);
+                                                                return factor * a.id.localeCompare(b.id);
+                                                            })
+                                                            .map((stu, idx) => {
+                                                                const r = results.find(res => res.studentId === stu.id) || {
+                                                                    studentId: stu.id,
+                                                                    preQualifyingType: 'pending',
+                                                                    preFinalsType: 'pending',
+                                                                    qualifyingType: 'pending',
+                                                                    finalsType: 'pending'
+                                                                };
+                                                                const liveQualifyingPosition = qualifyingPositions.get(stu.id) ?? r.qualifyingPosition;
+                                                                const liveFinalsPosition = finalsPositions.get(stu.id) ?? r.finalsPosition;
+                                                                const hInfo = houseConfig(stu.house);
+                                                                return (
+                                                                    <tr key={stu.id} className="hover:bg-primary/[0.05] transition-colors group">
+                                                                        <td className="px-6 py-4 font-mono text-xs text-slate-500">{idx + 1}</td>
+                                                                        <td className="px-6 py-4 font-mono text-xs text-[#d4d9e2]">{stu.id}</td>
+                                                                        <td className="px-6 py-4 font-bold text-[#f8f1de] text-base">{stu.name}</td>
+                                                                        <td className="px-6 py-4">
+                                                                            <span className={`inline-flex items-center gap-1.5 font-black ${hInfo.text} text-[10px] uppercase border ${hInfo.border}/20 px-2 py-0.5 rounded bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]`}>
+                                                                                {stu.house}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-6 py-4">
+                                                                            <div className="flex flex-col">
+                                                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${r.qualifyingType === 'qualified' ? 'text-primary' : 'text-slate-500'}`}>
+                                                                                    {r.qualifyingType.replace('_', ' ')}
+                                                                                </span>
+                                                                                {r.preQualifyingType !== 'participating' && r.preQualifyingType !== 'pending' && (
+                                                                                    <span className="text-[8px] font-black text-amber-500/80 uppercase">{r.preQualifyingType.replace('_', ' ')}</span>
+                                                                                )}
+                                                                                {r.qualifyingTiming && <span className="text-[10px] font-mono text-slate-400">Time: {r.qualifyingTiming}</span>}
+                                                                                {liveQualifyingPosition && <span className="text-[9px] font-black text-[#d8be80]">Rank: #{liveQualifyingPosition}</span>}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-6 py-4">
+                                                                            <div className="flex flex-col">
+                                                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${r.finalsType === 'qualified_pos' || r.finalsType === 'finisher' ? 'text-amber-400' : 'text-slate-500'}`}>
+                                                                                    {r.finalsType.replace('_', ' ')}
+                                                                                </span>
+                                                                                {r.preFinalsType !== 'participating' && r.preFinalsType !== 'pending' && (
+                                                                                    <span className="text-[8px] font-black text-amber-500/80 uppercase">{r.preFinalsType.replace('_', ' ')}</span>
+                                                                                )}
+                                                                                {r.finalsTiming && <span className="text-[10px] font-mono text-slate-400">Time: {r.finalsTiming}</span>}
+                                                                                {liveFinalsPosition && <span className="text-[9px] font-black text-[#d8be80]">Rank: #{liveFinalsPosition}</span>}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-6 py-4 text-right">
+                                                                            {liveFinalsPosition && <span className="font-black text-primary text-lg mr-2 italic">#{liveFinalsPosition}</span>}
+                                                                            {r.finalsTiming && <span className="text-slate-400 font-mono text-xs">[{r.finalsTiming}]</span>}
+                                                                            {!liveFinalsPosition && !r.finalsTiming && <span className="text-slate-600">—</span>}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         );
                                     })()}
                                 </div>
@@ -2343,7 +2361,7 @@ const Hodsons: React.FC = () => {
 
                         <div className="flex-1 overflow-auto custom-scrollbar p-8">
                             {/* Qualification Rate Banner */}
-                            <div className="glass-panel p-6 border border-white/10 bg-gradient-to-br from-primary/[0.03] to-transparent rounded-3xl mb-8">
+                            <div className="glass-panel section-plaque p-6 border border-white/10 rounded-3xl mb-8">
                                 <div className="flex items-center gap-2 mb-5">
                                     <Icon name="insights" size="18" className="text-primary" />
                                     <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Department Overview</span>
@@ -2393,12 +2411,12 @@ const Hodsons: React.FC = () => {
                                         </div>
                                         <span className="text-slate-300 text-[1.75rem] leading-none font-black">{selectedStandingsStats.stats.medExcused}</span>
                                     </div>
-                                    <div className="bg-white/[0.04] rounded-xl p-4 border border-blue-500/10 hover:border-blue-500/20 transition-colors">
+                                    <div className="royal-stat-card rounded-xl p-4 border border-primary/10 hover:border-primary/20 transition-colors">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <div className="size-7 rounded-lg bg-blue-500/10 flex items-center justify-center"><Icon name="check_circle" size="14" className="text-blue-400" /></div>
+                                            <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center"><Icon name="check_circle" size="14" className="text-primary" /></div>
                                             <span className="text-[9px] text-slate-500 font-black uppercase tracking-wide leading-tight">Finished</span>
                                         </div>
-                                        <span className="text-blue-400 text-[1.75rem] leading-none font-black">{selectedStandingsStats.stats.finishedCount}</span>
+                                        <span className="text-primary text-[1.75rem] leading-none font-black">{selectedStandingsStats.stats.finishedCount}</span>
                                     </div>
                                     <div className="bg-white/[0.04] rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
                                         <div className="flex items-center gap-2 mb-2">
@@ -2407,18 +2425,18 @@ const Hodsons: React.FC = () => {
                                         </div>
                                         <span className="text-slate-300 text-[1.75rem] leading-none font-black">{selectedStandingsStats.stats.dnfCount}</span>
                                     </div>
-                                    <div className="bg-white/[0.04] rounded-xl p-4 border border-blue-500/10 hover:border-blue-500/20 transition-colors">
+                                    <div className="royal-stat-card rounded-xl p-4 border border-primary/10 hover:border-primary/20 transition-colors">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <div className="size-7 rounded-lg bg-blue-500/10 flex items-center justify-center"><Icon name="flight_takeoff" size="14" className="text-blue-400" /></div>
+                                            <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center"><Icon name="flight_takeoff" size="14" className="text-primary" /></div>
                                             <span className="text-[9px] text-slate-500 font-black uppercase tracking-wide leading-tight">On Leave</span>
                                         </div>
-                                        <span className="text-blue-400 text-[1.75rem] leading-none font-black">{selectedStandingsStats.stats.onLeave}</span>
+                                        <span className="text-primary text-[1.75rem] leading-none font-black">{selectedStandingsStats.stats.onLeave}</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Breakdown Stacked Bar Chart */}
-                            <div className="mb-12 glass-panel p-6 rounded-2xl border border-white/5">
+                            <div className="mb-12 glass-panel royal-chart-panel p-6 rounded-2xl">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                                     <div className="flex items-center gap-3">
                                         <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shadow-inner">
@@ -2426,7 +2444,7 @@ const Hodsons: React.FC = () => {
                                         </div>
                                         <div>
                                             <h4 className="text-white font-bold text-lg leading-tight">Category Breakdown</h4>
-                                            <p className="text-xs text-slate-400">Points distribution clustered by category</p>
+                                            <p className="text-xs royal-subtitle">Points distribution clustered by category</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4">
@@ -2444,14 +2462,14 @@ const Hodsons: React.FC = () => {
                                             data={selectedStandingsStats.breakdown}
                                             margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
                                         >
-                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                            <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                                            <YAxis tick={{ fill: '#fff', fontSize: 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                                            <XAxis dataKey="name" tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                            <YAxis tick={{ fill: '#f8f1de', fontSize: 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
                                             <Tooltip
-                                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                                contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }}
-                                                itemStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}
-                                                labelStyle={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}
+                                                cursor={{ fill: 'rgba(201,163,74,0.06)' }}
+                                                contentStyle={chartTooltipStyle}
+                                                itemStyle={{ color: '#fff7e4', fontWeight: 'bold', fontSize: '13px' }}
+                                                labelStyle={{ color: '#c7d2e0', fontSize: '12px', marginBottom: '8px', borderBottom: '1px solid rgba(201,163,74,0.12)', paddingBottom: '4px' }}
                                             />
                                             <Bar dataKey="Vindhya" stackId="a" fill={HOUSE_COLORS.vindhya.hex} radius={[0, 0, 0, 0]} animationDuration={1000} />
                                             <Bar dataKey="Himalaya" stackId="a" fill={HOUSE_COLORS.himalaya.hex} radius={[0, 0, 0, 0]} animationDuration={1000} />
@@ -2513,7 +2531,7 @@ const Hodsons: React.FC = () => {
                             </div>
 
                             {/* Category-wise Points Table */}
-                            <div className="mb-12 glass-panel overflow-hidden border border-white/10 rounded-3xl bg-black/20 shadow-2xl">
+                            <div className="mb-12 glass-panel royal-table-shell overflow-hidden rounded-3xl bg-black/20 shadow-2xl">
                                 <div className="p-5 bg-white/5 border-b border-white/10 flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="size-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
@@ -2528,10 +2546,10 @@ const Hodsons: React.FC = () => {
                                 <div className="overflow-auto custom-scrollbar max-h-[420px]">
                                     <table className="w-full text-left text-xs whitespace-nowrap border-collapse">
                                         <thead>
-                                            <tr className="bg-white/5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                                <th className="sticky top-0 z-10 px-6 py-5 border-r border-white/5 bg-[#162033]">Age Category</th>
+                                            <tr className="royal-table-head text-[10px] font-black uppercase tracking-widest">
+                                                <th className="sticky top-0 z-10 px-6 py-5 border-r border-white/5 royal-table-head">Age Category</th>
                                                 {['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'].map(h => (
-                                                    <th key={h} className="sticky top-0 z-10 px-6 py-5 text-center border-r border-white/5 last:border-0 bg-[#162033]">{h}</th>
+                                                    <th key={h} className="sticky top-0 z-10 px-6 py-5 text-center border-r border-white/5 last:border-0 royal-table-head">{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
@@ -2562,14 +2580,14 @@ const Hodsons: React.FC = () => {
                             {/* Department Status Charts */}
                             <div className="space-y-6 mb-8">
                                 {/* Row 1: Large Bar Chart - House Performance Comparison */}
-                                <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                                <div className="glass-panel royal-chart-panel p-6 rounded-2xl">
                                     <div className="flex items-center gap-3 mb-5">
                                         <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                                             <Icon name="bar_chart" size="20" />
                                         </div>
                                         <div>
                                             <h4 className="text-white font-bold text-base leading-tight">House Performance Comparison</h4>
-                                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">All metrics by house</p>
+                                            <p className="text-[11px] royal-subtitle uppercase tracking-[0.18em]">All metrics by house</p>
                                         </div>
                                     </div>
                                     <div className="w-full h-[350px]">
@@ -2587,17 +2605,17 @@ const Hodsons: React.FC = () => {
                                             return (
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <BarChart data={compData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                                        <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                                                        <YAxis dataKey="name" type="category" tick={{ fill: '#fff', fontSize: 12, fontWeight: 'bold' }} axisLine={false} tickLine={false} width={80} />
-                                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '12px' }} />
-                                                        <Bar dataKey="Participated" fill="#22c55e" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
-                                                        <Bar dataKey="Qualified" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
-                                                        <Bar dataKey="DNF" fill="#64748b" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
+                                                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
+                                                        <XAxis type="number" tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                                        <YAxis dataKey="name" type="category" tick={chartYAxisStyle} axisLine={false} tickLine={false} width={84} />
+                                                        <Tooltip cursor={{ fill: 'rgba(201,163,74,0.06)' }} contentStyle={chartTooltipStyle} itemStyle={{ color: '#fff7e4', fontWeight: 'bold', fontSize: '12px' }} />
+                                                        <Bar dataKey="Participated" fill="#3a7f5d" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
+                                                        <Bar dataKey="Qualified" fill="#c9a34a" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
+                                                        <Bar dataKey="DNF" fill="#9c7a47" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Absent" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
-                                                        <Bar dataKey="Med. Excused" fill="#94a3b8" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
-                                                        <Bar dataKey="On Leave" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
-                                                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} formatter={(value: string) => <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{value}</span>} />
+                                                        <Bar dataKey="Med. Excused" fill="#8f9aae" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
+                                                        <Bar dataKey="On Leave" fill="#e4c67d" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
+                                                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} formatter={chartLegendFormatter} />
                                                     </BarChart>
                                                 </ResponsiveContainer>
                                             );
@@ -2608,14 +2626,14 @@ const Hodsons: React.FC = () => {
                                 {/* Row 2: Two Donut Charts */}
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     {/* Donut Pie - Overall Student Status */}
-                                    <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                                        <div className="flex items-center gap-3 mb-5">
+                                    <div className="glass-panel royal-chart-panel p-6 rounded-2xl">
+                                        <div className="flex items-center gap-3 mb-4">
                                             <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                                                 <Icon name="donut_large" size="20" />
                                             </div>
                                             <div>
                                                 <h4 className="text-white font-bold text-base leading-tight">Overall Student Status</h4>
-                                                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Department-wide Distribution</p>
+                                                <p className="text-[11px] royal-subtitle uppercase tracking-[0.18em]">Department-wide distribution</p>
                                             </div>
                                         </div>
                                         <div className="w-full h-[300px]">
@@ -2623,11 +2641,11 @@ const Hodsons: React.FC = () => {
                                                 const s = selectedStandingsStats.stats;
                                                 const pending = s.total - s.participants - s.absent - s.medExcused - s.onLeave;
                                                 const pieData = [
-                                                    { name: 'Participated', value: s.participants, color: '#22c55e' },
+                                                    { name: 'Participated', value: s.participants, color: '#3a7f5d' },
                                                     { name: 'Absent', value: s.absent, color: '#ef4444' },
-                                                    { name: 'Med. Excused', value: s.medExcused, color: '#94a3b8' },
-                                                    { name: 'On Leave', value: s.onLeave, color: '#3b82f6' },
-                                                    { name: 'Pending', value: pending > 0 ? pending : 0, color: '#334155' }
+                                                    { name: 'Med. Excused', value: s.medExcused, color: '#8f9aae' },
+                                                    { name: 'On Leave', value: s.onLeave, color: '#c9a34a' },
+                                                    { name: 'Pending', value: pending > 0 ? pending : 0, color: '#415065' }
                                                 ].filter(d => d.value > 0);
                                                 return (
                                                     <ResponsiveContainer width="100%" height="100%">
@@ -2635,8 +2653,8 @@ const Hodsons: React.FC = () => {
                                                             <Pie data={pieData} cx="50%" cy="45%" innerRadius={70} outerRadius={110} paddingAngle={3} dataKey="value" animationDuration={800} stroke="none">
                                                                 {pieData.map((entry, idx) => <Cell key={idx} fill={entry.color} />)}
                                                             </Pie>
-                                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)', fontSize: '13px' }} itemStyle={{ color: '#fff' }} formatter={(value: number, name: string) => [`${value} students`, name]} />
-                                                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '4px' }} formatter={(value: string) => <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{value}</span>} />
+                                                            <Tooltip contentStyle={{ ...chartTooltipStyle, fontSize: '13px' }} itemStyle={{ color: '#fff7e4' }} formatter={(value: number, name: string) => [`${value} students`, name]} />
+                                                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#c7d2e0', paddingTop: '4px' }} formatter={chartLegendFormatter} />
                                                         </PieChart>
                                                     </ResponsiveContainer>
                                                 );
@@ -2645,14 +2663,14 @@ const Hodsons: React.FC = () => {
                                     </div>
 
                                     {/* Donut Pie - Enrollment by House */}
-                                    <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                                        <div className="flex items-center gap-3 mb-5">
+                                    <div className="glass-panel royal-chart-panel p-6 rounded-2xl">
+                                        <div className="flex items-center gap-3 mb-4">
                                             <div className="size-9 rounded-lg bg-white/10 flex items-center justify-center text-white shadow-inner">
                                                 <Icon name="school" size="20" />
                                             </div>
                                             <div>
                                                 <h4 className="text-white font-bold text-base leading-tight">Enrollment by House</h4>
-                                                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Total Enrolled Distribution</p>
+                                                <p className="text-[11px] royal-subtitle uppercase tracking-[0.18em]">Total enrolled distribution</p>
                                             </div>
                                         </div>
                                         <div className="w-full h-[320px]">
@@ -2667,8 +2685,8 @@ const Hodsons: React.FC = () => {
                                                             <Pie data={enrollData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value" animationDuration={800} stroke="none" labelLine={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }} label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}>
                                                                 {enrollData.map((entry, idx) => <Cell key={idx} fill={entry.color} />)}
                                                             </Pie>
-                                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)', fontSize: '13px' }} itemStyle={{ color: '#fff' }} formatter={(value: number, name: string) => [`${value} students`, name]} />
-                                                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '15px' }} formatter={(value: string) => <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{value}</span>} />
+                                                            <Tooltip contentStyle={{ ...chartTooltipStyle, fontSize: '13px' }} itemStyle={{ color: '#fff7e4' }} formatter={(value: number, name: string) => [`${value} students`, name]} />
+                                                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#c7d2e0', paddingTop: '15px' }} formatter={chartLegendFormatter} />
                                                         </PieChart>
                                                     </ResponsiveContainer>
                                                 );
@@ -2686,10 +2704,10 @@ const Hodsons: React.FC = () => {
             {showAccessScopeModal && pendingCategoryAccess && createPortal(
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={resetAccessFlow}></div>
-                    <div className="relative w-full max-w-3xl bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="relative w-full max-w-3xl bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200 section-plaque">
                         <div className="flex items-start justify-between gap-4 mb-6">
                             <div>
-                                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Access Scope</div>
+                                <div className="royal-kicker mb-2">Access Scope</div>
                                 <h2 className="text-2xl font-black text-white">Choose List Access</h2>
                                 <p className="text-sm text-slate-400 mt-1">Select which list you want to open for <span className="text-white font-bold">{pendingCategoryAccess}</span>.</p>
                             </div>
@@ -2713,41 +2731,49 @@ const Hodsons: React.FC = () => {
                                             setPasscodeInput('');
                                             setPasscodeError(false);
                                         }}
-                                        className={`glass-panel rounded-2xl border bg-white/[0.03] hover:bg-white/[0.05] transition-all text-left p-5 group overflow-hidden relative ${
-                                            isFullAccess ? 'border-primary/20 hover:border-primary/30' : `border-white/10 hover:${houseStyle?.border}/30`
-                                        }`}
+                                        className={`glass-panel rounded-2xl border bg-white/[0.03] hover:bg-white/[0.05] transition-all text-left p-5 group overflow-hidden relative ${isFullAccess ? 'border-primary/20 hover:border-primary/30' : 'border-primary/10 hover:border-primary/20'
+                                            }`}
                                     >
-                                        <div className={`absolute inset-x-0 top-0 h-1 ${
-                                            isFullAccess ? 'bg-gradient-to-r from-primary via-blue-400 to-cyan-300' : houseStyle?.bg
-                                        }`}></div>
-                                        <div className="absolute -top-8 -right-8 size-24 rounded-full bg-white/[0.03] blur-2xl pointer-events-none"></div>
+                                        <div className={`absolute inset-x-0 top-0 h-1 ${isFullAccess ? 'bg-gradient-to-r from-[#f1d386] via-primary to-[#8d6b23]' : houseStyle?.bg
+                                            }`}></div>
+                                        <div
+                                            className="absolute -top-10 -right-10 size-28 rounded-full blur-3xl pointer-events-none opacity-20"
+                                            style={{ backgroundColor: isFullAccess ? '#c9a34a' : houseStyle?.hex }}
+                                        ></div>
 
                                         <div className="relative z-10">
                                             <div className="flex items-center justify-between mb-4">
                                                 {isFullAccess ? (
-                                                    <div className="flex items-center gap-1">
+                                                    <div className="flex items-center gap-1.5">
                                                         {['vindhya', 'himalaya', 'nilgiri', 'siwalik'].map((houseKey) => (
                                                             <span
                                                                 key={houseKey}
-                                                                className="size-3 rounded-full border border-white/10"
+                                                                className="size-3.5 rounded-full border border-white/20 shadow-[0_0_14px_rgba(255,255,255,0.08)]"
                                                                 style={{ backgroundColor: HOUSE_COLORS[houseKey as keyof typeof HOUSE_COLORS].hex }}
                                                             ></span>
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`size-3 rounded-full ${houseStyle?.bg} shadow-[0_0_12px_rgba(255,255,255,0.12)]`}></span>
-                                                        <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${houseStyle?.text}`}>{option.key}</span>
+                                                    <div className="flex items-center gap-3">
+                                                        <span
+                                                            className="size-11 rounded-2xl border border-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                                                            style={{
+                                                                background: `linear-gradient(135deg, ${houseStyle?.hex}33, ${houseStyle?.hex})`
+                                                            }}
+                                                        ></span>
+                                                        <div className="flex flex-col">
+                                                            <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${houseStyle?.text}`}>{option.key}</span>
+                                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.18em]">House Access</span>
+                                                        </div>
                                                     </div>
                                                 )}
-                                                <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${
-                                                    isFullAccess ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300'
-                                                }`}>
+                                                <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${isFullAccess ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300'
+                                                    }`}>
                                                     {isFullAccess ? 'All Houses' : 'House List'}
                                                 </span>
                                             </div>
 
-                                            <div className={`text-white font-black text-base ${!isFullAccess ? houseStyle?.text : ''}`}>{option.label}</div>
+                                            <div className="text-white font-black text-base">{option.label}</div>
                                             <div className="text-xs text-slate-400 mt-2 leading-relaxed">
                                                 {option.key === 'All' ? 'All phases available after password unlock' : 'Pre-qualifying and pre-finals only after password unlock'}
                                             </div>
@@ -2765,7 +2791,7 @@ const Hodsons: React.FC = () => {
             {showPasscodeModal && createPortal(
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={resetAccessFlow}></div>
-                    <div className="relative w-full max-w-sm bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="relative w-full max-w-sm bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200 section-plaque">
                         <div className="flex flex-col items-center text-center">
                             <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4 shadow-inner">
                                 <Icon name="lock" size="24" />
@@ -2777,14 +2803,14 @@ const Hodsons: React.FC = () => {
                                     {selectedAccessScope === 'All' ? 'Full Houses Access' : `${selectedAccessScope} House Access`}
                                 </p>
                             )}
-                            
+
                             <form onSubmit={handlePasscodeSubmit} className="w-full">
                                 <input
                                     type="password"
                                     maxLength={4}
                                     value={passcodeInput}
                                     onChange={(e) => { setPasscodeInput(e.target.value); setPasscodeError(false); }}
-                                    className={`w-full text-center text-4xl tracking-[0.5em] font-mono bg-white/5 border ${passcodeError ? 'border-red-500' : 'border-white/10 focus:border-primary'} rounded-xl p-4 text-white outline-none transition-colors mb-4`}
+                                    className={`w-full text-center text-4xl tracking-[0.5em] font-mono royal-input ${passcodeError ? 'border-red-500' : 'border-primary/15'} rounded-xl p-4 outline-none transition-colors mb-4`}
                                     placeholder="••••"
                                     autoFocus
                                 />
@@ -2792,16 +2818,16 @@ const Hodsons: React.FC = () => {
                                     <p className="text-red-400 text-xs font-bold mb-4 animate-in slide-in-from-top-1">Incorrect passcode.</p>
                                 )}
                                 <div className="flex gap-3">
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={resetAccessFlow}
-                                        className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-colors"
+                                        className="flex-1 py-3 royal-secondary-btn font-bold rounded-xl"
                                     >
                                         Cancel
                                     </button>
-                                    <button 
+                                    <button
                                         type="submit"
-                                        className="flex-1 py-3 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl transition-colors shadow-lg shadow-primary/20"
+                                        className="flex-1 py-3 royal-primary-btn font-bold rounded-xl"
                                     >
                                         Unlock
                                     </button>
@@ -2817,7 +2843,7 @@ const Hodsons: React.FC = () => {
             {showModal && !editCategory && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowModal(false)}></div>
-                    <div className="relative w-full max-w-5xl h-[90vh] bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                    <div className="relative w-full max-w-5xl h-[90vh] bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
                             <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                 <Icon name="category" /> Select Category to Edit Results
@@ -2833,7 +2859,7 @@ const Hodsons: React.FC = () => {
 
                                 return (
                                     <>
-                                        <div className="glass-panel rounded-[32px] border border-white/10 bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent p-5 sm:p-6 mb-8 overflow-hidden relative">
+                                        <div className="glass-panel section-plaque rounded-[32px] border border-white/10 p-5 sm:p-6 mb-8 overflow-hidden relative">
                                             <div className="absolute -top-10 -right-10 size-36 rounded-full bg-white/[0.03] blur-3xl pointer-events-none"></div>
                                             <div className="relative z-10 flex flex-col gap-5">
                                                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -2845,7 +2871,7 @@ const Hodsons: React.FC = () => {
                                                         <h3 className="text-white text-xl sm:text-2xl font-black tracking-tight">Jump To The Right Results Group</h3>
                                                         <p className="text-sm text-slate-400 mt-1">Pick a department first, then choose the age category card you want to edit.</p>
                                                     </div>
-                                                    <div className="px-4 py-2 rounded-2xl bg-black/20 border border-white/10 self-start lg:self-auto">
+                                                    <div className="royal-stat-card px-4 py-2 rounded-2xl self-start lg:self-auto">
                                                         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Visible Now</div>
                                                         <div className="text-white text-lg font-black">{visibleCategories.length} Categories</div>
                                                     </div>
@@ -2887,7 +2913,7 @@ const Hodsons: React.FC = () => {
                                                 </div>
                                                 <h3 className="text-lg font-black text-white uppercase tracking-tight leading-tight mt-2">{activeDept.label}</h3>
                                             </div>
-                                            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/[0.03] text-xs font-bold uppercase tracking-widest text-slate-400">
+                                            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-primary/15 bg-primary/[0.05] text-xs font-bold uppercase tracking-widest text-[#f2e2b7]">
                                                 <Icon name="edit_note" size="14" />
                                                 Choose a category card to edit
                                             </div>
@@ -2895,7 +2921,7 @@ const Hodsons: React.FC = () => {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                             {visibleCategories.map(cat => (
-                                                <div key={cat} className="glass-panel rounded-2xl p-5 border border-white/5 hover:border-primary/40 hover:bg-white/[0.04] transition-all group flex flex-col justify-between shadow-lg hover:shadow-primary/5">
+                                                <div key={cat} className="glass-panel rounded-2xl p-5 border border-primary/10 hover:border-primary/40 hover:bg-white/[0.04] transition-all group flex flex-col justify-between shadow-lg hover:shadow-primary/5">
                                                     <div className="mb-4">
                                                         <div className="flex justify-between items-start mb-1">
                                                             <h3 className="text-base font-black text-white uppercase tracking-wide group-hover:text-primary transition-colors">{cat}</h3>
@@ -2905,7 +2931,7 @@ const Hodsons: React.FC = () => {
                                                     </div>
                                                     <button
                                                         onClick={() => openCategoryAccessFlow(cat)}
-                                                        className="w-full py-2.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-xl transition-all font-black text-xs uppercase tracking-widest border border-primary/20 shadow-sm"
+                                                        className="w-full py-2.5 royal-primary-btn rounded-xl font-black text-xs uppercase tracking-widest shadow-sm"
                                                     >
                                                         Manage Results
                                                     </button>
@@ -2925,8 +2951,8 @@ const Hodsons: React.FC = () => {
             {editCategory && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={closeCategoryEditor}></div>
-                    <div className="relative w-full max-w-7xl h-[90vh] bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col animate-in fade-in duration-200">
-                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-primary/10">
+                    <div className="relative w-full max-w-7xl h-[90vh] bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl overflow-hidden flex flex-col animate-in fade-in duration-200">
+                        <div className="p-6 border-b border-primary/10 flex justify-between items-center bg-[linear-gradient(135deg,rgba(201,163,74,0.14),rgba(255,255,255,0.03))]">
                             <div>
                                 <button onClick={closeCategoryEditor} className="text-slate-400 hover:text-white text-xs mb-2 flex items-center gap-1 uppercase tracking-wider font-bold">
                                     <Icon name="arrow_back" size="14" /> Back to Categories
@@ -2934,7 +2960,7 @@ const Hodsons: React.FC = () => {
                                 <div className="flex items-center gap-6">
                                     <h2 className="text-2xl font-bold text-white tracking-tight">Record Results: {editCategory}</h2>
                                     {editorAccessScope && (
-                                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${editorAccessScope === 'All' ? 'border-primary/30 bg-primary/10 text-primary' : 'border-blue-400/30 bg-blue-500/10 text-blue-200'}`}>
+                                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${editorAccessScope === 'All' ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[#e2c98d]/30 bg-[#e2c98d]/10 text-[#f6e3b2]'}`}>
                                             <Icon name={editorAccessScope === 'All' ? 'groups' : 'lock'} size="12" />
                                             {editorAccessScope === 'All' ? 'Full Houses Access' : `${editorAccessScope} Access`}
                                         </span>
@@ -2951,7 +2977,7 @@ const Hodsons: React.FC = () => {
                                             value={filterHouse}
                                             onChange={(e) => setFilterHouse(e.target.value)}
                                             disabled={editorAccessScope !== 'All'}
-                                            className={`bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-primary font-bold transition-colors ${editorAccessScope !== 'All' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-white/5'}`}
+                                            className={`royal-input rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${editorAccessScope !== 'All' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-white/5'}`}
                                         >
                                             <option value="All">All Houses</option>
                                             <option value="Vindhya">Vindhya</option>
@@ -2973,17 +2999,17 @@ const Hodsons: React.FC = () => {
                                 )}
                                 <div className="flex flex-wrap gap-3 mt-6">
                                     {(editorAccessScope === 'All' || !skipQualifyingCategories.includes(editCategory)) && (
-                                        <button onClick={() => setActivePhase('pre_qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'pre_qualifying' ? 'bg-black/20 text-white border-b-2 border-slate-400' : 'text-slate-500 hover:text-white bg-white/5'}`}>0. Pre-Qualifying List</button>
+                                        <button onClick={() => setActivePhase('pre_qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'pre_qualifying' ? 'bg-black/20 text-[#fff4d4] border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>0. Pre-Qualifying List</button>
                                     )}
                                     {editorAccessScope === 'All' && (
                                         <>
-                                            <button onClick={() => setActivePhase('qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'qualifying' ? 'bg-black/20 text-white border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>1. Qualifying Stage</button>
+                                            <button onClick={() => setActivePhase('qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'qualifying' ? 'bg-black/20 text-[#fff4d4] border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>1. Qualifying Stage</button>
                                         </>
                                     )}
-                                    <button onClick={() => setActivePhase('pre_finals')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'pre_finals' ? 'bg-black/20 text-white border-b-2 border-blue-400' : 'text-slate-500 hover:text-white bg-white/5'}`}>1.5 Pre-Finals List</button>
+                                    <button onClick={() => setActivePhase('pre_finals')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'pre_finals' ? 'bg-black/20 text-[#fff4d4] border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>1.5 Pre-Finals List</button>
                                     {editorAccessScope === 'All' && (
                                         <>
-                                            <button onClick={() => setActivePhase('finals')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'finals' ? 'bg-black/20 text-white border-b-2 border-amber-400' : 'text-slate-500 hover:text-white bg-white/5'}`}>2. Finals Stage</button>
+                                            <button onClick={() => setActivePhase('finals')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'finals' ? 'bg-black/20 text-[#fff4d4] border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>2. Finals Stage</button>
                                         </>
                                     )}
                                 </div>
@@ -3010,7 +3036,7 @@ const Hodsons: React.FC = () => {
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">On Leave:</span>
-                                                        <span className="text-sm font-black text-blue-400">{isPreQual ? catData.stats.preQualOnLeave : catData.stats.preFinalsOnLeave}</span>
+                                                        <span className="text-sm font-black text-[#e7cf96]">{isPreQual ? catData.stats.preQualOnLeave : catData.stats.preFinalsOnLeave}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -3031,7 +3057,7 @@ const Hodsons: React.FC = () => {
                                         ) : (
                                             <button
                                                 onClick={() => handleRestoreQualifyingPhase(editCategory)}
-                                                className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-blue-500/20 bg-blue-500/10 border-blue-500/20 text-blue-300"
+                                                className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-primary/20 bg-primary/10 border-primary/20 text-primary"
                                             >
                                                 <Icon name="restore" size="16" /> Restore Qualifying Phase
                                             </button>
@@ -3043,7 +3069,7 @@ const Hodsons: React.FC = () => {
                                         <select
                                             value={downloadFormat}
                                             onChange={(e) => setDownloadFormat(e.target.value as any)}
-                                            className="bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-primary font-bold cursor-pointer transition-colors hover:bg-white/5"
+                                            className="royal-input rounded-lg px-2 py-1.5 text-xs font-bold cursor-pointer transition-colors hover:bg-white/5"
                                         >
                                             <option value="xlsx">.xlsx</option>
                                             <option value="docx">.docx</option>
@@ -3053,7 +3079,7 @@ const Hodsons: React.FC = () => {
                                     <button
                                         disabled={isDownloading}
                                         onClick={() => editCategory && downloadCategoryStageList(editCategory, activePhase, downloadFormat)}
-                                        className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider ${isDownloading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-white/10'} bg-white/5 border-white/10 text-white`}
+                                        className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider ${isDownloading ? 'opacity-60 cursor-not-allowed' : ''} royal-secondary-btn`}
                                     >
                                         <Icon name="download" size="16" /> Download {activePhase.replace('_', ' ')} List
                                     </button>
@@ -3203,7 +3229,7 @@ const Hodsons: React.FC = () => {
                                                             <select
                                                                 value={res.preFinalsType || 'pending'}
                                                                 onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', e.target.value)}
-                                                                className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-400 w-full max-w-[200px]"
+                                                                className="royal-input rounded px-2 py-1 text-xs w-full max-w-[200px]"
                                                             >
                                                                 <option value="pending">Pending</option>
                                                                 <option value="participating">Participating</option>
