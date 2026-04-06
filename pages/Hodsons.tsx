@@ -108,6 +108,55 @@ const StandingsChart: React.FC<{ title: string; subtitle: string; data: any[]; i
     </div>
 );
 
+const RESULTS_DEPARTMENTS = [
+    {
+        key: 'BD',
+        label: "Boys' Department",
+        shortLabel: 'BD',
+        icon: 'male',
+        accent: 'text-blue-300',
+        chip: 'border-blue-400/20 bg-blue-500/10',
+        buttonActive: 'border-blue-400/30 bg-blue-500/15 text-blue-200 shadow-lg shadow-blue-500/10',
+        buttonIdle: 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-blue-400/20 hover:text-white hover:bg-blue-500/5'
+    },
+    {
+        key: 'GD',
+        label: "Girls' Department",
+        shortLabel: 'GD',
+        icon: 'female',
+        accent: 'text-pink-300',
+        chip: 'border-pink-400/20 bg-pink-500/10',
+        buttonActive: 'border-pink-400/30 bg-pink-500/15 text-pink-200 shadow-lg shadow-pink-500/10',
+        buttonIdle: 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-pink-400/20 hover:text-white hover:bg-pink-500/5'
+    },
+    {
+        key: 'PD',
+        label: 'Prep Department',
+        shortLabel: 'PD',
+        icon: 'child_care',
+        accent: 'text-amber-300',
+        chip: 'border-amber-400/20 bg-amber-500/10',
+        buttonActive: 'border-amber-400/30 bg-amber-500/15 text-amber-100 shadow-lg shadow-amber-500/10',
+        buttonIdle: 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-amber-400/20 hover:text-white hover:bg-amber-500/5'
+    }
+] as const;
+
+const ACCESS_OPTIONS = [
+    { key: 'Vindhya', label: 'Vindhya List', icon: 'terrain' },
+    { key: 'Siwalik', label: 'Siwalik List', icon: 'landscape' },
+    { key: 'Nilgiri', label: 'Nilgiri List', icon: 'filter_hdr' },
+    { key: 'Himalaya', label: 'Himalaya List', icon: 'ac_unit' },
+    { key: 'All', label: 'Full Houses', icon: 'groups' }
+] as const;
+
+const ACCESS_PASSCODES: Record<string, string> = {
+    Vindhya: '1010',
+    Siwalik: '2121',
+    Nilgiri: '3232',
+    Himalaya: '4343',
+    All: '5454'
+};
+
 const Hodsons: React.FC = () => {
     const [results, setResults] = useState<HodsonsResult[]>([]);
     const [showModal, setShowModal] = useState(false);
@@ -118,6 +167,8 @@ const Hodsons: React.FC = () => {
     const [activePhase, setActivePhase] = useState<'pre_qualifying' | 'qualifying' | 'pre_finals' | 'finals'>('pre_qualifying');
     const [listSortField, setListSortField] = useState<'id' | 'house' | 'name' | 'status'>('id');
     const [listSortOrder, setListSortOrder] = useState<'asc' | 'desc'>('asc');
+    const [selectedResultsDept, setSelectedResultsDept] = useState<'BD' | 'GD' | 'PD'>('BD');
+    const [selectedAddResultsDept, setSelectedAddResultsDept] = useState<'BD' | 'GD' | 'PD'>('BD');
     const [showAllResultsModal, setShowAllResultsModal] = useState(false);
 
     // Derived State
@@ -133,8 +184,12 @@ const Hodsons: React.FC = () => {
     const [downloadFormat, setDownloadFormat] = useState<'xlsx' | 'docx'>('xlsx');
     const [isDownloading, setIsDownloading] = useState(false);
 
-    // Passcode State
+    // Access / Passcode State
+    const [showAccessScopeModal, setShowAccessScopeModal] = useState(false);
     const [showPasscodeModal, setShowPasscodeModal] = useState(false);
+    const [pendingCategoryAccess, setPendingCategoryAccess] = useState<HodsonsCategory | null>(null);
+    const [selectedAccessScope, setSelectedAccessScope] = useState<'All' | 'Vindhya' | 'Himalaya' | 'Nilgiri' | 'Siwalik' | null>(null);
+    const [editorAccessScope, setEditorAccessScope] = useState<'All' | 'Vindhya' | 'Himalaya' | 'Nilgiri' | 'Siwalik' | null>(null);
     const [passcodeInput, setPasscodeInput] = useState('');
     const [passcodeError, setPasscodeError] = useState(false);
 
@@ -143,16 +198,64 @@ const Hodsons: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        if (!editorAccessScope || editorAccessScope === 'All' || !editCategory) return;
+
+        const skipsQualifying = skipQualifyingCategories.includes(editCategory);
+
+        if (skipsQualifying) {
+            if (activePhase !== 'pre_finals') {
+                setActivePhase('pre_finals');
+            }
+            return;
+        }
+
+        if (!['pre_qualifying', 'pre_finals'].includes(activePhase)) {
+            setActivePhase('pre_qualifying');
+        }
+    }, [activePhase, editorAccessScope, editCategory, skipQualifyingCategories]);
+
     const handlePasscodeSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (passcodeInput === '0001') {
+        if (selectedAccessScope && passcodeInput === ACCESS_PASSCODES[selectedAccessScope]) {
+            const unlockedCategory = pendingCategoryAccess;
+            const houseAccessOnSkippedCategory = selectedAccessScope !== 'All' && unlockedCategory && skipQualifyingCategories.includes(unlockedCategory);
             setShowPasscodeModal(false);
             setPasscodeInput('');
             setPasscodeError(false);
-            setShowModal(true);
+            setEditorAccessScope(selectedAccessScope);
+            setFilterHouse(selectedAccessScope === 'All' ? 'All' : selectedAccessScope);
+            setActivePhase(houseAccessOnSkippedCategory ? 'pre_finals' : 'pre_qualifying');
+            setEditCategory(unlockedCategory);
+            setPendingCategoryAccess(null);
+            setSelectedAccessScope(null);
         } else {
             setPasscodeError(true);
         }
+    };
+
+    const resetAccessFlow = () => {
+        setShowAccessScopeModal(false);
+        setShowPasscodeModal(false);
+        setPendingCategoryAccess(null);
+        setSelectedAccessScope(null);
+        setPasscodeInput('');
+        setPasscodeError(false);
+    };
+
+    const closeCategoryEditor = () => {
+        setEditCategory(null);
+        setFilterHouse('All');
+        setEditorAccessScope(null);
+        resetAccessFlow();
+    };
+
+    const openCategoryAccessFlow = (category: HodsonsCategory) => {
+        setPendingCategoryAccess(category);
+        setSelectedAccessScope(null);
+        setPasscodeInput('');
+        setPasscodeError(false);
+        setShowAccessScopeModal(true);
     };
 
     const loadData = () => {
@@ -1238,7 +1341,7 @@ const Hodsons: React.FC = () => {
                         <span>View All Results</span>
                     </button>
                     <button
-                        onClick={() => setShowPasscodeModal(true)}
+                        onClick={() => setShowModal(true)}
                         className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/20 whitespace-nowrap"
                     >
                         <Icon name="edit_document" />
@@ -1319,11 +1422,78 @@ const Hodsons: React.FC = () => {
                 </span>
             </div>
 
-            {/* Cards for Categories */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {categoriesData.map((cat, idx) => (
+            {(() => {
+                const activeDept = RESULTS_DEPARTMENTS.find(dept => dept.key === selectedResultsDept)!;
+                const visibleCategories = categoriesData.filter(cat => cat.name.startsWith(selectedResultsDept));
+
+                return (
+                    <>
+                        <div className="glass-panel rounded-[32px] border border-white/10 bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent p-5 sm:p-6 mb-8 overflow-hidden relative">
+                            <div className="absolute -top-8 -right-8 size-32 rounded-full bg-white/[0.03] blur-2xl pointer-events-none"></div>
+                            <div className="relative z-10 flex flex-col gap-5">
+                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                    <div>
+                                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${activeDept.chip} ${activeDept.accent} text-[10px] font-black uppercase tracking-[0.25em] mb-3`}>
+                                            <Icon name={activeDept.icon} size="14" />
+                                            Department Navigation
+                                        </div>
+                                        <h4 className="text-white text-xl sm:text-2xl font-black tracking-tight">Browse Results By Department</h4>
+                                        <p className="text-sm text-slate-400 mt-1">Switch between `BD`, `GD`, and `PD` to jump straight to the age-category cards you need.</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 self-start lg:self-auto">
+                                        <div className="px-4 py-2 rounded-2xl bg-black/20 border border-white/10">
+                                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Showing</div>
+                                            <div className="text-white text-lg font-black">{visibleCategories.length} Categories</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {RESULTS_DEPARTMENTS.map(dept => {
+                                        const deptCategories = categoriesData.filter(cat => cat.name.startsWith(dept.key));
+                                        const isActive = dept.key === selectedResultsDept;
+
+                                        return (
+                                            <button
+                                                key={dept.key}
+                                                onClick={() => setSelectedResultsDept(dept.key)}
+                                                className={`rounded-2xl border px-4 py-4 text-left transition-all group ${isActive ? dept.buttonActive : dept.buttonIdle}`}
+                                            >
+                                                <div className="flex items-start justify-between gap-3 mb-3">
+                                                    <div className={`size-11 rounded-2xl flex items-center justify-center border ${dept.chip} ${isActive ? 'scale-105' : ''} transition-transform`}>
+                                                        <Icon name={dept.icon} size="22" className={dept.accent} />
+                                                    </div>
+                                                    <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                                                        {dept.shortLabel}
+                                                    </span>
+                                                </div>
+                                                <div className={`text-base font-black mb-1 ${isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>{dept.label}</div>
+                                                <div className="text-xs text-slate-400">{deptCategories.length} age categories</div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 mb-6">
+                            <div>
+                                <div className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] ${activeDept.accent}`}>
+                                    <Icon name={activeDept.icon} size="14" />
+                                    {activeDept.shortLabel} Results
+                                </div>
+                                <h4 className="text-white text-xl font-black mt-2">{activeDept.label}</h4>
+                            </div>
+                            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/[0.03] text-xs font-bold uppercase tracking-widest text-slate-400">
+                                <Icon name="touch_app" size="14" />
+                                Select a card to open deeper stats
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {visibleCategories.map((cat, idx) => (
                     <div
-                        key={idx}
+                        key={`${selectedResultsDept}-${idx}`}
                         onClick={() => setSelectedCategoryStats(cat)}
                         className="glass-panel rounded-2xl p-6 relative overflow-hidden cursor-pointer border border-white/5 hover:border-primary/40 focus:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/10 flex flex-col h-full group outline-none"
                     >
@@ -1397,7 +1567,10 @@ const Hodsons: React.FC = () => {
                         </div>
                     </div>
                 ))}
-            </div>
+                        </div>
+                    </>
+                );
+            })()}
             {selectedCategoryStats && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSelectedCategoryStats(null)}></div>
@@ -2352,13 +2525,13 @@ const Hodsons: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="overflow-x-auto custom-scrollbar">
+                                <div className="overflow-auto custom-scrollbar max-h-[420px]">
                                     <table className="w-full text-left text-xs whitespace-nowrap border-collapse">
                                         <thead>
                                             <tr className="bg-white/5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                                <th className="px-6 py-5 border-r border-white/5">Age Category</th>
+                                                <th className="sticky top-0 z-10 px-6 py-5 border-r border-white/5 bg-[#162033]">Age Category</th>
                                                 {['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'].map(h => (
-                                                    <th key={h} className="px-6 py-5 text-center border-r border-white/5 last:border-0">{h}</th>
+                                                    <th key={h} className="sticky top-0 z-10 px-6 py-5 text-center border-r border-white/5 last:border-0 bg-[#162033]">{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
@@ -2406,6 +2579,7 @@ const Hodsons: React.FC = () => {
                                                 name: h,
                                                 Participated: hs[h].part,
                                                 Qualified: hs[h].qual,
+                                                DNF: hs[h].dnf,
                                                 Absent: hs[h].absent,
                                                 'Med. Excused': hs[h].medExcused,
                                                 'On Leave': hs[h].onLeave
@@ -2419,6 +2593,7 @@ const Hodsons: React.FC = () => {
                                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '12px' }} />
                                                         <Bar dataKey="Participated" fill="#22c55e" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Qualified" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
+                                                        <Bar dataKey="DNF" fill="#64748b" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Absent" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Med. Excused" fill="#94a3b8" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="On Leave" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
@@ -2508,17 +2683,100 @@ const Hodsons: React.FC = () => {
                 document.body
             )}
 
+            {showAccessScopeModal && pendingCategoryAccess && createPortal(
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={resetAccessFlow}></div>
+                    <div className="relative w-full max-w-3xl bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-start justify-between gap-4 mb-6">
+                            <div>
+                                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Access Scope</div>
+                                <h2 className="text-2xl font-black text-white">Choose List Access</h2>
+                                <p className="text-sm text-slate-400 mt-1">Select which list you want to open for <span className="text-white font-bold">{pendingCategoryAccess}</span>.</p>
+                            </div>
+                            <button onClick={resetAccessFlow} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10">
+                                <Icon name="close" size="24" />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {ACCESS_OPTIONS.map(option => {
+                                const isFullAccess = option.key === 'All';
+                                const houseStyle = !isFullAccess ? houseConfig(option.key) : null;
+
+                                return (
+                                    <button
+                                        key={option.key}
+                                        onClick={() => {
+                                            setSelectedAccessScope(option.key);
+                                            setShowAccessScopeModal(false);
+                                            setShowPasscodeModal(true);
+                                            setPasscodeInput('');
+                                            setPasscodeError(false);
+                                        }}
+                                        className={`glass-panel rounded-2xl border bg-white/[0.03] hover:bg-white/[0.05] transition-all text-left p-5 group overflow-hidden relative ${
+                                            isFullAccess ? 'border-primary/20 hover:border-primary/30' : `border-white/10 hover:${houseStyle?.border}/30`
+                                        }`}
+                                    >
+                                        <div className={`absolute inset-x-0 top-0 h-1 ${
+                                            isFullAccess ? 'bg-gradient-to-r from-primary via-blue-400 to-cyan-300' : houseStyle?.bg
+                                        }`}></div>
+                                        <div className="absolute -top-8 -right-8 size-24 rounded-full bg-white/[0.03] blur-2xl pointer-events-none"></div>
+
+                                        <div className="relative z-10">
+                                            <div className="flex items-center justify-between mb-4">
+                                                {isFullAccess ? (
+                                                    <div className="flex items-center gap-1">
+                                                        {['vindhya', 'himalaya', 'nilgiri', 'siwalik'].map((houseKey) => (
+                                                            <span
+                                                                key={houseKey}
+                                                                className="size-3 rounded-full border border-white/10"
+                                                                style={{ backgroundColor: HOUSE_COLORS[houseKey as keyof typeof HOUSE_COLORS].hex }}
+                                                            ></span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`size-3 rounded-full ${houseStyle?.bg} shadow-[0_0_12px_rgba(255,255,255,0.12)]`}></span>
+                                                        <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${houseStyle?.text}`}>{option.key}</span>
+                                                    </div>
+                                                )}
+                                                <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${
+                                                    isFullAccess ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300'
+                                                }`}>
+                                                    {isFullAccess ? 'All Houses' : 'House List'}
+                                                </span>
+                                            </div>
+
+                                            <div className={`text-white font-black text-base ${!isFullAccess ? houseStyle?.text : ''}`}>{option.label}</div>
+                                            <div className="text-xs text-slate-400 mt-2 leading-relaxed">
+                                                {option.key === 'All' ? 'All phases available after password unlock' : 'Pre-qualifying and pre-finals only after password unlock'}
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
             {/* Modal for Passcode */}
             {showPasscodeModal && createPortal(
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => { setShowPasscodeModal(false); setPasscodeInput(''); setPasscodeError(false); }}></div>
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={resetAccessFlow}></div>
                     <div className="relative w-full max-w-sm bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex flex-col items-center text-center">
                             <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4 shadow-inner">
                                 <Icon name="lock" size="24" />
                             </div>
                             <h2 className="text-xl font-black text-white mb-2">Enter Passcode</h2>
-                            <p className="text-sm text-slate-400 mb-6">Please enter the 4-digit passcode to access the results editor.</p>
+                            <p className="text-sm text-slate-400 mb-2">Please enter the 4-digit passcode to access the selected list.</p>
+                            {selectedAccessScope && (
+                                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary mb-6">
+                                    {selectedAccessScope === 'All' ? 'Full Houses Access' : `${selectedAccessScope} House Access`}
+                                </p>
+                            )}
                             
                             <form onSubmit={handlePasscodeSubmit} className="w-full">
                                 <input
@@ -2536,7 +2794,7 @@ const Hodsons: React.FC = () => {
                                 <div className="flex gap-3">
                                     <button 
                                         type="button" 
-                                        onClick={() => { setShowPasscodeModal(false); setPasscodeInput(''); setPasscodeError(false); }}
+                                        onClick={resetAccessFlow}
                                         className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-colors"
                                     >
                                         Cancel
@@ -2569,28 +2827,74 @@ const Hodsons: React.FC = () => {
                             </button>
                         </div>
                         <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-black/5">
-                            {['BD', 'GD', 'PD'].map(dept => {
-                                const deptName = dept === 'BD' ? "Boys' Department" : dept === 'GD' ? "Girls' Department" : "Prep Department";
-                                const deptColor = dept === 'BD' ? "from-blue-500/10" : dept === 'GD' ? "from-pink-500/10" : "from-amber-500/10";
-                                const deptIcon = dept === 'BD' ? "male" : dept === 'GD' ? "female" : "child_care";
-
-                                const deptCats = CATEGORIES_LIST.filter(c => c.startsWith(dept));
-                                if (deptCats.length === 0) return null;
+                            {(() => {
+                                const activeDept = RESULTS_DEPARTMENTS.find(dept => dept.key === selectedAddResultsDept)!;
+                                const visibleCategories = CATEGORIES_LIST.filter(cat => cat.startsWith(selectedAddResultsDept));
 
                                 return (
-                                    <div key={dept} className="mb-10 last:mb-0">
-                                        <div className={`flex items-center gap-3 mb-6 p-4 rounded-2xl bg-gradient-to-r ${deptColor} to-transparent border-l-4 border-white/20`}>
-                                            <div className="size-10 rounded-xl bg-white/10 flex items-center justify-center shadow-inner">
-                                                <Icon name={deptIcon} size="20" className="text-white" />
+                                    <>
+                                        <div className="glass-panel rounded-[32px] border border-white/10 bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent p-5 sm:p-6 mb-8 overflow-hidden relative">
+                                            <div className="absolute -top-10 -right-10 size-36 rounded-full bg-white/[0.03] blur-3xl pointer-events-none"></div>
+                                            <div className="relative z-10 flex flex-col gap-5">
+                                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                                    <div>
+                                                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${activeDept.chip} ${activeDept.accent} text-[10px] font-black uppercase tracking-[0.25em] mb-3`}>
+                                                            <Icon name={activeDept.icon} size="14" />
+                                                            Department Navigation
+                                                        </div>
+                                                        <h3 className="text-white text-xl sm:text-2xl font-black tracking-tight">Jump To The Right Results Group</h3>
+                                                        <p className="text-sm text-slate-400 mt-1">Pick a department first, then choose the age category card you want to edit.</p>
+                                                    </div>
+                                                    <div className="px-4 py-2 rounded-2xl bg-black/20 border border-white/10 self-start lg:self-auto">
+                                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Visible Now</div>
+                                                        <div className="text-white text-lg font-black">{visibleCategories.length} Categories</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                    {RESULTS_DEPARTMENTS.map(dept => {
+                                                        const deptCategories = CATEGORIES_LIST.filter(cat => cat.startsWith(dept.key));
+                                                        const isActive = dept.key === selectedAddResultsDept;
+
+                                                        return (
+                                                            <button
+                                                                key={dept.key}
+                                                                onClick={() => setSelectedAddResultsDept(dept.key)}
+                                                                className={`rounded-2xl border px-4 py-4 text-left transition-all group ${isActive ? dept.buttonActive : dept.buttonIdle}`}
+                                                            >
+                                                                <div className="flex items-start justify-between gap-3 mb-3">
+                                                                    <div className={`size-11 rounded-2xl flex items-center justify-center border ${dept.chip} ${isActive ? 'scale-105' : ''} transition-transform`}>
+                                                                        <Icon name={dept.icon} size="22" className={dept.accent} />
+                                                                    </div>
+                                                                    <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                                                                        {dept.shortLabel}
+                                                                    </span>
+                                                                </div>
+                                                                <div className={`text-base font-black mb-1 ${isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>{dept.label}</div>
+                                                                <div className="text-xs text-slate-400">{deptCategories.length} age categories</div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-4 mb-6">
                                             <div>
-                                                <h3 className="text-lg font-black text-white uppercase tracking-tight leading-tight">{deptName}</h3>
-                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">{deptCats.length} Categories Enrolled</p>
+                                                <div className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] ${activeDept.accent}`}>
+                                                    <Icon name={activeDept.icon} size="14" />
+                                                    {activeDept.shortLabel} Categories
+                                                </div>
+                                                <h3 className="text-lg font-black text-white uppercase tracking-tight leading-tight mt-2">{activeDept.label}</h3>
+                                            </div>
+                                            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/[0.03] text-xs font-bold uppercase tracking-widest text-slate-400">
+                                                <Icon name="edit_note" size="14" />
+                                                Choose a category card to edit
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                            {deptCats.map(cat => (
+                                            {visibleCategories.map(cat => (
                                                 <div key={cat} className="glass-panel rounded-2xl p-5 border border-white/5 hover:border-primary/40 hover:bg-white/[0.04] transition-all group flex flex-col justify-between shadow-lg hover:shadow-primary/5">
                                                     <div className="mb-4">
                                                         <div className="flex justify-between items-start mb-1">
@@ -2600,7 +2904,7 @@ const Hodsons: React.FC = () => {
                                                         <p className="text-[11px] text-slate-400 font-medium">Manage participants, timings and rankings</p>
                                                     </div>
                                                     <button
-                                                        onClick={() => setEditCategory(cat)}
+                                                        onClick={() => openCategoryAccessFlow(cat)}
                                                         className="w-full py-2.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-xl transition-all font-black text-xs uppercase tracking-widest border border-primary/20 shadow-sm"
                                                     >
                                                         Manage Results
@@ -2608,9 +2912,9 @@ const Hodsons: React.FC = () => {
                                                 </div>
                                             ))}
                                         </div>
-                                    </div>
+                                    </>
                                 );
-                            })}
+                            })()}
                         </div>
                     </div>
                 </div>,
@@ -2620,15 +2924,21 @@ const Hodsons: React.FC = () => {
             {/* Modal for Editing Specific Category */}
             {editCategory && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setEditCategory(null)}></div>
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={closeCategoryEditor}></div>
                     <div className="relative w-full max-w-7xl h-[90vh] bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col animate-in fade-in duration-200">
                         <div className="p-6 border-b border-white/10 flex justify-between items-center bg-primary/10">
                             <div>
-                                <button onClick={() => { setEditCategory(null); setFilterHouse('All'); }} className="text-slate-400 hover:text-white text-xs mb-2 flex items-center gap-1 uppercase tracking-wider font-bold">
+                                <button onClick={closeCategoryEditor} className="text-slate-400 hover:text-white text-xs mb-2 flex items-center gap-1 uppercase tracking-wider font-bold">
                                     <Icon name="arrow_back" size="14" /> Back to Categories
                                 </button>
                                 <div className="flex items-center gap-6">
                                     <h2 className="text-2xl font-bold text-white tracking-tight">Record Results: {editCategory}</h2>
+                                    {editorAccessScope && (
+                                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${editorAccessScope === 'All' ? 'border-primary/30 bg-primary/10 text-primary' : 'border-blue-400/30 bg-blue-500/10 text-blue-200'}`}>
+                                            <Icon name={editorAccessScope === 'All' ? 'groups' : 'lock'} size="12" />
+                                            {editorAccessScope === 'All' ? 'Full Houses Access' : `${editorAccessScope} Access`}
+                                        </span>
+                                    )}
                                     {skipQualifyingCategories.includes(editCategory) && (
                                         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-amber-400/30 bg-amber-500/10 text-amber-300 text-[10px] font-black uppercase tracking-widest">
                                             <Icon name="fast_forward" size="12" />
@@ -2640,7 +2950,8 @@ const Hodsons: React.FC = () => {
                                         <select
                                             value={filterHouse}
                                             onChange={(e) => setFilterHouse(e.target.value)}
-                                            className="bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-primary font-bold cursor-pointer transition-colors hover:bg-white/5"
+                                            disabled={editorAccessScope !== 'All'}
+                                            className={`bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-primary font-bold transition-colors ${editorAccessScope !== 'All' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-white/5'}`}
                                         >
                                             <option value="All">All Houses</option>
                                             <option value="Vindhya">Vindhya</option>
@@ -2661,10 +2972,20 @@ const Hodsons: React.FC = () => {
                                     </p>
                                 )}
                                 <div className="flex flex-wrap gap-3 mt-6">
-                                    <button onClick={() => setActivePhase('pre_qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'pre_qualifying' ? 'bg-black/20 text-white border-b-2 border-slate-400' : 'text-slate-500 hover:text-white bg-white/5'}`}>0. Pre-Qualifying List</button>
-                                    <button onClick={() => setActivePhase('qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'qualifying' ? 'bg-black/20 text-white border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>1. Qualifying Stage</button>
+                                    {(editorAccessScope === 'All' || !skipQualifyingCategories.includes(editCategory)) && (
+                                        <button onClick={() => setActivePhase('pre_qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'pre_qualifying' ? 'bg-black/20 text-white border-b-2 border-slate-400' : 'text-slate-500 hover:text-white bg-white/5'}`}>0. Pre-Qualifying List</button>
+                                    )}
+                                    {editorAccessScope === 'All' && (
+                                        <>
+                                            <button onClick={() => setActivePhase('qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'qualifying' ? 'bg-black/20 text-white border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>1. Qualifying Stage</button>
+                                        </>
+                                    )}
                                     <button onClick={() => setActivePhase('pre_finals')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'pre_finals' ? 'bg-black/20 text-white border-b-2 border-blue-400' : 'text-slate-500 hover:text-white bg-white/5'}`}>1.5 Pre-Finals List</button>
-                                    <button onClick={() => setActivePhase('finals')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'finals' ? 'bg-black/20 text-white border-b-2 border-amber-400' : 'text-slate-500 hover:text-white bg-white/5'}`}>2. Finals Stage</button>
+                                    {editorAccessScope === 'All' && (
+                                        <>
+                                            <button onClick={() => setActivePhase('finals')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'finals' ? 'bg-black/20 text-white border-b-2 border-amber-400' : 'text-slate-500 hover:text-white bg-white/5'}`}>2. Finals Stage</button>
+                                        </>
+                                    )}
                                 </div>
 
                                 {(() => {
@@ -2699,20 +3020,22 @@ const Hodsons: React.FC = () => {
                                 })()}
 
                                 <div className="flex flex-wrap items-center gap-3 mt-4">
-                                    {!skipQualifyingCategories.includes(editCategory) ? (
-                                        <button
-                                            onClick={() => handleSkipQualifyingPhase(editCategory)}
-                                            className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-amber-500/20 bg-amber-500/10 border-amber-500/20 text-amber-300"
-                                        >
-                                            <Icon name="fast_forward" size="16" /> Skip Qualifying Phase
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => handleRestoreQualifyingPhase(editCategory)}
-                                            className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-blue-500/20 bg-blue-500/10 border-blue-500/20 text-blue-300"
-                                        >
-                                            <Icon name="restore" size="16" /> Restore Qualifying Phase
-                                        </button>
+                                    {editorAccessScope === 'All' && (
+                                        !skipQualifyingCategories.includes(editCategory) ? (
+                                            <button
+                                                onClick={() => handleSkipQualifyingPhase(editCategory)}
+                                                className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-amber-500/20 bg-amber-500/10 border-amber-500/20 text-amber-300"
+                                            >
+                                                <Icon name="fast_forward" size="16" /> Skip Qualifying Phase
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleRestoreQualifyingPhase(editCategory)}
+                                                className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-blue-500/20 bg-blue-500/10 border-blue-500/20 text-blue-300"
+                                            >
+                                                <Icon name="restore" size="16" /> Restore Qualifying Phase
+                                            </button>
+                                        )
                                     )}
 
                                     <div className="flex items-center gap-2">
@@ -2778,7 +3101,7 @@ const Hodsons: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-3 self-start">
-                                <button onClick={() => { setEditCategory(null); setFilterHouse('All'); }} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10">
+                                <button onClick={closeCategoryEditor} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10">
                                     <Icon name="close" size="24" />
                                 </button>
                                 <div className="flex flex-col gap-2">
