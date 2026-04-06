@@ -1417,7 +1417,7 @@ const Hodsons: React.FC = () => {
                         <Icon name="expand_more" className="text-white text-xl" />
                     </div>
                 </div>
-                <div className="absolute -top-10 text-[80px] font-black text-white/[0.08] uppercase tracking-[20px] pointer-events-none select-none">
+                <div className="absolute -top-10 text-[80px] font-black text-white/[0.12] uppercase tracking-[20px] pointer-events-none select-none">
                     RESULTS
                 </div>
             </div>
