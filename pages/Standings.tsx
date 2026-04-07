@@ -1,5 +1,6 @@
 import React from 'react';
 import { Icon } from '../components/Icon';
+import { useToast } from '../components/ui/ToastProvider';
 import { HOUSE_COLORS } from '../constants';
 import { getEvents } from '../utils/storage';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -44,6 +45,7 @@ const HouseCard = ({ house, place, points, change, isUp, colorConfig }: any) => 
 
 
 const Standings: React.FC = () => {
+  const { showToast } = useToast();
   const [houseStats, setHouseStats] = React.useState<any>({
     Vindhya: { points: 0, change: "No change", isUp: null, form: [] },
     Himalaya: { points: 0, change: "No change", isUp: null, form: [] },
@@ -172,6 +174,10 @@ const Standings: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast({
+      title: 'Report Downloaded',
+      description: 'The annual standings report was exported as a CSV file.'
+    });
   };
 
   return (
@@ -231,22 +237,22 @@ const Standings: React.FC = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-400 min-w-[500px]">
-              <thead className="text-xs uppercase royal-table-head">
+            <table className="royal-data-table min-w-[28rem]">
+              <thead>
                 <tr>
-                  <th className="px-6 py-4 rounded-l-lg font-bold">Pos</th>
-                  <th className="px-6 py-4 font-bold">House</th>
-                  <th className="px-6 py-4 font-bold">Points</th>
-                  <th className="px-6 py-4 font-bold rounded-r-lg">Form (Last 5 Matches)</th>
+                  <th className="rounded-l-xl">Pos</th>
+                  <th>House</th>
+                  <th>Points</th>
+                  <th className="royal-col-secondary rounded-r-xl">Form (Last 5 Matches)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody>
                 {sortedHouses.map(([name, stats]: [string, any], index) => (
                   <tr key={name} className="hover:bg-primary/[0.05] transition-colors">
-                    <td className="px-6 py-4 font-bold text-white text-lg">
+                    <td className="font-bold text-white text-lg">
                       {index + 1}
                     </td>
-                    <td className="px-6 py-4">
+                    <td>
                       <div className="flex items-center gap-3">
                         <div className={`size-8 rounded-full flex items-center justify-center font-bold text-xs ${(HOUSE_COLORS as any)[name.toLowerCase()].bg}/20 ${(HOUSE_COLORS as any)[name.toLowerCase()].text} border ${(HOUSE_COLORS as any)[name.toLowerCase()].border}/30`}>
                           {name[0]}
@@ -254,10 +260,10 @@ const Standings: React.FC = () => {
                         <span className="font-bold text-white text-base">{name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-black text-white text-xl">
+                    <td className="font-black text-white text-xl">
                       {stats.points}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="royal-col-secondary">
                       <div className="flex items-center gap-1.5">
                         {stats.form && stats.form.length > 0 ? stats.form.map((result: string, i: number) => (
                           <span

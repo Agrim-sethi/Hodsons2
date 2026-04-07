@@ -4,157 +4,19 @@ import { Icon } from '../components/Icon';
 import { HOUSE_COLORS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, PieChart, Pie, Legend } from 'recharts';
 import { mockStudents, getHodsonsResults, saveHodsonsResults, HodsonsResult, CATEGORIES_LIST, getSkipQualifyingCategories, saveSkipQualifyingCategories, HodsonsCategory } from '../utils/hodsonsStorage';
+import { ACCESS_OPTIONS, ACCESS_SCOPE_CONFIG, RESULTS_DEPARTMENTS } from '../components/hodsons/config';
+import { PodiumStep, StandingsChart } from '../components/hodsons/shared';
+import { buildDerivedHodsonsData } from '../utils/hodsonsDerived';
+import { CategoryData, DepartmentStandingsData, DerivedHodsonsData, EditorPhase, HouseAccessScope, HouseStandingsDatum, ResultsDepartmentKey, StandingsScopeKey } from '../components/hodsons/types';
+import ModalHeader from '../components/ui/ModalHeader';
+import { useToast } from '../components/ui/ToastProvider';
 import * as XLSX from 'xlsx';
 import { AlignmentType, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
 import studentClasses from '../utils/studentClasses.json';
+
 const houseConfig = (house: string) => {
     const key = house.toLowerCase() as keyof typeof HOUSE_COLORS;
     return HOUSE_COLORS[key] ?? HOUSE_COLORS.nilgiri;
-};
-
-const PodiumStep: React.FC<{ player: any; rank: number }> = ({ player, rank }) => {
-    if (!player) {
-        return (
-            <div className="flex flex-col items-center justify-end z-10 w-full px-1 opacity-50">
-                <div className="text-center mb-2 h-[60px] flex flex-col items-center justify-end">
-                    <span className="text-xs text-slate-500 italic">TBD</span>
-                </div>
-                <div className={`w-full ${rank === 1 ? 'h-32' : rank === 2 ? 'h-24' : 'h-20'} bg-white/5 rounded-t-lg border-t-2 border-white/10 flex items-start justify-center pt-2`}>
-                    <span className="text-xl font-black text-white/30">{rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'}</span>
-                </div>
-            </div>
-        );
-    }
-
-    const config = houseConfig(player.house);
-    const heightMap: Record<number, string> = { 1: 'h-32', 2: 'h-24', 3: 'h-20' };
-    const labelMap: Record<number, string> = { 1: '1st', 2: '2nd', 3: '3rd' };
-    const medalColor: Record<number, string> = { 1: 'text-yellow-400', 2: 'text-slate-300', 3: 'text-amber-600' };
-
-    return (
-        <div className="flex flex-col items-center justify-end z-10 w-full px-1 lg:px-2">
-            <div className="text-center mb-2">
-                <p className="text-xs lg:text-sm font-bold text-white leading-tight mb-1 truncate w-24 mx-auto" title={player.name}>{player.name.split(' ')[0]}</p>
-                <div className={`inline-flex items-center justify-center gap-1 uppercase tracking-wider text-[10px] font-bold px-2 py-0.5 rounded-full ${config.bg}/20 ${config.text} border ${config.border}/30 mb-1`}>
-                    {player.house}
-                </div>
-                {player.timing && (
-                    <div className="text-[10px] lg:text-xs font-mono text-slate-400 mb-1 leading-none">{player.timing}</div>
-                )}
-                <Icon name="emoji_events" className={`text-2xl lg:text-3xl ${medalColor[rank]} block mx-auto`} />
-            </div>
-            <div className={`w-full ${heightMap[rank]} bg-gradient-to-t ${config.gradient} rounded-t-lg border-t-4 ${config.border} flex items-start justify-center pt-2 shadow-lg shadow-black/50 relative overflow-hidden group`}>
-                <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
-                <span className="text-2xl font-black text-white/90 drop-shadow-md relative z-10">{labelMap[rank]}</span>
-            </div>
-        </div>
-    );
-};
-
-
-const StandingsChart: React.FC<{ title: string; subtitle: string; data: any[]; icon: string; onClick?: () => void }> = ({ title, subtitle, data, icon, onClick }) => (
-    <div
-        className={`glass-panel w-full rounded-2xl p-6 lg:p-8 mb-6 border border-white/5 relative overflow-hidden h-[400px] flex flex-col ${onClick ? 'cursor-pointer hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all group' : ''}`}
-        onClick={onClick}
-    >
-        <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
-            <Icon name="bar_chart" className="text-[150px] text-white" />
-        </div>
-
-        <div className="flex items-center gap-3 mb-6 relative z-10">
-            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                <Icon name={icon} size="24" />
-            </div>
-            <div>
-                <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors">{title}</h3>
-                <p className="text-xs text-slate-400">{subtitle}</p>
-            </div>
-            {onClick && (
-                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] uppercase font-bold text-slate-400">View Stats</span>
-                </div>
-            )}
-        </div>
-
-        <div className="flex-1 w-full relative z-10">
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data} margin={{ top: 0, right: 30, left: 0, bottom: 0 }} layout="vertical">
-                    <defs>
-                        {data.map((entry, idx) => (
-                            <linearGradient key={`grad-${idx}`} id={`grad_${title.replace(/\s+/g, '')}_${entry.name}`} x1="0" y1="0" x2="1" y2="0">
-                                <stop offset="0%" stopColor={entry.color} stopOpacity={0.6} />
-                                <stop offset="100%" stopColor={entry.color} stopOpacity={1} />
-                            </linearGradient>
-                        ))}
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={true} vertical={false} />
-                    <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                    <YAxis dataKey="name" type="category" tick={{ fill: '#fff', fontSize: 14, fontWeight: 'bold' }} axisLine={false} tickLine={false} width={100} />
-                    <Tooltip
-                        cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                        contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }}
-                        itemStyle={{ color: '#fff', fontWeight: 'bold' }}
-                        formatter={(value: number) => [`${value} pts`, 'Points']}
-                    />
-                    <ReferenceLine x={0} stroke="rgba(255,255,255,0.2)" />
-                    <Bar dataKey="points" radius={[0, 8, 8, 0]} barSize={28} animationDuration={1000}>
-                        {data.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={`url(#grad_${title.replace(/\s+/g, '')}_${entry.name})`} />
-                        ))}
-                    </Bar>
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-    </div>
-);
-
-const RESULTS_DEPARTMENTS = [
-    {
-        key: 'BD',
-        label: "Boys' Department",
-        shortLabel: 'BD',
-        icon: 'male',
-        accent: 'text-[#d7bf86]',
-        chip: 'border-primary/20 bg-primary/10',
-        buttonActive: 'border-primary/30 bg-[linear-gradient(135deg,rgba(201,163,74,0.16),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-primary/10',
-        buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-primary/20 hover:text-white hover:bg-primary/[0.05]'
-    },
-    {
-        key: 'GD',
-        label: "Girls' Department",
-        shortLabel: 'GD',
-        icon: 'female',
-        accent: 'text-[#f0d8a1]',
-        chip: 'border-[#e2c98d]/20 bg-[#e2c98d]/10',
-        buttonActive: 'border-[#e2c98d]/30 bg-[linear-gradient(135deg,rgba(226,201,141,0.16),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-[#e2c98d]/10',
-        buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-[#e2c98d]/20 hover:text-white hover:bg-[#e2c98d]/[0.05]'
-    },
-    {
-        key: 'PD',
-        label: 'Prep Department',
-        shortLabel: 'PD',
-        icon: 'child_care',
-        accent: 'text-[#eed59a]',
-        chip: 'border-amber-400/20 bg-amber-500/10',
-        buttonActive: 'border-amber-400/30 bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-amber-500/10',
-        buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-amber-400/20 hover:text-white hover:bg-amber-500/[0.05]'
-    }
-] as const;
-
-const ACCESS_OPTIONS = [
-    { key: 'Vindhya', label: 'Vindhya List', icon: 'terrain' },
-    { key: 'Siwalik', label: 'Siwalik List', icon: 'landscape' },
-    { key: 'Nilgiri', label: 'Nilgiri List', icon: 'filter_hdr' },
-    { key: 'Himalaya', label: 'Himalaya List', icon: 'ac_unit' },
-    { key: 'All', label: 'Full Houses', icon: 'groups' }
-] as const;
-
-const ACCESS_PASSCODES: Record<string, string> = {
-    Vindhya: '1010',
-    Siwalik: '2121',
-    Nilgiri: '3232',
-    Himalaya: '4343',
-    All: '5454'
 };
 
 const chartGridStroke = 'rgba(201,163,74,0.12)';
@@ -171,26 +33,27 @@ const chartTooltipStyle = {
 };
 
 const Hodsons: React.FC = () => {
+    const { showToast } = useToast();
     const [results, setResults] = useState<HodsonsResult[]>([]);
     const [showModal, setShowModal] = useState(false);
     const [editCategory, setEditCategory] = useState<HodsonsCategory | null>(null);
-    const [selectedCategoryStats, setSelectedCategoryStats] = useState<any>(null);
-    const [selectedStandingsStats, setSelectedStandingsStats] = useState<any>(null);
-    const [filterHouse, setFilterHouse] = useState<string>('All');
-    const [activePhase, setActivePhase] = useState<'pre_qualifying' | 'qualifying' | 'pre_finals' | 'finals'>('pre_qualifying');
+    const [selectedCategoryStats, setSelectedCategoryStats] = useState<CategoryData | null>(null);
+    const [selectedStandingsStats, setSelectedStandingsStats] = useState<DepartmentStandingsData | null>(null);
+    const [filterHouse, setFilterHouse] = useState<HouseAccessScope>('All');
+    const [activePhase, setActivePhase] = useState<EditorPhase>('pre_qualifying');
     const [listSortField, setListSortField] = useState<'id' | 'house' | 'name' | 'status'>('id');
     const [listSortOrder, setListSortOrder] = useState<'asc' | 'desc'>('asc');
-    const [selectedResultsDept, setSelectedResultsDept] = useState<'BD' | 'GD' | 'PD'>('BD');
-    const [selectedAddResultsDept, setSelectedAddResultsDept] = useState<'BD' | 'GD' | 'PD'>('BD');
+    const [selectedResultsDept, setSelectedResultsDept] = useState<ResultsDepartmentKey>('BD');
+    const [selectedAddResultsDept, setSelectedAddResultsDept] = useState<ResultsDepartmentKey>('BD');
     const [showAllResultsModal, setShowAllResultsModal] = useState(false);
 
     // Derived State
-    const [standings, setStandings] = useState<any[]>([]);
-    const [bdStandings, setBdStandings] = useState<any[]>([]);
-    const [gdStandings, setGdStandings] = useState<any[]>([]);
-    const [pdStandings, setPdStandings] = useState<any[]>([]);
-    const [categoriesData, setCategoriesData] = useState<any[]>([]);
-    const [standingsDetailsMap, setStandingsDetailsMap] = useState<any>({});
+    const [standings, setStandings] = useState<HouseStandingsDatum[]>([]);
+    const [bdStandings, setBdStandings] = useState<HouseStandingsDatum[]>([]);
+    const [gdStandings, setGdStandings] = useState<HouseStandingsDatum[]>([]);
+    const [pdStandings, setPdStandings] = useState<HouseStandingsDatum[]>([]);
+    const [categoriesData, setCategoriesData] = useState<CategoryData[]>([]);
+    const [standingsDetailsMap, setStandingsDetailsMap] = useState<Record<StandingsScopeKey, DepartmentStandingsData>>({} as Record<StandingsScopeKey, DepartmentStandingsData>);
     const [skipQualifyingCategories, setSkipQualifyingCategories] = useState<HodsonsCategory[]>([]);
 
     const [categoryModalTab, setCategoryModalTab] = useState<'qualifying' | 'finals' | 'list'>('qualifying');
@@ -201,8 +64,8 @@ const Hodsons: React.FC = () => {
     const [showAccessScopeModal, setShowAccessScopeModal] = useState(false);
     const [showPasscodeModal, setShowPasscodeModal] = useState(false);
     const [pendingCategoryAccess, setPendingCategoryAccess] = useState<HodsonsCategory | null>(null);
-    const [selectedAccessScope, setSelectedAccessScope] = useState<'All' | 'Vindhya' | 'Himalaya' | 'Nilgiri' | 'Siwalik' | null>(null);
-    const [editorAccessScope, setEditorAccessScope] = useState<'All' | 'Vindhya' | 'Himalaya' | 'Nilgiri' | 'Siwalik' | null>(null);
+    const [selectedAccessScope, setSelectedAccessScope] = useState<HouseAccessScope | null>(null);
+    const [editorAccessScope, setEditorAccessScope] = useState<HouseAccessScope | null>(null);
     const [passcodeInput, setPasscodeInput] = useState('');
     const [passcodeError, setPasscodeError] = useState(false);
 
@@ -215,6 +78,7 @@ const Hodsons: React.FC = () => {
         if (!editorAccessScope || editorAccessScope === 'All' || !editCategory) return;
 
         const skipsQualifying = skipQualifyingCategories.includes(editCategory);
+        const allowedPhases = ACCESS_SCOPE_CONFIG[editorAccessScope].allowedPhases;
 
         if (skipsQualifying) {
             if (activePhase !== 'pre_finals') {
@@ -223,14 +87,14 @@ const Hodsons: React.FC = () => {
             return;
         }
 
-        if (!['pre_qualifying', 'pre_finals'].includes(activePhase)) {
-            setActivePhase('pre_qualifying');
+        if (!allowedPhases.includes(activePhase)) {
+            setActivePhase(allowedPhases[0]);
         }
     }, [activePhase, editorAccessScope, editCategory, skipQualifyingCategories]);
 
     const handlePasscodeSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (selectedAccessScope && passcodeInput === ACCESS_PASSCODES[selectedAccessScope]) {
+        if (selectedAccessScope && passcodeInput === ACCESS_SCOPE_CONFIG[selectedAccessScope].passcode) {
             const unlockedCategory = pendingCategoryAccess;
             const houseAccessOnSkippedCategory = selectedAccessScope !== 'All' && unlockedCategory && skipQualifyingCategories.includes(unlockedCategory);
             setShowPasscodeModal(false);
@@ -322,312 +186,17 @@ const Hodsons: React.FC = () => {
 
             return migrated;
         });
+
+        const derivedData: DerivedHodsonsData = buildDerivedHodsonsData(storedResults, skippedCategories);
+
         setResults(storedResults);
         setSkipQualifyingCategories(skippedCategories);
-
-        const housePoints = { Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
-        const bdPoints = { Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
-        const gdPoints = { Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
-        const pdPoints = { Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
-
-        const catsMap: any = {};
-        CATEGORIES_LIST.forEach(c => {
-            catsMap[c] = {
-                name: c,
-                top3: [null, null, null],
-                stats: { qualified: 0, participants: 0, total: 0, dnfCount: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, totalPoints: 0, qualifyingPoints: 0, finalsPoints: 0 },
-                houseStats: {
-                    Vindhya: { total: 0, partQual: 0, qual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 },
-                    Himalaya: { total: 0, partQual: 0, qual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 },
-                    Nilgiri: { total: 0, partQual: 0, qual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 },
-                    Siwalik: { total: 0, partQual: 0, qual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 }
-                },
-                bestTiming: null
-            };
-        });
-
-        const deptDataMap: any = { Overall: {}, BD: {}, GD: {}, PD: {} };
-        Object.keys(deptDataMap).forEach(k => {
-            deptDataMap[k] = {
-                title: k === 'Overall' ? "Overall House Standings" : `${k} Department Standings`,
-                stats: { qualified: 0, participants: 0, total: 0, onLeave: 0, absent: 0, medExcused: 0, dnfCount: 0, finishedCount: 0 },
-                houseStats: {
-                    Vindhya: { total: 0, part: 0, qual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 },
-                    Himalaya: { total: 0, part: 0, qual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 },
-                    Nilgiri: { total: 0, part: 0, qual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 },
-                    Siwalik: { total: 0, part: 0, qual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 }
-                },
-                categoryPointsMap: {}
-            };
-        });
-
-        const updateDeptStats = (deptKey: string, stu: any, res: any, pts: number = 0) => {
-            const d = deptDataMap[deptKey];
-            d.stats.total += 1;
-            d.houseStats[stu.house].total += 1;
-            if (!d.categoryPointsMap[stu.category]) {
-                d.categoryPointsMap[stu.category] = { name: stu.category, Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
-            }
-
-            // Participation
-            if (['qualified', 'finished', 'dnf', 'late'].includes(res.qualifyingType as string)) {
-                d.stats.participants += 1;
-                d.houseStats[stu.house].part += 1;
-            }
-
-            // Qualification
-            if (res.qualifyingType === 'qualified') {
-                d.stats.qualified += 1;
-                d.houseStats[stu.house].qual += 1;
-            }
-
-            if (res.qualifyingType === 'finished') {
-                d.stats.finishedCount += 1;
-                d.houseStats[stu.house].finished += 1;
-            }
-            if (res.finalsType === 'finisher') {
-                d.stats.finishedCount += 1;
-                d.houseStats[stu.house].finished += 1;
-            }
-            if (res.qualifyingType === 'dnf' || (res.qualifyingType as string) === 'late') {
-                d.stats.dnfCount += 1;
-                d.houseStats[stu.house].dnf += 1;
-            }
-            if (res.finalsType === 'dnf') {
-                d.stats.dnfCount += 1;
-                d.houseStats[stu.house].dnf += 1;
-            }
-
-            // Miscellaneous Statuses
-            if (res.qualifyingType === 'absent' || res.finalsType === 'absent') {
-                d.stats.absent += 1;
-                d.houseStats[stu.house].absent += 1;
-            }
-            if (res.qualifyingType === 'medically_excused' || res.finalsType === 'medically_excused') {
-                d.stats.medExcused += 1;
-                d.houseStats[stu.house].medExcused += 1;
-            }
-            if (res.preQualifyingType === 'medically_excused') {
-                d.stats.medExcused += 1;
-                d.houseStats[stu.house].medExcused += 1;
-            }
-            if (res.preFinalsType === 'medically_excused') {
-                d.stats.medExcused += 1;
-                d.houseStats[stu.house].medExcused += 1;
-            }
-            if (res.preQualifyingType === 'on_leave' || res.preFinalsType === 'on_leave') {
-                d.stats.onLeave += 1;
-                d.houseStats[stu.house].onLeave += 1;
-            }
-
-            d.categoryPointsMap[stu.category][stu.house] += pts;
-            d.houseStats[stu.house].points += pts;
-        };
-
-        // Loop through all students
-        mockStudents.forEach(stu => {
-            const res = storedResults.find(r => r.studentId === stu.id) || { studentId: stu.id, qualifyingType: 'pending', finalsType: 'pending' };
-            if (!catsMap[stu.category]) return;
-
-            const cat = catsMap[stu.category];
-            const house = cat.houseStats[stu.house];
-            const skipsQualifying = skippedCategories.includes(stu.category);
-
-            cat.stats.total += 1;
-            house.total += 1;
-
-            let ptsRecord = 0;
-            let qPts = 0;
-            let fPts = 0;
-
-            // Qualifying Phase
-            if (res.qualifyingType !== 'pending') {
-                if (res.qualifyingType === 'absent') {
-                    house.absentQual += 1;
-                    ptsRecord -= 1;
-                } else if (res.qualifyingType === 'medically_excused') {
-                    house.medExcused += 1;
-                } else if (res.preQualifyingType === 'on_leave') {
-                    house.onLeaveQual += 1;
-                } else {
-                    house.partQual += 1;
-                    if (res.qualifyingType === 'dnf' || (res.qualifyingType as string) === 'late') {
-                        house.dnfQual += 1;
-                        ptsRecord -= 1;
-                        cat.stats.dnfCount += 1;
-                    }
-                    if (res.qualifyingType === 'finished') {
-                        house.finishedQual += 1;
-                        ptsRecord += 1;
-                    }
-                    if (res.qualifyingType === 'qualified') house.qual += 1;
-                }
-
-                if (res.qualifyingTiming) {
-                    if (!cat.bestTiming || res.qualifyingTiming < cat.bestTiming.timing) {
-                        cat.bestTiming = { name: stu.name, timing: res.qualifyingTiming, house: stu.house };
-                    }
-                }
-
-                house.qualifyingPoints += ptsRecord;
-                cat.stats.qualifyingPoints += ptsRecord;
-                qPts = ptsRecord;
-            }
-
-            // Finals Phase
-            const progressed = skipsQualifying || res.qualifyingType === 'qualified';
-
-            if (progressed) {
-                if (res.finalsType === 'qualified_pos') {
-                    cat.stats.qualified += 1;
-                    cat.stats.participants += 1;
-                    house.partFinals += 1;
-                    house.qualFinals += 1;
-
-                    let pts = 5;
-                    const pos = res.finalsPosition || 0;
-                    if (pos >= 1 && pos <= 10) pts += (11 - pos);
-
-                    ptsRecord += pts;
-
-                    if (pos === 1) cat.top3[0] = { ...stu, position: 1, timing: res.finalsTiming, class: (studentClasses as any)[stu.id] || '—' };
-                    if (pos === 2) cat.top3[1] = { ...stu, position: 2, timing: res.finalsTiming, class: (studentClasses as any)[stu.id] || '—' };
-                    if (pos === 3) cat.top3[2] = { ...stu, position: 3, timing: res.finalsTiming, class: (studentClasses as any)[stu.id] || '—' };
-
-                    if (res.finalsTiming) {
-                        if (!cat.bestTiming || res.finalsTiming < cat.bestTiming.timing) {
-                            cat.bestTiming = { name: stu.name, timing: res.finalsTiming, house: stu.house };
-                        }
-                    }
-                } else if (res.finalsType === 'finisher') {
-                    cat.stats.participants += 1;
-                    house.partFinals += 1;
-                    house.finishedFinals += 1;
-
-                    ptsRecord += 1;
-
-                    if (res.finalsTiming) {
-                        if (!cat.bestTiming || res.finalsTiming < cat.bestTiming.timing) {
-                            cat.bestTiming = { name: stu.name, timing: res.finalsTiming, house: stu.house };
-                        }
-                    }
-                } else if (res.finalsType === 'absent') {
-                    house.absentFinals += 1;
-                    ptsRecord -= 1;
-                } else if (res.finalsType === 'dnf') {
-                    house.dnfFinals += 1;
-                    ptsRecord -= 1;
-                } else if (res.finalsType === 'medically_excused') {
-                    house.medExcusedFinals += 1;
-                } else if (res.preFinalsType === 'on_leave') {
-                    house.onLeaveFinals += 1;
-                }
-
-                const stageFPts = ptsRecord - qPts;
-                house.finalsPoints += stageFPts;
-                cat.stats.finalsPoints += stageFPts;
-                fPts = stageFPts;
-            }
-
-            // Preliminary Status Tracking
-            if (res.preQualifyingType === 'medically_excused') { cat.stats.preQualMedExcused += 1; house.preQualMedExcused += 1; }
-            if (res.preQualifyingType === 'on_leave') { cat.stats.preQualOnLeave += 1; house.preQualOnLeave += 1; }
-            if (res.preFinalsType === 'medically_excused') { cat.stats.preFinalsMedExcused += 1; house.preFinalsMedExcused += 1; }
-            if (res.preFinalsType === 'on_leave') { cat.stats.preFinalsOnLeave += 1; house.preFinalsOnLeave += 1; }
-
-            cat.stats.totalPoints += ptsRecord;
-            house.points += ptsRecord;
-
-            if (ptsRecord !== 0) {
-                housePoints[stu.house] += ptsRecord;
-                if (stu.category.startsWith('BD')) bdPoints[stu.house] += ptsRecord;
-                else if (stu.category.startsWith('GD')) gdPoints[stu.house] += ptsRecord;
-                else if (stu.category.startsWith('PD')) pdPoints[stu.house] += ptsRecord;
-            }
-
-            updateDeptStats('Overall', stu, res, ptsRecord);
-            if (stu.category.startsWith('BD')) updateDeptStats('BD', stu, res, ptsRecord);
-            else if (stu.category.startsWith('GD')) updateDeptStats('GD', stu, res, ptsRecord);
-            else if (stu.category.startsWith('PD')) updateDeptStats('PD', stu, res, ptsRecord);
-        });
-
-        Object.keys(deptDataMap).forEach(k => {
-            deptDataMap[k].breakdown = Object.values(deptDataMap[k].categoryPointsMap);
-            deptDataMap[k].stats.qualificationRate = deptDataMap[k].stats.total > 0 ? Math.round((deptDataMap[k].stats.qualified / deptDataMap[k].stats.total) * 100) + '%' : '0%';
-        });
-        setStandingsDetailsMap(deptDataMap);
-
-        const createStandingsData = (pts: any) => [
-            { name: 'Vindhya', points: pts.Vindhya, color: HOUSE_COLORS.vindhya.hex },
-            { name: 'Himalaya', points: pts.Himalaya, color: HOUSE_COLORS.himalaya.hex },
-            { name: 'Nilgiri', points: pts.Nilgiri, color: HOUSE_COLORS.nilgiri.hex },
-            { name: 'Siwalik', points: pts.Siwalik, color: HOUSE_COLORS.siwalik.hex }
-        ].sort((a, b) => b.points - a.points);
-
-        setStandings(createStandingsData(housePoints));
-        setBdStandings(createStandingsData(bdPoints));
-        setGdStandings(createStandingsData(gdPoints));
-        setPdStandings(createStandingsData(pdPoints));
-
-        const newCatsData = CATEGORIES_LIST.map(c => {
-            const d = catsMap[c];
-            const qualRate = d.stats.total > 0 ? Math.round((d.stats.qualified / d.stats.total) * 100) : 0;
-
-            let totalPoints = 0;
-            let totalAbsent = 0;
-            let totalMedExcused = 0;
-            let totalOnLeave = 0;
-            let totalParticipation = 0;
-            let totalPreQualOk = 0;
-            let totalPreFinalsOk = 0;
-            Object.values(d.houseStats).forEach((h: any) => {
-                totalPoints += h.points;
-                totalParticipation += h.partQual;
-                totalAbsent += (h.absentQual + h.absentFinals);
-                totalMedExcused += (h.medExcused + h.medExcusedFinals + h.preQualMedExcused + h.preFinalsMedExcused);
-                totalOnLeave += (h.onLeaveQual + h.onLeaveFinals + h.preQualOnLeave + h.preFinalsOnLeave);
-            });
-
-            // Calculate Pre-Phase transition counts
-            mockStudents.filter(s => s.category === c).forEach(stu => {
-                const r = storedResults.find(res => res.studentId === stu.id);
-                if (r?.preQualifyingType === 'participating') totalPreQualOk += 1;
-                if (skippedCategories.includes(c) || r?.preFinalsType === 'participating') totalPreFinalsOk += 1;
-            });
-
-            return {
-                name: c,
-                top3: [
-                    d.top3[0] ? { ...d.top3[0], rank: 1 } : null,
-                    d.top3[1] ? { ...d.top3[1], rank: 2 } : null,
-                    d.top3[2] ? { ...d.top3[2], rank: 3 } : null
-                ],
-                stats: {
-                    qualificationRate: `${qualRate}%`,
-                    totalParticipation,
-                    qualifiedCount: d.stats.qualified,
-                    totalCount: d.stats.total,
-                    dnfCount: d.stats.dnfCount,
-                    preQualOk: totalPreQualOk,
-                    preFinalsOk: totalPreFinalsOk,
-                    preQualMedExcused: d.stats.preQualMedExcused,
-                    preQualOnLeave: d.stats.preQualOnLeave,
-                    preFinalsMedExcused: d.stats.preFinalsMedExcused,
-                    preFinalsOnLeave: d.stats.preFinalsOnLeave,
-                    totalPoints: d.stats.totalPoints,
-                    totalAbsent,
-                    totalMedExcused,
-                    totalOnLeave,
-                    skipsQualifying: skippedCategories.includes(c),
-                    houseStats: d.houseStats
-                },
-                houseStats: d.houseStats,
-                bestTiming: d.bestTiming,
-                skipsQualifying: skippedCategories.includes(c)
-            };
-        });
-
-        setCategoriesData(newCatsData);
+        setStandings(derivedData.standings);
+        setBdStandings(derivedData.bdStandings);
+        setGdStandings(derivedData.gdStandings);
+        setPdStandings(derivedData.pdStandings);
+        setCategoriesData(derivedData.categoriesData);
+        setStandingsDetailsMap(derivedData.standingsDetailsMap);
     };
 
     const handleSaveResult = (cat: string) => {
@@ -711,6 +280,10 @@ const Hodsons: React.FC = () => {
         saveHodsonsResults(results);
         loadData();
         setEditCategory(null);
+        showToast({
+            title: 'Results Saved',
+            description: `${cat} has been saved and rankings have been refreshed.`
+        });
     };
 
     const handleClearCategoryResults = (cat: string) => {
@@ -733,6 +306,10 @@ const Hodsons: React.FC = () => {
             // Immediately reload data so podium and standings update in backend state
             // even if the user hasn't clicked "Save Results".
             loadData();
+            showToast({
+                title: 'Category Cleared',
+                description: `${cat} was reset back to a clean results state.`
+            });
         }
     };
 
@@ -775,6 +352,10 @@ const Hodsons: React.FC = () => {
         saveSkipQualifyingCategories(nextSkippedCategories);
         setActivePhase('finals');
         loadData();
+        showToast({
+            title: 'Qualifying Skipped',
+            description: `${cat} now routes the full enrolled list into pre-finals/finals mode.`
+        });
     };
 
     const handleRestoreQualifyingPhase = (cat: HodsonsCategory) => {
@@ -806,6 +387,10 @@ const Hodsons: React.FC = () => {
         saveSkipQualifyingCategories(nextSkippedCategories);
         setActivePhase('qualifying');
         loadData();
+        showToast({
+            title: 'Qualifying Restored',
+            description: `${cat} is back on the standard qualifying flow.`
+        });
     };
 
     const handleResultChange = (
@@ -927,6 +512,10 @@ const Hodsons: React.FC = () => {
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
+        showToast({
+            title: 'Download Ready',
+            description: filename
+        });
     };
 
     const downloadAllResultsDocx = async () => {
@@ -1593,42 +1182,33 @@ const Hodsons: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSelectedCategoryStats(null)}></div>
                     <div className="relative w-full max-w-6xl bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
-                        {/* Modal Header */}
-                        <div className="p-6 border-b border-white/10 flex flex-col bg-gradient-to-r from-primary/10 to-transparent">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">HODSON RUN 2026</span>
-                                        <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-                                        <span className="text-slate-400 text-xs">{selectedCategoryStats.name}</span>
+                        <div className="bg-gradient-to-r from-primary/10 to-transparent">
+                            <ModalHeader
+                                kicker={`Hodson Run 2026 • ${selectedCategoryStats.name}`}
+                                icon="analytics"
+                                title={`${selectedCategoryStats.name} Insights`}
+                                subtitle="Review qualifying trends, finals outcomes, and the full competitor ledger from one polished overview."
+                                onClose={() => setSelectedCategoryStats(null)}
+                                actions={categoryModalTab === 'list' ? (
+                                    <div className="hidden sm:flex items-center gap-2 animate-in fade-in zoom-in-95 bg-white/5 p-1 rounded-2xl border border-white/10">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3">Export</span>
+                                        <button
+                                            onClick={() => downloadCategoryCompetitorsXlsx(selectedCategoryStats.name)}
+                                            disabled={isDownloading}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+                                        >
+                                            <Icon name="table_chart" size="16" /> .xlsx
+                                        </button>
+                                        <button
+                                            onClick={() => downloadCategoryCompetitorsDocx(selectedCategoryStats.name)}
+                                            disabled={isDownloading}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50 border border-primary/20"
+                                        >
+                                            <Icon name="description" size="16" /> .docx
+                                        </button>
                                     </div>
-                                    <h3 className="text-white text-3xl font-black">{selectedCategoryStats.name} Insights</h3>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    {categoryModalTab === 'list' && (
-                                        <div className="hidden sm:flex items-center gap-2 animate-in fade-in zoom-in-95 bg-white/5 p-1 rounded-2xl border border-white/10">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3">Export:</span>
-                                            <button
-                                                onClick={() => downloadCategoryCompetitorsXlsx(selectedCategoryStats.name)}
-                                                disabled={isDownloading}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
-                                            >
-                                                <Icon name="table_chart" size="16" /> .xlsx
-                                            </button>
-                                            <button
-                                                onClick={() => downloadCategoryCompetitorsDocx(selectedCategoryStats.name)}
-                                                disabled={isDownloading}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50 border border-primary/20"
-                                            >
-                                                <Icon name="description" size="16" /> .docx
-                                            </button>
-                                        </div>
-                                    )}
-                                    <button onClick={() => setSelectedCategoryStats(null)} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10 self-start mt-1">
-                                        <Icon name="close" size="24" />
-                                    </button>
-                                </div>
-                            </div>
+                                ) : null}
+                            />
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div className="flex flex-wrap gap-2">
                                     <button onClick={() => setCategoryModalTab('qualifying')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'qualifying' ? 'bg-primary text-[#091423] shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
@@ -2219,22 +1799,22 @@ const Hodsons: React.FC = () => {
 
                                         return (
                                             <div className="glass-panel overflow-hidden border border-primary/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(201,163,74,0.02))] rounded-[28px] shadow-[0_20px_44px_rgba(0,0,0,0.26)]">
-                                                <table className="w-full text-left text-sm text-slate-300">
-                                                    <thead className="bg-[linear-gradient(180deg,rgba(201,163,74,0.12),rgba(255,255,255,0.03))] text-[10px] uppercase font-black text-[#e2c989] tracking-widest">
+                                                <table className="royal-data-table min-w-[44rem]">
+                                                    <thead>
                                                         <tr>
-                                                            <th className="px-6 py-5 text-[10px] font-black text-[#d8be80] uppercase tracking-widest">SN</th>
-                                                            <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'id' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('id'); }}>
+                                                            <th>SN</th>
+                                                            <th className="cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'id' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('id'); }}>
                                                                 <div className="flex items-center gap-1">Computer No {listSortField === 'id' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                                             </th>
-                                                            <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'name' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('name'); }}>
+                                                            <th className="cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'name' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('name'); }}>
                                                                 <div className="flex items-center gap-1">Athlete Name {listSortField === 'name' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                                             </th>
-                                                            <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
+                                                            <th className="royal-col-secondary cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
                                                                 <div className="flex items-center gap-1">House {listSortField === 'house' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                                             </th>
-                                                            <th className="px-6 py-5 text-center">Qualifying</th>
-                                                            <th className="px-6 py-5 text-center">Finals</th>
-                                                            <th className="px-6 py-5 text-right cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'performance' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('performance'); }}>
+                                                            <th>Qualifying</th>
+                                                            <th className="royal-col-optional">Finals</th>
+                                                            <th className="text-right cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'performance' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('performance'); }}>
                                                                 <div className="flex items-center justify-end gap-1">Result {listSortField === 'performance' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                                             </th>
                                                         </tr>
@@ -2287,15 +1867,15 @@ const Hodsons: React.FC = () => {
                                                                 const hInfo = houseConfig(stu.house);
                                                                 return (
                                                                     <tr key={stu.id} className="hover:bg-primary/[0.05] transition-colors group">
-                                                                        <td className="px-6 py-4 font-mono text-xs text-slate-500">{idx + 1}</td>
-                                                                        <td className="px-6 py-4 font-mono text-xs text-[#d4d9e2]">{stu.id}</td>
-                                                                        <td className="px-6 py-4 font-bold text-[#f8f1de] text-base">{stu.name}</td>
-                                                                        <td className="px-6 py-4">
+                                                                        <td className="font-mono text-xs text-slate-500">{idx + 1}</td>
+                                                                        <td className="font-mono text-xs text-[#d4d9e2]">{stu.id}</td>
+                                                                        <td className="font-bold text-[#f8f1de] text-base">{stu.name}</td>
+                                                                        <td className="royal-col-secondary">
                                                                             <span className={`inline-flex items-center gap-1.5 font-black ${hInfo.text} text-[10px] uppercase border ${hInfo.border}/20 px-2 py-0.5 rounded bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]`}>
                                                                                 {stu.house}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="px-6 py-4">
+                                                                        <td>
                                                                             <div className="flex flex-col">
                                                                                 <span className={`text-[10px] font-bold uppercase tracking-widest ${r.qualifyingType === 'qualified' ? 'text-primary' : 'text-slate-500'}`}>
                                                                                     {r.qualifyingType.replace('_', ' ')}
@@ -2307,7 +1887,7 @@ const Hodsons: React.FC = () => {
                                                                                 {liveQualifyingPosition && <span className="text-[9px] font-black text-[#d8be80]">Rank: #{liveQualifyingPosition}</span>}
                                                                             </div>
                                                                         </td>
-                                                                        <td className="px-6 py-4">
+                                                                        <td className="royal-col-optional">
                                                                             <div className="flex flex-col">
                                                                                 <span className={`text-[10px] font-bold uppercase tracking-widest ${r.finalsType === 'qualified_pos' || r.finalsType === 'finisher' ? 'text-amber-400' : 'text-slate-500'}`}>
                                                                                     {r.finalsType.replace('_', ' ')}
@@ -2319,7 +1899,7 @@ const Hodsons: React.FC = () => {
                                                                                 {liveFinalsPosition && <span className="text-[9px] font-black text-[#d8be80]">Rank: #{liveFinalsPosition}</span>}
                                                                             </div>
                                                                         </td>
-                                                                        <td className="px-6 py-4 text-right">
+                                                                        <td className="text-right">
                                                                             {liveFinalsPosition && <span className="font-black text-primary text-lg mr-2 italic">#{liveFinalsPosition}</span>}
                                                                             {r.finalsTiming && <span className="text-slate-400 font-mono text-xs">[{r.finalsTiming}]</span>}
                                                                             {!liveFinalsPosition && !r.finalsTiming && <span className="text-slate-600">—</span>}
@@ -2514,8 +2094,8 @@ const Hodsons: React.FC = () => {
                                         </h5>
                                         <ul className="text-[11px] text-slate-400 space-y-2.5">
                                             <li className="flex justify-between items-center bg-white/[0.03] p-2 rounded border border-white/5">
-                                                <span title="Base 5 + (11 - position) if pos 1-10">Podium / Top 10</span>
-                                                <span className="text-amber-400 font-bold">5 Base + Bonus</span>
+                                                <span title="1st gets 20, 2nd gets 19, continuing down to 15th = 6, after which everyone gets 5">Position Score</span>
+                                                <span className="text-amber-400 font-bold">5 Base + 15..1</span>
                                             </li>
                                             <li className="flex justify-between items-center bg-white/[0.03] p-2 rounded border border-white/5">
                                                 <span>Finisher</span>
@@ -2597,6 +2177,7 @@ const Hodsons: React.FC = () => {
                                                 name: h,
                                                 Participated: hs[h].part,
                                                 Qualified: hs[h].qual,
+                                                Finished: hs[h].finished,
                                                 DNF: hs[h].dnf,
                                                 Absent: hs[h].absent,
                                                 'Med. Excused': hs[h].medExcused,
@@ -2611,6 +2192,7 @@ const Hodsons: React.FC = () => {
                                                         <Tooltip cursor={{ fill: 'rgba(201,163,74,0.06)' }} contentStyle={chartTooltipStyle} itemStyle={{ color: '#fff7e4', fontWeight: 'bold', fontSize: '12px' }} />
                                                         <Bar dataKey="Participated" fill="#3a7f5d" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Qualified" fill="#c9a34a" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
+                                                        <Bar dataKey="Finished" fill="#ecd8a6" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="DNF" fill="#9c7a47" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Absent" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Med. Excused" fill="#8f9aae" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
@@ -2705,20 +2287,18 @@ const Hodsons: React.FC = () => {
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={resetAccessFlow}></div>
                     <div className="relative w-full max-w-3xl bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200 section-plaque">
-                        <div className="flex items-start justify-between gap-4 mb-6">
-                            <div>
-                                <div className="royal-kicker mb-2">Access Scope</div>
-                                <h2 className="text-2xl font-black text-white">Choose List Access</h2>
-                                <p className="text-sm text-slate-400 mt-1">Select which list you want to open for <span className="text-white font-bold">{pendingCategoryAccess}</span>.</p>
-                            </div>
-                            <button onClick={resetAccessFlow} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10">
-                                <Icon name="close" size="24" />
-                            </button>
-                        </div>
+                        <ModalHeader
+                            compact
+                            kicker="Access Scope"
+                            icon="lock"
+                            title="Choose List Access"
+                            subtitle={`Select which list you want to open for ${pendingCategoryAccess}.`}
+                            onClose={resetAccessFlow}
+                        />
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {ACCESS_OPTIONS.map(option => {
-                                const isFullAccess = option.key === 'All';
+                                const isFullAccess = option.scopeType === 'all';
                                 const houseStyle = !isFullAccess ? houseConfig(option.key) : null;
 
                                 return (
@@ -2731,14 +2311,12 @@ const Hodsons: React.FC = () => {
                                             setPasscodeInput('');
                                             setPasscodeError(false);
                                         }}
-                                        className={`glass-panel rounded-2xl border bg-white/[0.03] hover:bg-white/[0.05] transition-all text-left p-5 group overflow-hidden relative ${isFullAccess ? 'border-primary/20 hover:border-primary/30' : 'border-primary/10 hover:border-primary/20'
-                                            }`}
+                                        className={`glass-panel rounded-2xl border bg-white/[0.03] hover:bg-white/[0.05] transition-all text-left p-5 group overflow-hidden relative ${isFullAccess ? 'border-primary/20 hover:border-primary/30' : 'border-primary/10 hover:border-primary/20'}`}
                                     >
-                                        <div className={`absolute inset-x-0 top-0 h-1 ${isFullAccess ? 'bg-gradient-to-r from-[#f1d386] via-primary to-[#8d6b23]' : houseStyle?.bg
-                                            }`}></div>
+                                        <div className={`absolute inset-x-0 top-0 h-1 ${isFullAccess ? option.visual.topBarClass : houseStyle?.bg}`}></div>
                                         <div
                                             className="absolute -top-10 -right-10 size-28 rounded-full blur-3xl pointer-events-none opacity-20"
-                                            style={{ backgroundColor: isFullAccess ? '#c9a34a' : houseStyle?.hex }}
+                                            style={{ backgroundColor: option.visual.glowHex }}
                                         ></div>
 
                                         <div className="relative z-10">
@@ -2762,20 +2340,19 @@ const Hodsons: React.FC = () => {
                                                             }}
                                                         ></span>
                                                         <div className="flex flex-col">
-                                                            <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${houseStyle?.text}`}>{option.key}</span>
-                                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.18em]">House Access</span>
+                                                            <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${option.visual.accentClass}`}>{option.key}</span>
+                                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.18em]">{option.visual.badgeLabel}</span>
                                                         </div>
                                                     </div>
                                                 )}
-                                                <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${isFullAccess ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300'
-                                                    }`}>
-                                                    {isFullAccess ? 'All Houses' : 'House List'}
+                                                <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${isFullAccess ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                                                    {option.visual.badgeLabel}
                                                 </span>
                                             </div>
 
                                             <div className="text-white font-black text-base">{option.label}</div>
                                             <div className="text-xs text-slate-400 mt-2 leading-relaxed">
-                                                {option.key === 'All' ? 'All phases available after password unlock' : 'Pre-qualifying and pre-finals only after password unlock'}
+                                                {option.allowedPhases.map(phase => phase.replace('_', ' ')).join(', ')} available after password unlock
                                             </div>
                                         </div>
                                     </button>
@@ -2793,11 +2370,17 @@ const Hodsons: React.FC = () => {
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={resetAccessFlow}></div>
                     <div className="relative w-full max-w-sm bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-200 section-plaque">
                         <div className="flex flex-col items-center text-center">
+                            <ModalHeader
+                                compact
+                                kicker="Protected Access"
+                                icon="password"
+                                title="Enter Passcode"
+                                subtitle="Please enter the 4-digit passcode to access the selected list."
+                                onClose={resetAccessFlow}
+                            />
                             <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4 shadow-inner">
                                 <Icon name="lock" size="24" />
                             </div>
-                            <h2 className="text-xl font-black text-white mb-2">Enter Passcode</h2>
-                            <p className="text-sm text-slate-400 mb-2">Please enter the 4-digit passcode to access the selected list.</p>
                             {selectedAccessScope && (
                                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary mb-6">
                                     {selectedAccessScope === 'All' ? 'Full Houses Access' : `${selectedAccessScope} House Access`}
@@ -2844,14 +2427,14 @@ const Hodsons: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowModal(false)}></div>
                     <div className="relative w-full max-w-5xl h-[90vh] bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                <Icon name="category" /> Select Category to Edit Results
-                            </h2>
-                            <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10">
-                                <Icon name="close" size="24" />
-                            </button>
-                        </div>
+                        <ModalHeader
+                            compact
+                            kicker="Results Control"
+                            icon="category"
+                            title="Select Category To Edit Results"
+                            subtitle="Choose a department first, then jump straight into the age category you want to manage."
+                            onClose={() => setShowModal(false)}
+                        />
                         <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-black/5">
                             {(() => {
                                 const activeDept = RESULTS_DEPARTMENTS.find(dept => dept.key === selectedAddResultsDept)!;
@@ -2952,13 +2535,20 @@ const Hodsons: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={closeCategoryEditor}></div>
                     <div className="relative w-full max-w-7xl h-[90vh] bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl overflow-hidden flex flex-col animate-in fade-in duration-200">
-                        <div className="p-6 border-b border-primary/10 flex justify-between items-center bg-[linear-gradient(135deg,rgba(201,163,74,0.14),rgba(255,255,255,0.03))]">
-                            <div>
+                        <div className="border-b border-primary/10 bg-[linear-gradient(135deg,rgba(201,163,74,0.14),rgba(255,255,255,0.03))]">
+                            <ModalHeader
+                                compact
+                                kicker="Results Editor"
+                                icon="edit_note"
+                                title={`Record Results: ${editCategory}`}
+                                subtitle="Manage participation states, rankings, and export lists from one control room."
+                                onClose={closeCategoryEditor}
+                            />
+                            <div className="px-6 pb-6">
                                 <button onClick={closeCategoryEditor} className="text-slate-400 hover:text-white text-xs mb-2 flex items-center gap-1 uppercase tracking-wider font-bold">
                                     <Icon name="arrow_back" size="14" /> Back to Categories
                                 </button>
                                 <div className="flex items-center gap-6">
-                                    <h2 className="text-2xl font-bold text-white tracking-tight">Record Results: {editCategory}</h2>
                                     {editorAccessScope && (
                                         <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${editorAccessScope === 'All' ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[#e2c98d]/30 bg-[#e2c98d]/10 text-[#f6e3b2]'}`}>
                                             <Icon name={editorAccessScope === 'All' ? 'groups' : 'lock'} size="12" />
@@ -2975,7 +2565,7 @@ const Hodsons: React.FC = () => {
                                         <Icon name="filter_list" size="16" className="text-slate-400" />
                                         <select
                                             value={filterHouse}
-                                            onChange={(e) => setFilterHouse(e.target.value)}
+                                            onChange={(e) => setFilterHouse(e.target.value as HouseAccessScope)}
                                             disabled={editorAccessScope !== 'All'}
                                             className={`royal-input rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${editorAccessScope !== 'All' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-white/5'}`}
                                         >
@@ -2989,7 +2579,7 @@ const Hodsons: React.FC = () => {
                                 </div>
                                 <p className="text-xs text-slate-300 mt-2 flex items-center gap-2">
                                     <Icon name="info" size="12" className="text-primary" />
-                                    <b>Only Qualified</b> Move To Finals | <b>Qualifying:</b> Finished +1, Absent/DNF -1 | <b>Finals (Q+Pos):</b> 5 + (11-pos up to 10th) | <b>Finals Finisher:</b> +1 | <b>Finals Absent/DNF:</b> -1
+                                    <b>Only Qualified</b> Move To Finals | <b>Qualifying:</b> Finished +1, Absent/DNF -1 | <b>Finals (Q+Pos):</b> 1st 20, 2nd 19 ... 15th 6, then 5 pts each | <b>Finals Finisher:</b> +1 | <b>Finals Absent/DNF:</b> -1
                                 </p>
                                 {skipQualifyingCategories.includes(editCategory) && (
                                     <p className="text-xs text-amber-300 mt-2 flex items-center gap-2">
@@ -3126,10 +2716,7 @@ const Hodsons: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                            <div className="flex flex-col items-end gap-3 self-start">
-                                <button onClick={closeCategoryEditor} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10">
-                                    <Icon name="close" size="24" />
-                                </button>
+                            <div className="px-6 pb-6 pt-0 flex justify-end">
                                 <div className="flex flex-col gap-2">
                                     <button
                                         onClick={() => handleSaveResult(editCategory)}
@@ -3148,27 +2735,27 @@ const Hodsons: React.FC = () => {
                         </div>
 
                         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-[300px]">
-                            <table className="w-full text-left text-sm text-slate-300">
-                                <thead className="bg-white/5 text-xs uppercase tracking-wider text-slate-400">
+                            <table className="royal-data-table min-w-[46rem]">
+                                <thead>
                                     <tr>
-                                        <th className="px-4 py-3 rounded-l-lg text-[10px] uppercase font-black text-slate-500 tracking-widest bg-white/5">SN</th>
-                                        <th className="px-4 py-3 cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'id' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('id'); }}>
+                                        <th>SN</th>
+                                        <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'id' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('id'); }}>
                                             <div className="flex items-center gap-1">Comp No {listSortField === 'id' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                         </th>
-                                        <th className="px-4 py-3 cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'name' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('name'); }}>
+                                        <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'name' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('name'); }}>
                                             <div className="flex items-center gap-1">Player Name {listSortField === 'name' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                         </th>
-                                        <th className="px-4 py-3 cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
+                                        <th className="royal-col-secondary cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
                                             <div className="flex items-center gap-1">House {listSortField === 'house' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                         </th>
-                                        <th className="px-4 py-3 cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'status' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('status'); }}>
+                                        <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'status' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('status'); }}>
                                             <div className="flex items-center gap-1">Status {listSortField === 'status' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                         </th>
-                                        <th className="px-4 py-3">Position</th>
-                                        <th className="px-4 py-3 rounded-r-lg">Timing</th>
+                                        <th className="royal-col-secondary">Position</th>
+                                        <th>Timing</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-white/5">
+                                <tbody>
                                     {mockStudents
                                         .filter(s => s.category === editCategory)
                                         .filter(s => filterHouse === 'All' || s.house === filterHouse)
@@ -3204,15 +2791,15 @@ const Hodsons: React.FC = () => {
 
                                             return (
                                                 <tr key={stu.id} className="hover:bg-white/[0.02]">
-                                                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{index + 1}</td>
-                                                    <td className="px-4 py-3 font-mono text-xs">{stu.id}</td>
-                                                    <td className="px-4 py-3 font-bold text-white">{stu.name}</td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="font-mono text-xs text-slate-500">{index + 1}</td>
+                                                    <td className="font-mono text-xs">{stu.id}</td>
+                                                    <td className="font-bold text-white">{stu.name}</td>
+                                                    <td className="royal-col-secondary">
                                                         <span className={`inline-flex items-center justify-center gap-1 uppercase tracking-wider text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.bg}/20 ${cfg.text} border ${cfg.border}/30`}>
                                                             {stu.house}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td>
                                                         {activePhase === 'pre_qualifying' ? (
                                                             <select
                                                                 value={res.preQualifyingType || 'pending'}
@@ -3265,7 +2852,7 @@ const Hodsons: React.FC = () => {
                                                             </select>
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="royal-col-secondary">
                                                         {(activePhase === 'finals' && (res.finalsType === 'qualified_pos')) || (activePhase === 'qualifying' && res.qualifyingType === 'qualified') ? (
                                                             <div className="flex flex-col">
                                                                 <span className={`${activePhase === 'qualifying' ? 'text-primary' : 'text-amber-400'} font-bold text-[10px] uppercase tracking-wider`}>
@@ -3279,7 +2866,7 @@ const Hodsons: React.FC = () => {
                                                             <span className="text-slate-500 text-xs italic">—</span>
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td>
                                                         {(() => {
                                                             const isQualTiming = activePhase === 'qualifying' && res.qualifyingType === 'qualified';
                                                             const isFinalsTiming = activePhase === 'finals' && (res.finalsType === 'qualified_pos' || res.finalsType === 'finisher');
@@ -3370,30 +2957,23 @@ function AllResultsModal({ categories, standings, onClose, onDownload, isDownloa
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8">
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={onClose}></div>
             <div className="relative w-full max-w-5xl h-[90vh] bg-slate-900 rounded-[32px] border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-                <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/[0.02]">
-                    <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                            <Icon name="history_edu" size="24" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-black text-white uppercase tracking-tight">HODSON'S RUN 2026 SUMMARY</h2>
-                            <p className="text-xs text-slate-400">Podium results and comprehensive house standings</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
+                <ModalHeader
+                    kicker="Championship Summary"
+                    icon="history_edu"
+                    title="Hodson's Run 2026 Summary"
+                    subtitle="Podium results and comprehensive house standings in one export-friendly overview."
+                    onClose={onClose}
+                    actions={
                         <button
                             onClick={onDownload}
                             disabled={isDownloading}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+                            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
                         >
                             <Icon name={isDownloading ? 'sync' : 'download'} className={isDownloading ? 'animate-spin' : ''} />
                             <span>Download Full Results (.docx)</span>
                         </button>
-                        <button onClick={onClose} className="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all">
-                            <Icon name="close" />
-                        </button>
-                    </div>
-                </div>
+                    }
+                />
 
                 <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-12">
                     {/* Podium Results Grouping */}

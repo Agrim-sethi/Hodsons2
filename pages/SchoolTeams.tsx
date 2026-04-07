@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../components/Icon';
+import ModalHeader from '../components/ui/ModalHeader';
 import { HOUSE_COLORS } from '../constants';
 import { SCHOOL_TEAMS_DATA, teamKey, TeamData, Player, TeamResult } from '../utils/schoolTeamsData';
 import { getEvents, Event } from '../utils/storage';
@@ -98,41 +99,13 @@ const TeamModal = ({ teamId, onClose }: { teamId: string; onClose: () => void })
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
             <div className="relative w-full max-w-5xl bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
-
-                {/* ── Header ──────────────────────────────────────── */}
-                <div
-                    className="p-6 border-b border-white/10 flex justify-between items-start"
-                    style={{ background: `linear-gradient(135deg, ${sportMeta?.color ?? '#3b82f6'}12, transparent)` }}
-                >
-                    <div className="flex items-center gap-4">
-                        <div
-                            className="size-14 rounded-xl flex items-center justify-center text-3xl"
-                            style={{ backgroundColor: `${sportMeta?.color ?? '#3b82f6'}20`, color: sportMeta?.color }}
-                        >
-                            <Icon name={sportMeta?.icon ?? 'sports'} className="text-3xl" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{sport}</span>
-                                <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-                                <span
-                                    className="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                                    style={{ backgroundColor: `${sportMeta?.color ?? '#3b82f6'}20`, color: sportMeta?.color }}
-                                >
-                                    {ageGroup}
-                                </span>
-                            </div>
-                            <h3 className="text-white text-3xl font-black">{sport} — {ageGroup}</h3>
-                            <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
-                                <span className="flex items-center gap-1"><Icon name="person" size="16" /> Coach: <span className="text-white font-medium">{data.coach}</span></span>
-                                <span className="flex items-center gap-1"><Icon name="military_tech" size="16" /> Captain: <span className="text-white font-medium">{data.captain}</span></span>
-                            </div>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10">
-                        <Icon name="close" size="24" />
-                    </button>
-                </div>
+                <ModalHeader
+                    kicker={`${sport} • ${ageGroup}`}
+                    icon={sportMeta?.icon ?? 'sports'}
+                    title={`${sport} — ${ageGroup}`}
+                    subtitle={`Coach: ${data.coach} • Captain: ${data.captain}`}
+                    onClose={onClose}
+                />
 
                 {/* ── Body (scrollable) ───────────────────────────── */}
                 <div className="p-8 overflow-y-auto custom-scrollbar">
@@ -210,28 +183,28 @@ const TeamModal = ({ teamId, onClose }: { teamId: string; onClose: () => void })
                         </div>
                         {displayResults.length > 0 ? (
                             <div className="glass-panel rounded-xl overflow-hidden border border-white/5">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-white/5 text-slate-300 font-bold uppercase text-[10px] tracking-widest">
+                                <table className="royal-data-table min-w-[32rem]">
+                                    <thead>
                                         <tr>
-                                            <th className="px-5 py-3 border-b border-white/10">Date</th>
-                                            <th className="px-5 py-3 border-b border-white/10">Opponent</th>
-                                            <th className="px-5 py-3 border-b border-white/10">Competition</th>
-                                            <th className="px-5 py-3 border-b border-white/10">Score</th>
-                                            <th className="px-5 py-3 border-b border-white/10 text-center">Result</th>
+                                            <th>Date</th>
+                                            <th>Opponent</th>
+                                            <th className="royal-col-secondary">Competition</th>
+                                            <th>Score</th>
+                                            <th className="text-center">Result</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-white/5 text-slate-300">
+                                    <tbody className="text-slate-300">
                                         {displayResults.map((r, i) => (
                                             <tr key={i} className="hover:bg-white/[0.02] transition-colors">
-                                                <td className="px-5 py-3 text-slate-400 whitespace-nowrap">{new Date(r.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                                                <td className="px-5 py-3 text-white font-medium">{r.opponent}</td>
-                                                <td className="px-5 py-3">
+                                                <td className="text-slate-400 whitespace-nowrap">{new Date(r.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                                                <td className="text-white font-medium">{r.opponent}</td>
+                                                <td className="royal-col-secondary">
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 border border-white/10 text-slate-300 uppercase tracking-wider">
                                                         {r.competition || '—'}
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-3 font-bold text-white">{r.score}</td>
-                                                <td className="px-5 py-3 text-center">
+                                                <td className="font-bold text-white">{r.score}</td>
+                                                <td className="text-center">
                                                     <span className={`inline-flex items-center justify-center size-7 rounded-full text-[11px] font-black ${r.result === 'W'
                                                         ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                                                         : r.result === 'L'

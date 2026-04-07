@@ -9,23 +9,26 @@ import Profile from './pages/Profile';
 import Attendance from './pages/Attendance';
 import SchoolTeams from './pages/SchoolTeams';
 import Hodsons from './pages/Hodsons';
+import { ToastProvider } from './components/ui/ToastProvider';
 
 export default function App() {
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/hodsons" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="standings" element={<Standings />} />
-          <Route path="events" element={<Events />} />
-          <Route path="archive" element={<Archive />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="attendance" element={<Attendance />} />
-          <Route path="teams" element={<SchoolTeams />} />
-          <Route path="hodsons" element={<Hodsons />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+    <ToastProvider>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Navigate to="/hodsons" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="standings" element={<Standings />} />
+            <Route path="events" element={<Events />} />
+            <Route path="archive" element={<Archive />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="attendance" element={<Attendance />} />
+            <Route path="teams" element={<SchoolTeams />} />
+            <Route path="hodsons" element={<Hodsons />} />
+          </Route>
+        </Routes>
+      </HashRouter>
+    </ToastProvider>
   );
 }

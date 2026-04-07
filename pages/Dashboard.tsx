@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
+import ModalHeader from '../components/ui/ModalHeader';
+import { useToast } from '../components/ui/ToastProvider';
 import { HOUSE_COLORS, IMAGES } from '../constants';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { getEvents, Event, getSessions, saveSession, deleteSession, Session, getAttendance, saveAttendance, AttendanceRecord, InjuryRecord, getInjuries, saveInjury, deleteInjury } from '../utils/storage';
@@ -38,6 +40,7 @@ const StatCard = ({ title, value, subtext, icon, colorClass, borderClass, onClic
 );
 
 const Dashboard: React.FC = () => {
+  const { showToast } = useToast();
   const [upcomingEvent, setUpcomingEvent] = useState<Event | null>(null);
   const [days, setDays] = useState('00');
   const [hrs, setHrs] = useState('00');
@@ -131,6 +134,10 @@ const Dashboard: React.FC = () => {
       saveSession(session);
       loadSessions();
       setNewSession({ activity: 'Football', startTime: '', endTime: '', description: '' });
+      showToast({
+        title: 'Session Started',
+        description: `${session.activity} for ${session.description} is now active.`
+      });
     } else {
       alert('Please fill all fields');
     }
@@ -163,7 +170,10 @@ const Dashboard: React.FC = () => {
           activity: 'Football',
           compNumber: ''
         });
-        alert('Attendance toggled successfully in the CSV!');
+        showToast({
+          title: 'Attendance Updated',
+          description: 'The attendance register was toggled successfully.'
+        });
       } else {
         const data = await res.json();
         alert(`Error: ${data.error}`);
@@ -200,7 +210,10 @@ const Dashboard: React.FC = () => {
       date: new Date().toISOString().split('T')[0],
       comments: ''
     });
-    alert('Injury reported successfully');
+    showToast({
+      title: 'Injury Logged',
+      description: `${record.playerName}'s report has been saved to the injury ledger.`
+    });
   };
 
   const handleDeleteInjury = (id: string) => {
@@ -325,16 +338,16 @@ const Dashboard: React.FC = () => {
           <Link to="/archive" className="text-xs text-slate-400 hover:text-white underline">View All Results</Link>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-400">
-            <thead className="text-xs uppercase bg-white/5 text-slate-300">
+          <table className="royal-data-table">
+            <thead>
               <tr>
-                <th className="px-6 py-3 rounded-l-lg">Match</th>
-                <th className="px-6 py-3">Sport</th>
-                <th className="px-6 py-3">Date</th>
-                <th className="px-6 py-3 text-right rounded-r-lg">Result</th>
+                <th className="rounded-l-xl">Match</th>
+                <th className="royal-col-secondary">Sport</th>
+                <th>Date</th>
+                <th className="text-right rounded-r-xl">Result</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody>
               {(() => {
                 const completedEvents = getEvents()
                   .filter(e => e.completed)
@@ -363,10 +376,10 @@ const Dashboard: React.FC = () => {
 
                   return (
                     <tr key={event.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 font-medium text-white">{event.title}</td>
-                      <td className="px-6 py-4">{event.sport}</td>
-                      <td className="px-6 py-4">{new Date(event.date).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="font-medium text-white">{event.title}</td>
+                      <td className="royal-col-secondary">{event.sport}</td>
+                      <td>{new Date(event.date).toLocaleDateString()}</td>
+                      <td className="text-right">
                         {houseConfig ? (
                           <div className="flex items-center justify-end gap-2" title={`${winnerHouse} House Won`}>
                             <span className={`font-bold ${houseConfig.text}`}>{event.result || 'Completed'}</span>
@@ -390,12 +403,14 @@ const Dashboard: React.FC = () => {
       {showSessionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="glass-panel w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-white/5 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Manage Active Sessions</h2>
-              <button onClick={() => setShowSessionModal(false)} className="text-slate-400 hover:text-white transition-colors">
-                <Icon name="close" size="24" />
-              </button>
-            </div>
+            <ModalHeader
+              compact
+              kicker="Training Control"
+              icon="schedule"
+              title="Manage Active Sessions"
+              subtitle="Review live sessions and start a new one without leaving the dashboard."
+              onClose={() => setShowSessionModal(false)}
+            />
 
             <div className="p-6">
               {/* Current Sessions List */}
@@ -499,12 +514,14 @@ const Dashboard: React.FC = () => {
       {showAttendanceModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="glass-panel w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-white/5 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Record Attendance</h2>
-              <button onClick={() => setShowAttendanceModal(false)} className="text-slate-400 hover:text-white transition-colors">
-                <Icon name="close" size="24" />
-              </button>
-            </div>
+            <ModalHeader
+              compact
+              kicker="Attendance Desk"
+              icon="fact_check"
+              title="Record Attendance"
+              subtitle="Use the computer number to quickly toggle a student’s session attendance."
+              onClose={() => setShowAttendanceModal(false)}
+            />
 
             <div className="p-6 overflow-y-auto max-h-[80vh]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -569,12 +586,14 @@ const Dashboard: React.FC = () => {
       {showInjuryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="glass-panel w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-white/5 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Report & Manage Injuries</h2>
-              <button onClick={() => setShowInjuryModal(false)} className="text-slate-400 hover:text-white transition-colors">
-                <Icon name="close" size="24" />
-              </button>
-            </div>
+            <ModalHeader
+              compact
+              kicker="Medical Register"
+              icon="healing"
+              title="Report & Manage Injuries"
+              subtitle="Track active injury reports and add new entries with a consistent medical log."
+              onClose={() => setShowInjuryModal(false)}
+            />
 
             <div className="p-6 overflow-y-auto max-h-[80vh]">
               {/* Current Injuries List */}

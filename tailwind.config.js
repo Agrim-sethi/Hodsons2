@@ -49,6 +49,12 @@ export default {
     extend: {
       colors: {
         primary: '#c9a34a',
+        secondary: '#e4c67d',
+        'accent-ivory': '#f8f1de',
+        'accent-bronze': '#8d6b23',
+        'accent-steel': '#8f9aae',
+        'accent-sage': '#3a7f5d',
+        'accent-crimson': '#ef4444',
         'background-light': '#f6efe0',
         'background-dark': '#091423',
         'surface-dark': '#11233a',

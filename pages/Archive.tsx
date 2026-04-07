@@ -1,25 +1,26 @@
 import React, { useState } from 'react';
 import { Icon } from '../components/Icon';
+import ModalHeader from '../components/ui/ModalHeader';
 import { HOUSE_COLORS } from '../constants';
 import { ATHLETICS_DATA } from '../utils/athleticsRecords';
 
 const ArchiveRow = ({ date, name, cat, winner, mvp, points, onClick }: any) => (
     <tr className="hover:bg-primary/5 transition-colors cursor-pointer group border-b border-white/5 last:border-0" onClick={onClick}>
-        <td className="px-6 py-4 font-medium whitespace-nowrap text-slate-300 group-hover:text-white">{date}</td>
-        <td className="px-6 py-4 text-white font-medium">{name}</td>
-        <td className="px-6 py-4">
+        <td className="font-medium whitespace-nowrap text-slate-300 group-hover:text-white">{date}</td>
+        <td className="text-white font-medium">{name}</td>
+        <td className="royal-col-secondary">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-dark text-slate-300 border border-white/10">
                 <Icon name={cat.icon} className="text-[14px]" /> {cat.name}
             </span>
         </td>
-        <td className="px-6 py-4">
+        <td>
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${winner.config.bg}/20 ${winner.config.text} border ${winner.config.border}/30`}>
                 {winner.name}
             </span>
         </td>
-        <td className="px-6 py-4 text-slate-300">{mvp}</td>
-        <td className="px-6 py-4 text-right font-bold text-white">{points}</td>
-        <td className="px-6 py-4 text-right">
+        <td className="royal-col-optional text-slate-300">{mvp}</td>
+        <td className="text-right font-bold text-white">{points}</td>
+        <td className="text-right">
             <button className="text-slate-500 group-hover:text-primary transition-colors">
                 <Icon name="chevron_right" />
             </button>
@@ -35,52 +36,38 @@ const EventModal = ({ eventType, year, onClose }: { eventType: string, year: str
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
             <div className="relative w-full max-w-5xl bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
-                <div className={`p-6 border-b border-white/10 flex justify-between items-start bg-gradient-to-r ${data.winner.config.bg.replace('bg-', 'from-')}/10 to-transparent`}>
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Athletics</span>
-                            <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-                            <span className="text-slate-400 text-xs">{year}</span>
-                        </div>
-                        <h3 className="text-white text-3xl font-black">{data.title}</h3>
-                        <div className="flex items-center gap-3 mt-1">
-                            <p className={`${data.winner.config.text} text-sm font-medium`}>Winning House: {data.winner.name} ({data.pts} pts)</p>
-                            {data.tieBroken && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold uppercase tracking-wider border border-amber-500/20">
-                                    <Icon name="balance" size="12" /> Tie-Breaker Applied
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full p-2 hover:bg-white/10">
-                        <Icon name="close" size="24" />
-                    </button>
-                </div>
+                <ModalHeader
+                    kicker={`Athletics • ${year}`}
+                    icon="history_edu"
+                    title={data.title}
+                    subtitle={`Winning House: ${data.winner.name} (${data.pts} pts)${data.tieBroken ? ' • Tie-breaker applied' : ''}`}
+                    onClose={onClose}
+                />
 
                 <div className="p-8 overflow-y-auto custom-scrollbar">
                     <div className="glass-panel rounded-xl overflow-hidden border border-white/5">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-white/5 text-slate-300 font-bold uppercase text-[10px] tracking-widest">
+                        <table className="royal-data-table min-w-[38rem]">
+                            <thead>
                                 <tr>
-                                    <th className="px-6 py-4 border-b border-white/10">Metric</th>
-                                    <th className="px-4 py-4 border-b border-white/10 text-center">U-13</th>
-                                    <th className="px-4 py-4 border-b border-white/10 text-center">U-14</th>
-                                    <th className="px-4 py-4 border-b border-white/10 text-center">U-16</th>
-                                    <th className="px-4 py-4 border-b border-white/10 text-center text-primary">OPENS</th>
-                                    <th className="px-6 py-4 border-b border-white/10 text-right font-black text-white bg-white/5">TOTAL</th>
+                                    <th>Metric</th>
+                                    <th className="text-center">U-13</th>
+                                    <th className="text-center">U-14</th>
+                                    <th className="royal-col-secondary text-center">U-16</th>
+                                    <th className="royal-col-optional text-center text-primary">Opens</th>
+                                    <th className="text-right font-black text-white bg-white/5">Total</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5 text-slate-300">
+                            <tbody className="text-slate-300">
                                 {data.rows.map((row: any, i: number) => (
                                     <tr key={i} className="hover:bg-white/[0.02] transition-colors">
-                                        <td className={`px-6 py-3 font-medium ${row.label.includes('Nilgiri') ? 'text-house-nilgiri' : row.label.includes('Vindhya') ? 'text-house-vindhya' : row.label.includes('Siwalik') ? 'text-house-siwalik' : row.label.includes('Himalaya') ? 'text-house-himalaya' : 'text-slate-200'}`}>
+                                        <td className={`font-medium ${row.label.includes('Nilgiri') ? 'text-house-nilgiri' : row.label.includes('Vindhya') ? 'text-house-vindhya' : row.label.includes('Siwalik') ? 'text-house-siwalik' : row.label.includes('Himalaya') ? 'text-house-himalaya' : 'text-slate-200'}`}>
                                             {row.label}
                                         </td>
-                                        <td className="px-4 py-3 text-center">{row.u13 ?? '-'}</td>
-                                        <td className="px-4 py-3 text-center">{row.u14 ?? '-'}</td>
-                                        <td className="px-4 py-3 text-center">{row.u16 ?? '-'}</td>
-                                        <td className="px-4 py-3 text-center font-bold text-primary">{row.opens ?? '-'}</td>
-                                        <td className="px-6 py-3 text-right font-bold text-white bg-white/5">{row.total}</td>
+                                        <td className="text-center">{row.u13 ?? '-'}</td>
+                                        <td className="text-center">{row.u14 ?? '-'}</td>
+                                        <td className="royal-col-secondary text-center">{row.u16 ?? '-'}</td>
+                                        <td className="royal-col-optional text-center font-bold text-primary">{row.opens ?? '-'}</td>
+                                        <td className="text-right font-bold text-white bg-white/5">{row.total}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -339,19 +326,19 @@ const Archive: React.FC = () => {
 
             <div className="glass-panel rounded-xl overflow-hidden flex flex-col">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-400">
-                        <thead className="bg-surface-dark text-xs uppercase font-bold text-white border-b border-white/10">
+                    <table className="royal-data-table">
+                        <thead>
                             <tr>
-                                <th className="px-6 py-4">Year</th>
-                                <th className="px-6 py-4">Event Name</th>
-                                <th className="px-6 py-4">Category</th>
-                                <th className="px-6 py-4">Winner</th>
-                                <th className="px-6 py-4">MVP</th>
-                                <th className="px-4 py-4 text-right">Points</th>
-                                <th className="px-6 py-4"></th>
+                                <th>Year</th>
+                                <th>Event Name</th>
+                                <th className="royal-col-secondary">Category</th>
+                                <th>Winner</th>
+                                <th className="royal-col-optional">MVP</th>
+                                <th className="text-right">Points</th>
+                                <th></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody>
                             {filteredRecords.length > 0 ? (
                                 filteredRecords.map((record, i) => (
                                     <ArchiveRow

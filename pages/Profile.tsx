@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../components/Icon';
+import ModalHeader from '../components/ui/ModalHeader';
+import { useToast } from '../components/ui/ToastProvider';
 import { IMAGES, HOUSE_COLORS } from '../constants';
 import { saveEvent, Event, getEvents, updateEvent, deleteEvent, getUserProfile, saveUserProfile, UserProfile } from '../utils/storage';
 
@@ -19,6 +21,7 @@ const HOUSES = [
 ];
 
 const Profile: React.FC = () => {
+    const { showToast } = useToast();
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [userEvents, setUserEvents] = useState<Event[]>([]);
@@ -87,6 +90,11 @@ const Profile: React.FC = () => {
         } else {
             saveEvent(eventData);
         }
+
+        showToast({
+            title: editingId ? 'Event Updated' : 'Event Created',
+            description: `${eventData.title} has been saved to your schedule.`
+        });
 
         setShowModal(false);
         setEditingId(null);
@@ -182,6 +190,10 @@ const Profile: React.FC = () => {
                 setUserEvents(getEvents());
                 setShowResultModal(false);
                 setResultEventId(null);
+                showToast({
+                    title: 'Result Saved',
+                    description: `${event.title} now reflects the updated match result.`
+                });
             }
         }
     };
@@ -191,6 +203,10 @@ const Profile: React.FC = () => {
         saveUserProfile(profileFormData);
         setUserProfile(profileFormData);
         setShowProfileModal(false);
+        showToast({
+            title: 'Profile Saved',
+            description: 'Your staff profile details were updated successfully.'
+        });
     };
 
     const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -330,12 +346,13 @@ const Profile: React.FC = () => {
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <div className="glass-panel w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200">
-                        <div className="p-6 border-b border-white/5 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-white">Add New Event</h2>
-                            <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white transition-colors">
-                                <Icon name="close" size="24" />
-                            </button>
-                        </div>
+                        <ModalHeader
+                            kicker={editingId ? 'Edit Fixture' : 'Event Planner'}
+                            icon={editingId ? 'edit_calendar' : 'event_available'}
+                            title={editingId ? 'Update Event' : 'Add New Event'}
+                            subtitle="Capture fixtures, timings, venues, and participant details in one place."
+                            onClose={() => setShowModal(false)}
+                        />
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[80vh]">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -567,12 +584,14 @@ const Profile: React.FC = () => {
             {showResultModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <div className="glass-panel w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200">
-                        <div className="p-6 border-b border-white/5 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-white">Add Game Result</h2>
-                            <button onClick={() => setShowResultModal(false)} className="text-slate-400 hover:text-white transition-colors">
-                                <Icon name="close" size="24" />
-                            </button>
-                        </div>
+                        <ModalHeader
+                            compact
+                            kicker="Results Ledger"
+                            icon="emoji_events"
+                            title="Add Game Result"
+                            subtitle="Record the winner, scoreline, points, and standout performers."
+                            onClose={() => setShowResultModal(false)}
+                        />
                         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                             {(() => {
                                 const currentEvent = userEvents.find(e => e.id === resultEventId);
@@ -676,12 +695,14 @@ const Profile: React.FC = () => {
             {showProfileModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <div className="glass-panel w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-white/5 flex justify-between items-center shrink-0">
-                            <h2 className="text-xl font-bold text-white">Edit Profile</h2>
-                            <button type="button" onClick={() => setShowProfileModal(false)} className="text-slate-400 hover:text-white transition-colors">
-                                <Icon name="close" size="24" />
-                            </button>
-                        </div>
+                        <ModalHeader
+                            compact
+                            kicker="Staff Profile"
+                            icon="badge"
+                            title="Edit Profile"
+                            subtitle="Keep contact details and display identity current for the dashboard."
+                            onClose={() => setShowProfileModal(false)}
+                        />
                         <form onSubmit={handleProfileSubmit} className="flex flex-col overflow-hidden">
                             <div className="p-6 space-y-4 overflow-y-auto flex-1">
                                 <div>

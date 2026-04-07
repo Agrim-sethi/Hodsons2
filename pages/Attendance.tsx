@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../components/Icon';
+import { useToast } from '../components/ui/ToastProvider';
 import { HOUSE_COLORS } from '../constants';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -12,6 +13,7 @@ const HOUSES = [
 ];
 
 const Attendance: React.FC = () => {
+    const { showToast } = useToast();
     const [csvData, setCsvData] = useState('');
     const [searchCompNum, setSearchCompNum] = useState('');
     const [hasSearched, setHasSearched] = useState(false);
@@ -92,6 +94,10 @@ const Attendance: React.FC = () => {
         });
 
         doc.save(`Absentees_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        showToast({
+            title: 'PDF Downloaded',
+            description: 'The absentees report has been exported for sharing or printing.'
+        });
     };
 
     const studentRecords = React.useMemo(() => {
