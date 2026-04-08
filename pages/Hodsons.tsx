@@ -39,6 +39,88 @@ const qualifiesForFinals = (qualifyingType?: string, skipsQualifying?: boolean) 
 
 const formatRaceInfoLabel = (timing?: string) => timing ? `${timing} min` : '—';
 
+type CategoryRecordAlert = {
+    category: HodsonsCategory;
+    athleteName: string;
+    athleteHouse: string;
+    currentTiming: string;
+    recordTiming: string;
+    recordHolder: string;
+    recordYear: string;
+    marginLabel: string;
+};
+
+const parseExtendedTimingToSeconds = (timing?: string): number => {
+    if (!timing) return Number.POSITIVE_INFINITY;
+    const parts = timing.split(':').map((segment) => parseInt(segment, 10));
+    if (parts.some((value) => Number.isNaN(value))) return Number.POSITIVE_INFINITY;
+    if (parts.length >= 3) {
+        return (parts[0] * 60) + parts[1] + (parts[2] / 100);
+    }
+    if (parts.length === 2) {
+        return (parts[0] * 60) + parts[1];
+    }
+    return Number.POSITIVE_INFINITY;
+};
+
+const formatRecordMargin = (seconds: number) => `${seconds.toFixed(seconds >= 1 ? 2 : 2)}s faster`;
+
+const getCategoryRecordAlert = (categoryData?: CategoryData | null): CategoryRecordAlert | null => {
+    if (!categoryData?.bestTiming) return null;
+    const raceInfo = HODSONS_RACE_INFO[categoryData.name];
+    const currentSeconds = parseExtendedTimingToSeconds(categoryData.bestTiming.timing);
+    const recordSeconds = parseExtendedTimingToSeconds(raceInfo.recordTiming);
+
+    if (!Number.isFinite(currentSeconds) || !Number.isFinite(recordSeconds) || currentSeconds >= recordSeconds) {
+        return null;
+    }
+
+    return {
+        category: categoryData.name,
+        athleteName: categoryData.bestTiming.name,
+        athleteHouse: categoryData.bestTiming.house,
+        currentTiming: categoryData.bestTiming.timing,
+        recordTiming: raceInfo.recordTiming,
+        recordHolder: raceInfo.recordHolder,
+        recordYear: raceInfo.recordYear,
+        marginLabel: formatRecordMargin(recordSeconds - currentSeconds)
+    };
+};
+
+const prettifyExportStatus = (status?: string) => {
+    if (!status) return 'Pending';
+    if (status === 'medically_excused') return 'Medical Leave';
+    if (status === 'on_leave') return 'On Leave';
+    return status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const getStageExportStatus = (
+    result: Partial<HodsonsResult>,
+    stage: 'pre_qualifying' | 'qualifying' | 'pre_finals' | 'finals',
+    skipsQualifying = false
+) => {
+    if (stage === 'pre_qualifying') {
+        return prettifyExportStatus(result.preQualifyingType || 'pending');
+    }
+
+    if (stage === 'qualifying') {
+        if (result.preQualifyingType === 'medically_excused') return 'Medical Leave';
+        if (result.preQualifyingType === 'on_leave') return 'On Leave';
+        if (result.qualifyingType === 'absent') return 'Absent';
+        return prettifyExportStatus(result.qualifyingType || 'pending');
+    }
+
+    if (stage === 'pre_finals') {
+        if (skipsQualifying) return 'Participating';
+        return prettifyExportStatus(result.preFinalsType || 'pending');
+    }
+
+    if (result.preFinalsType === 'medically_excused' || result.finalsType === 'medically_excused') return 'Medical Leave';
+    if (result.preFinalsType === 'on_leave') return 'On Leave';
+    if (result.finalsType === 'absent') return 'Absent';
+    return prettifyExportStatus(result.finalsType || 'pending');
+};
+
 const Hodsons: React.FC = () => {
     const { showToast } = useToast();
     const { isLoggedIn } = useStaffAuth();
@@ -76,6 +158,13 @@ const Hodsons: React.FC = () => {
     const [editorAccessScope, setEditorAccessScope] = useState<HouseAccessScope | null>(null);
     const [passcodeInput, setPasscodeInput] = useState('');
     const [passcodeError, setPasscodeError] = useState(false);
+
+    const categoryRecordAlerts = categoriesData
+        .map((category) => getCategoryRecordAlert(category))
+        .filter(Boolean) as CategoryRecordAlert[];
+    const categoryRecordAlertMap = Object.fromEntries(
+        categoryRecordAlerts.map((alert) => [alert.category, alert])
+    ) as Partial<Record<HodsonsCategory, CategoryRecordAlert>>;
 
     useEffect(() => {
         loadData();
@@ -542,6 +631,14 @@ const Hodsons: React.FC = () => {
         try {
             setIsDownloading(true);
             const timestamp = new Date().toISOString().slice(0, 10);
+            const newRecordRows = categoryRecordAlerts.map((alert) => ({
+                Category: alert.category,
+                Athlete: alert.athleteName,
+                House: alert.athleteHouse,
+                'New Mark': alert.currentTiming,
+                'Old Record': alert.recordTiming,
+                Margin: alert.marginLabel
+            }));
 
             const sections = categoriesData.map(cat => {
                 const rows = cat.top3.filter(Boolean).map((stu: any) => ({
@@ -600,10 +697,31 @@ const Hodsons: React.FC = () => {
                 ];
             }).flat();
 
+            const newRecordsSection = newRecordRows.length > 0 ? [
+                new Paragraph({ children: [new TextRun({ text: "NEW RECORDS", bold: true, size: 32 })], spacing: { before: 800, after: 300 }, alignment: AlignmentType.CENTER }),
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: ['Category', 'Athlete', 'House', 'New Mark', 'Old Record', 'Margin'].map(h => new TableCell({
+                                children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })] })],
+                                shading: { fill: 'EEEEEE', type: ShadingType.CLEAR }
+                            }))
+                        }),
+                        ...newRecordRows.map(r => new TableRow({
+                            children: [r.Category, r.Athlete, r.House, r['New Mark'], r['Old Record'], r.Margin].map(v => new TableCell({
+                                children: [new Paragraph(String(v))]
+                            }))
+                        }))
+                    ]
+                })
+            ] : [];
+
             const doc = new Document({
                 sections: [{
                     children: [
                         new Paragraph({ children: [new TextRun({ text: "HODSON'S RUN 2026 - FINAL RESULTS", bold: true, size: 36 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+                        ...newRecordsSection,
                         ...sections,
                         new Paragraph({ children: [new TextRun({ text: "HOUSE STANDINGS", bold: true, size: 32 })], spacing: { before: 800, after: 400 }, alignment: AlignmentType.CENTER }),
                         ...standingsSection
@@ -737,7 +855,7 @@ const Hodsons: React.FC = () => {
                             'Comp No': stu.id,
                             'Player Name': stu.name,
                             House: stu.house,
-                            Status: res.preQualifyingType || 'pending'
+                            Status: getStageExportStatus(res, 'pre_qualifying')
                         };
                     }
 
@@ -747,7 +865,7 @@ const Hodsons: React.FC = () => {
                             'Comp No': stu.id,
                             'Player Name': stu.name,
                             House: stu.house,
-                            Status: skipsQualifying ? 'participating' : (res.preFinalsType || 'pending')
+                            Status: getStageExportStatus(res, 'pre_finals', skipsQualifying)
                         };
                     }
 
@@ -757,7 +875,7 @@ const Hodsons: React.FC = () => {
                             'Comp No': stu.id,
                             'Player Name': stu.name,
                             House: stu.house,
-                            Status: res.qualifyingType.replace('_', ' '),
+                            Status: getStageExportStatus(res, 'qualifying'),
                             Timing: res.qualifyingTiming || '—'
                         };
                     }
@@ -767,7 +885,7 @@ const Hodsons: React.FC = () => {
                         'Comp No': stu.id,
                         'Player Name': stu.name,
                         House: stu.house,
-                        Status: res.finalsType.replace('_', ' '),
+                        Status: getStageExportStatus(res, 'finals'),
                         Position: res.finalsPosition || '—',
                         Timing: res.finalsTiming || '—'
                     };
@@ -856,10 +974,10 @@ const Hodsons: React.FC = () => {
                         'Comp No': stu.id,
                         'Athlete Name': stu.name,
                         'House': stu.house,
-                        'Qualifying Status': r.qualifyingType.replace('_', ' '),
+                        'Qualifying Status': getStageExportStatus(r, 'qualifying'),
                         'Qualifying Time': r.qualifyingTiming || '—',
                         'Qualifying Rank': qualPos ? `#${qualPos}` : '—',
-                        'Finals Status': r.finalsType.replace('_', ' '),
+                        'Finals Status': getStageExportStatus(r, 'finals'),
                         'Finals Time': r.finalsTiming || '—',
                         'Finals Rank': finalsPos ? `#${finalsPos}` : '—'
                     };
@@ -900,8 +1018,8 @@ const Hodsons: React.FC = () => {
                         const qualPos = qualifyingPositions.get(stu.id) ?? r.qualifyingPosition;
                         const finalsPos = finalsPositions.get(stu.id) ?? r.finalsPosition;
 
-                        const qualCell = `${r.qualifyingType.replace('_', ' ')}\nTime: ${r.qualifyingTiming || '—'}\nRank: ${qualPos ? '#' + qualPos : '—'}`;
-                        const finalsCell = `${r.finalsType.replace('_', ' ')}\nTime: ${r.finalsTiming || '—'}\nRank: ${finalsPos ? '#' + finalsPos : '—'}`;
+                        const qualCell = `${getStageExportStatus(r, 'qualifying')}\nTime: ${r.qualifyingTiming || '—'}\nRank: ${qualPos ? '#' + qualPos : '—'}`;
+                        const finalsCell = `${getStageExportStatus(r, 'finals')}\nTime: ${r.finalsTiming || '—'}\nRank: ${finalsPos ? '#' + finalsPos : '—'}`;
 
                         return new TableRow({
                             children: [
@@ -1123,13 +1241,34 @@ const Hodsons: React.FC = () => {
                                     onClick={() => setSelectedCategoryStats(cat)}
                                     className="glass-panel rounded-[28px] p-6 relative overflow-hidden cursor-pointer border border-primary/12 hover:border-primary/35 focus:border-primary/40 transition-all hover:shadow-[0_24px_48px_rgba(0,0,0,0.32)] flex flex-col h-full group outline-none"
                                 >
+                                    {(() => {
+                                        const recordAlert = categoryRecordAlertMap[cat.name];
+                                        return recordAlert ? (
+                                            <div className="absolute left-4 right-4 top-4 z-20 rounded-2xl border border-amber-300/35 bg-[linear-gradient(135deg,rgba(245,158,11,0.24),rgba(201,163,74,0.12))] px-4 py-3 shadow-[0_14px_30px_rgba(166,118,18,0.22)] backdrop-blur-sm">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="mt-0.5 size-9 rounded-xl bg-amber-300/15 border border-amber-200/20 flex items-center justify-center text-amber-200">
+                                                        <Icon name="workspace_premium" size="18" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="text-[10px] font-black uppercase tracking-[0.26em] text-amber-100/90">New Record</div>
+                                                        <div className="text-sm font-black text-white leading-tight mt-1">
+                                                            {recordAlert.athleteName} clocked {recordAlert.currentTiming}
+                                                        </div>
+                                                        <div className="text-[11px] text-amber-100/80 mt-1">
+                                                            {recordAlert.marginLabel} than {recordAlert.recordTiming}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : null;
+                                    })()}
                                     <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent pointer-events-none"></div>
                                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,163,74,0.10),transparent_34%)] opacity-80 pointer-events-none"></div>
                                     <div className="absolute top-4 right-4 text-primary/10 pointer-events-none group-hover:text-primary/20 transition-colors">
                                         <Icon name="directions_run" className="text-6xl" />
                                     </div>
 
-                                    <div className="mb-6 relative z-10 border-b border-primary/10 pb-4">
+                                    <div className={`relative z-10 border-b border-primary/10 pb-4 ${categoryRecordAlertMap[cat.name] ? 'pt-24 mb-5' : 'mb-6'}`}>
                                         <div className="text-[10px] font-black uppercase tracking-[0.28em] text-primary/80 mb-2">Age Category Performance Cards</div>
                                         <h3 className="text-2xl font-black text-white uppercase tracking-wide group-hover:text-primary transition-colors">{cat.name}</h3>
                                         <p className="text-slate-400 text-sm mt-1">HODSON Podium and House Merit Snapshot</p>
@@ -1700,20 +1839,37 @@ const Hodsons: React.FC = () => {
                                         })}
                                     </div>
                                     {selectedCategoryStats.bestTiming && (
-                                        <div className="glass-panel rounded-2xl p-6 border border-amber-500/20 bg-amber-500/5 flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className="size-12 rounded-full bg-amber-500 flex items-center justify-center text-black">
-                                                    <Icon name="military_tech" size="32" />
+                                        <div className="glass-panel rounded-2xl p-6 border border-amber-500/20 bg-amber-500/5">
+                                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="size-12 rounded-full bg-amber-500 flex items-center justify-center text-black">
+                                                        <Icon name="military_tech" size="32" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-amber-400 font-bold uppercase text-xs tracking-widest">Category Champion</h4>
+                                                        <p className="text-white text-xl font-black">{selectedCategoryStats.bestTiming.name} <span className="text-slate-500 font-normal">({selectedCategoryStats.bestTiming.house})</span></p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <h4 className="text-amber-400 font-bold uppercase text-xs tracking-widest">Category Champion</h4>
-                                                    <p className="text-white text-xl font-black">{selectedCategoryStats.bestTiming.name} <span className="text-slate-500 font-normal">({selectedCategoryStats.bestTiming.house})</span></p>
+                                                <div className="text-right">
+                                                    <h4 className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Winning Timing</h4>
+                                                    <p className="text-amber-400 text-3xl font-mono font-black">{selectedCategoryStats.bestTiming.timing}</p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                <h4 className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Winning Timing</h4>
-                                                <p className="text-amber-400 text-3xl font-mono font-black">{selectedCategoryStats.bestTiming.timing}</p>
-                                            </div>
+                                            {getCategoryRecordAlert(selectedCategoryStats) && (
+                                                <div className="mt-4 rounded-2xl border border-amber-300/30 bg-[linear-gradient(135deg,rgba(245,158,11,0.18),rgba(201,163,74,0.08))] px-4 py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="size-10 rounded-xl bg-amber-300/15 border border-amber-200/20 flex items-center justify-center text-amber-200">
+                                                            <Icon name="workspace_premium" size="18" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-100/90">New Official Record</div>
+                                                            <div className="text-white font-bold text-sm">
+                                                                {getCategoryRecordAlert(selectedCategoryStats)?.currentTiming} beats {getCategoryRecordAlert(selectedCategoryStats)?.recordTiming} by {getCategoryRecordAlert(selectedCategoryStats)?.marginLabel}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -2643,7 +2799,22 @@ const Hodsons: React.FC = () => {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                             {visibleCategories.map(cat => (
-                                                <div key={cat} className="glass-panel rounded-2xl p-5 border border-primary/10 hover:border-primary/40 hover:bg-white/[0.04] transition-all group flex flex-col justify-between shadow-lg hover:shadow-primary/5">
+                                                <div key={cat} className="glass-panel rounded-2xl p-5 border border-primary/10 hover:border-primary/40 hover:bg-white/[0.04] transition-all group flex flex-col justify-between shadow-lg hover:shadow-primary/5 relative overflow-hidden">
+                                                    {categoryRecordAlertMap[cat as HodsonsCategory] && (
+                                                        <div className="mb-4 rounded-2xl border border-amber-300/30 bg-[linear-gradient(135deg,rgba(245,158,11,0.2),rgba(201,163,74,0.08))] px-3 py-2.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="size-8 rounded-xl bg-amber-300/15 border border-amber-200/20 flex items-center justify-center text-amber-200">
+                                                                    <Icon name="workspace_premium" size="16" />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-[9px] font-black uppercase tracking-[0.24em] text-amber-100/90">New Record</div>
+                                                                    <div className="text-[11px] text-white font-bold truncate">
+                                                                        {categoryRecordAlertMap[cat as HodsonsCategory]?.currentTiming} by {categoryRecordAlertMap[cat as HodsonsCategory]?.athleteName}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     <div className="mb-4">
                                                         <div className="flex justify-between items-start mb-1">
                                                             <h3 className="text-base font-black text-white uppercase tracking-wide group-hover:text-primary transition-colors">{cat}</h3>
@@ -2674,16 +2845,16 @@ const Hodsons: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={closeCategoryEditor}></div>
                     <div className="relative w-full max-w-7xl h-[90vh] min-h-0 bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl overflow-hidden flex flex-col animate-in fade-in duration-200">
-                        <div className="shrink-0 border-b border-primary/10 bg-[linear-gradient(135deg,rgba(201,163,74,0.12),rgba(255,255,255,0.02))]">
-                            <ModalHeader
-                                compact
-                                kicker="Results Editor"
-                                icon="edit_note"
-                                title={`Record Results: ${editCategory}`}
-                                subtitle="Compact control room for race entries, rankings, and exports."
-                                onClose={closeCategoryEditor}
-                            />
-                            <div className="px-5 pb-4">
+                        <ModalHeader
+                            compact
+                            kicker="Results Editor"
+                            icon="edit_note"
+                            title={`Record Results: ${editCategory}`}
+                            subtitle="Compact control room for race entries, rankings, and exports."
+                            onClose={closeCategoryEditor}
+                        />
+                        <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                            <div className="border-b border-primary/10 bg-[linear-gradient(135deg,rgba(201,163,74,0.12),rgba(255,255,255,0.02))] px-5 pb-4">
                                 <button onClick={closeCategoryEditor} className="text-slate-400 hover:text-white text-[11px] mb-2 flex items-center gap-1 uppercase tracking-wider font-bold">
                                     <Icon name="arrow_back" size="14" /> Back to Categories
                                 </button>
@@ -2731,12 +2902,25 @@ const Hodsons: React.FC = () => {
                                     </div>
                                     {(() => {
                                         const raceInfo = HODSONS_RACE_INFO[editCategory];
+                                        const recordAlert = categoryRecordAlertMap[editCategory];
                                         return (
                                             <div className="rounded-2xl border border-primary/10 bg-[linear-gradient(135deg,rgba(201,163,74,0.08),rgba(255,255,255,0.02))] px-3 py-2.5">
                                                 <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-primary/75">
                                                     <Icon name="flag" size="11" className="text-primary" />
                                                     Race Info
                                                 </div>
+                                                {recordAlert && (
+                                                    <div className="mt-2 rounded-xl border border-amber-300/30 bg-[linear-gradient(135deg,rgba(245,158,11,0.18),rgba(201,163,74,0.08))] px-3 py-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <Icon name="workspace_premium" size="16" className="text-amber-200" />
+                                                            <div>
+                                                                <div className="text-[9px] font-black uppercase tracking-[0.22em] text-amber-100/90">New Record Live</div>
+                                                                <div className="text-[11px] text-white font-bold">{recordAlert.athleteName} clocked {recordAlert.currentTiming}</div>
+                                                            </div>
+                                                            <div className="ml-auto text-[10px] font-black text-amber-100">{recordAlert.marginLabel}</div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
                                                     <div className="rounded-xl border border-white/6 bg-white/[0.025] px-2.5 py-2">
                                                         <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-black">Race</div>
@@ -2914,10 +3098,8 @@ const Hodsons: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div className="px-5 pb-5 pt-3 overflow-y-auto custom-scrollbar flex-1 min-h-0">
-                            <table className="royal-data-table min-w-[46rem]">
+                            <div className="px-5 pb-5 pt-3">
+                                <table className="royal-data-table min-w-[46rem]">
                                 <thead>
                                     <tr>
                                         <th>SN</th>
@@ -3133,6 +3315,7 @@ const Hodsons: React.FC = () => {
                                         })}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
                 </div>,
@@ -3141,6 +3324,7 @@ const Hodsons: React.FC = () => {
             {showAllResultsModal && createPortal(
                 <AllResultsModal
                     categories={categoriesData}
+                    newRecords={categoryRecordAlerts}
                     standings={standingsDetailsMap}
                     onClose={() => setShowAllResultsModal(false)}
                     onDownload={downloadAllResultsDocx}
@@ -3152,7 +3336,7 @@ const Hodsons: React.FC = () => {
     );
 };
 
-function AllResultsModal({ categories, standings, onClose, onDownload, isDownloading }: { categories: any[]; standings: any; onClose: () => void; onDownload: () => void; isDownloading: boolean }) {
+function AllResultsModal({ categories, newRecords, standings, onClose, onDownload, isDownloading }: { categories: any[]; newRecords: CategoryRecordAlert[]; standings: any; onClose: () => void; onDownload: () => void; isDownloading: boolean }) {
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8">
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={onClose}></div>
@@ -3176,6 +3360,38 @@ function AllResultsModal({ categories, standings, onClose, onDownload, isDownloa
                 />
 
                 <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-12">
+                    {newRecords.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="h-px flex-1 bg-white/5"></div>
+                                <span className="text-[10px] font-black text-amber-300 uppercase tracking-[4px]">New Records</span>
+                                <div className="h-px flex-1 bg-white/5"></div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                {newRecords.map((record) => (
+                                    <div key={record.category} className="rounded-[26px] border border-amber-300/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(201,163,74,0.06))] p-5 shadow-[0_18px_34px_rgba(0,0,0,0.2)]">
+                                        <div className="flex items-start gap-3">
+                                            <div className="size-11 rounded-2xl bg-amber-300/15 border border-amber-200/20 flex items-center justify-center text-amber-200">
+                                                <Icon name="workspace_premium" size="20" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-100/90">{record.category}</div>
+                                                <div className="text-white text-lg font-black mt-1">{record.athleteName}</div>
+                                                <div className="text-[11px] text-amber-100/85 mt-1">
+                                                    {record.currentTiming} for {record.athleteHouse} | {record.marginLabel}
+                                                </div>
+                                                <div className="text-[11px] text-slate-300 mt-2">
+                                                    Previous: {record.recordTiming} by {record.recordHolder} ({record.recordYear})
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Podium Results Grouping */}
                     <div>
                         <div className="flex items-center gap-3 mb-6">
