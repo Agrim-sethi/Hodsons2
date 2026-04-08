@@ -13,6 +13,8 @@ import { useToast } from '../components/ui/ToastProvider';
 import * as XLSX from 'xlsx';
 import { AlignmentType, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
 import studentClasses from '../utils/studentClasses.json';
+import { classifyQualifyingTiming, HODSONS_RACE_INFO, timingToSeconds } from '../utils/hodsonsRaceInfo';
+import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 
 const houseConfig = (house: string) => {
     const key = house.toLowerCase() as keyof typeof HOUSE_COLORS;
@@ -32,8 +34,14 @@ const chartTooltipStyle = {
     boxShadow: '0 14px 32px rgba(0, 0, 0, 0.42)'
 };
 
+const qualifiesForFinals = (qualifyingType?: string, skipsQualifying?: boolean) =>
+    Boolean(skipsQualifying || qualifyingType === 'qualified' || qualifyingType === 'bonus');
+
+const formatRaceInfoLabel = (timing?: string) => timing ? `${timing} min` : '—';
+
 const Hodsons: React.FC = () => {
     const { showToast } = useToast();
+    const { isLoggedIn } = useStaffAuth();
     const [results, setResults] = useState<HodsonsResult[]>([]);
     const [showModal, setShowModal] = useState(false);
     const [editCategory, setEditCategory] = useState<HodsonsCategory | null>(null);
@@ -56,7 +64,7 @@ const Hodsons: React.FC = () => {
     const [standingsDetailsMap, setStandingsDetailsMap] = useState<Record<StandingsScopeKey, DepartmentStandingsData>>({} as Record<StandingsScopeKey, DepartmentStandingsData>);
     const [skipQualifyingCategories, setSkipQualifyingCategories] = useState<HodsonsCategory[]>([]);
 
-    const [categoryModalTab, setCategoryModalTab] = useState<'qualifying' | 'finals' | 'list'>('qualifying');
+    const [categoryModalTab, setCategoryModalTab] = useState<'qualifying' | 'finals' | 'race' | 'list'>('qualifying');
     const [downloadFormat, setDownloadFormat] = useState<'xlsx' | 'docx'>('xlsx');
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -171,7 +179,7 @@ const Hodsons: React.FC = () => {
                 migrated.finalsTiming = undefined;
             }
 
-            if (!skipsQualifying && migrated.qualifyingType !== 'qualified') {
+            if (!qualifiesForFinals(migrated.qualifyingType, skipsQualifying)) {
                 migrated.preFinalsType = 'pending';
                 migrated.finalsType = 'pending';
                 migrated.finalsPosition = undefined;
@@ -206,13 +214,11 @@ const Hodsons: React.FC = () => {
         const studentsInCat = mockStudents.filter(s => s.category === cat);
         const getRes = (stuId: string) => results.find(r => r.studentId === stuId) || { studentId: stuId, preQualifyingType: 'pending' as const, preFinalsType: 'pending' as const, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
 
-        const missingQualTiming: string[] = [];
         const missingFinalsTiming: string[] = [];
         const missingFinalsPosition: string[] = [];
 
         studentsInCat.forEach(stu => {
             const r: any = getRes(stu.id);
-            if (r.qualifyingType === 'qualified' && !r.qualifyingTiming) missingQualTiming.push(`${stu.id} ${stu.name}`);
             if (r.finalsType === 'qualified_pos') {
                 // If timing is present, position will be auto-calculated on save, so don't block.
                 // Only block if timing is missing.
@@ -220,10 +226,9 @@ const Hodsons: React.FC = () => {
             }
         });
 
-        if (missingQualTiming.length || missingFinalsTiming.length || missingFinalsPosition.length) {
+        if (missingFinalsTiming.length || missingFinalsPosition.length) {
             const lines = [
                 `Cannot save ${cat}. Fix these first:`,
-                missingQualTiming.length ? `- Qualifying timing missing (Qualified): ${missingQualTiming.length}` : null,
                 missingFinalsTiming.length ? `- Finals timing missing (Qualified/Participating): ${missingFinalsTiming.length}` : null
             ].filter(Boolean) as string[];
             window.alert(lines.join('\n'));
@@ -416,8 +421,23 @@ const Hodsons: React.FC = () => {
             let nextFinalTiming = phase === 'finals' ? timing : (idx >= 0 ? newRes[idx].finalsTiming : undefined);
             let nextPreFinalsType = preFinalsType;
 
-            const categoryObj = mockStudents.find((s: any) => s.id === stuId)?.category;
+            const categoryObj = mockStudents.find((s: any) => s.id === stuId)?.category as HodsonsCategory | undefined;
             const skipsQualifying = categoryObj ? skipQualifyingCategories.includes(categoryObj as HodsonsCategory) : false;
+            const manualQualifyingStatus = phase === 'qualifying' ? type : (idx >= 0 ? newRes[idx].qualifyingType : 'pending');
+
+            if (phase === 'qualifying' && !skipsQualifying && categoryObj) {
+                if (manualQualifyingStatus === 'absent' || manualQualifyingStatus === 'medically_excused') {
+                    nextQualType = manualQualifyingStatus;
+                    nextQualPos = undefined;
+                    nextQualTiming = undefined;
+                } else if (manualQualifyingStatus === 'bonus') {
+                    nextQualType = 'bonus';
+                    nextQualPos = undefined;
+                } else {
+                    nextQualType = classifyQualifyingTiming(categoryObj, nextQualTiming);
+                    nextQualPos = nextQualType === 'qualified' ? nextQualPos : undefined;
+                }
+            }
 
             if (!skipsQualifying && ['pending', 'medically_excused', 'on_leave'].includes(preQualifyingType as string)) {
                 nextQualType = 'pending';
@@ -429,7 +449,7 @@ const Hodsons: React.FC = () => {
                 nextFinalTiming = undefined;
             }
 
-            if (!skipsQualifying && nextQualType !== 'qualified') {
+            if (!qualifiesForFinals(nextQualType, skipsQualifying)) {
                 nextPreFinalsType = 'pending';
                 nextFinalType = 'pending';
                 nextFinalPos = undefined;
@@ -704,7 +724,7 @@ const Hodsons: React.FC = () => {
                     const res = results.find(r => r.studentId === stu.id) || { studentId: stu.id, preQualifyingType: 'pending', preFinalsType: 'pending', qualifyingType: 'pending', finalsType: 'pending', position: undefined, timing: undefined };
 
                     const preQualOk = res.preQualifyingType === 'participating';
-                    const qualifiedForPreFinals = skipsQualifying || res.qualifyingType === 'qualified';
+                    const qualifiedForPreFinals = qualifiesForFinals(res.qualifyingType, skipsQualifying);
                     const preFinalsOk = skipsQualifying || res.preFinalsType === 'participating';
 
                     if (stage === 'qualifying' && !preQualOk) return null;
@@ -942,13 +962,15 @@ const Hodsons: React.FC = () => {
                         <Icon name="history_edu" />
                         <span>View All Results</span>
                     </button>
-                    <button
-                        onClick={() => setShowModal(true)}
-                        className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-[#b38b33] text-[#091423] hover:text-[#06101b] font-bold rounded-xl transition-all shadow-lg shadow-primary/20 border border-primary/30 whitespace-nowrap"
-                    >
-                        <Icon name="edit_document" />
-                        <span>Add Results</span>
-                    </button>
+                    {isLoggedIn && (
+                        <button
+                            onClick={() => setShowModal(true)}
+                            className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-[#b38b33] text-[#091423] hover:text-[#06101b] font-bold rounded-xl transition-all shadow-lg shadow-primary/20 border border-primary/30 whitespace-nowrap"
+                        >
+                            <Icon name="edit_document" />
+                            <span>Manage Results</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1217,6 +1239,9 @@ const Hodsons: React.FC = () => {
                                     <button onClick={() => setCategoryModalTab('finals')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'finals' ? 'bg-[linear-gradient(135deg,#f1d386,#c9a34a)] text-[#091423] shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                         <Icon name="emoji_events" size="16" /> <span className="hidden sm:inline">2. </span>Finals Results
                                     </button>
+                                    <button onClick={() => setCategoryModalTab('race')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'race' ? 'bg-sky-500/15 text-sky-200 border border-sky-400/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                        <Icon name="route" size="16" /> Race Info
+                                    </button>
                                     <button onClick={() => setCategoryModalTab('list')} className={`px-4 sm:px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${categoryModalTab === 'list' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                         <Icon name="format_list_bulleted" size="16" /> Competitor List
                                     </button>
@@ -1253,7 +1278,7 @@ const Hodsons: React.FC = () => {
                                             <Icon name="analytics" size="18" className="text-primary" />
                                             <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Qualifying Stage Summary</span>
                                         </div>
-                                        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+                                        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-9 gap-4">
                                             <div className="bg-white/[0.04] rounded-xl p-4 border border-white/5 hover:border-white/10 transition-colors">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <div className="size-7 rounded-lg bg-white/10 flex items-center justify-center"><Icon name="groups" size="14" className="text-white" /></div>
@@ -1275,6 +1300,15 @@ const Hodsons: React.FC = () => {
                                                 </div>
                                                 <span className="text-green-400 text-2xl font-black">
                                                     {Object.values(selectedCategoryStats.houseStats).reduce((acc: number, h: any) => acc + h.qual, 0)}
+                                                </span>
+                                            </div>
+                                            <div className="bg-white/[0.04] rounded-xl p-4 border border-sky-500/10 hover:border-sky-500/20 transition-colors">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="size-7 rounded-lg bg-sky-500/10 flex items-center justify-center"><Icon name="stars" size="14" className="text-sky-300" /></div>
+                                                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Bonus</span>
+                                                </div>
+                                                <span className="text-sky-300 text-2xl font-black">
+                                                    {Object.values(selectedCategoryStats.houseStats).reduce((acc: number, h: any) => acc + h.bonusQual, 0)}
                                                 </span>
                                             </div>
                                             <div className="royal-stat-card rounded-xl p-4 border border-primary/10 hover:border-primary/20 transition-colors">
@@ -1356,7 +1390,11 @@ const Hodsons: React.FC = () => {
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm border-t border-white/5 pt-3">
                                                             <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Q. Moved to Finals</span>
-                                                            <span className="text-green-400 font-black text-lg">{h.qual}</span>
+                                                            <span className="text-green-400 font-black text-lg">{h.qual + h.bonusQual}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-slate-400">Bonus Entries</span>
+                                                            <span className="text-sky-300 font-black">{h.bonusQual}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span className="text-slate-400">DNF</span>
@@ -1409,6 +1447,7 @@ const Hodsons: React.FC = () => {
                                                         Enrolled: hs[h].total,
                                                         Participated: hs[h].partQual,
                                                         Qualified: hs[h].qual,
+                                                        Bonus: hs[h].bonusQual,
                                                         Finished: hs[h].finishedQual,
                                                         DNF: hs[h].dnfQual
                                                     }));
@@ -1422,6 +1461,7 @@ const Hodsons: React.FC = () => {
                                                                 <Bar dataKey="Enrolled" fill="#6f7c90" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
                                                                 <Bar dataKey="Participated" fill="#3a7f5d" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
                                                                 <Bar dataKey="Qualified" fill="#c9a34a" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
+                                                                <Bar dataKey="Bonus" fill="#7dd3fc" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
                                                                 <Bar dataKey="Finished" fill="#e8cf93" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
                                                                 <Bar dataKey="DNF" fill="#9c7a47" radius={[0, 4, 4, 0]} barSize={10} animationDuration={800} />
                                                                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} formatter={chartLegendFormatter} />
@@ -1611,7 +1651,7 @@ const Hodsons: React.FC = () => {
                                                     <div className="space-y-4">
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span className="text-slate-400">Progressed To Finals</span>
-                                                            <span className="text-white font-black">{h.qual}</span>
+                                                            <span className="text-white font-black">{h.qual + h.bonusQual}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span className="text-slate-400">Total Qualified</span>
@@ -1791,6 +1831,92 @@ const Hodsons: React.FC = () => {
                                 </div>
                             )}
 
+                            {categoryModalTab === 'race' && selectedCategoryStats && (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    {(() => {
+                                        const raceInfo = HODSONS_RACE_INFO[selectedCategoryStats.name];
+                                        return (
+                                            <>
+                                                <div className="glass-panel section-plaque p-6 border border-white/10 rounded-3xl">
+                                                    <div className="flex items-center gap-2 mb-5">
+                                                        <Icon name="route" size="18" className="text-sky-300" />
+                                                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Official Race Specifications</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                                                        <div className="royal-stat-card rounded-2xl p-5 border border-primary/10">
+                                                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/75 mb-2">Division</div>
+                                                            <div className="text-white font-black text-xl">{raceInfo.division}</div>
+                                                            <div className="text-xs text-slate-500 mt-1">{raceInfo.ageGroup}</div>
+                                                        </div>
+                                                        <div className="royal-stat-card rounded-2xl p-5 border border-primary/10">
+                                                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/75 mb-2">Distance</div>
+                                                            <div className="text-white font-black text-xl">{raceInfo.distanceKm} km</div>
+                                                            <div className="text-xs text-slate-500 mt-1">Traditional route format</div>
+                                                        </div>
+                                                        <div className="royal-stat-card rounded-2xl p-5 border border-sky-500/10">
+                                                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-300/80 mb-2">Qualifying Window</div>
+                                                            <div className="text-sky-300 font-black text-lg">{formatRaceInfoLabel(raceInfo.qualifyingTiming)}</div>
+                                                            <div className="text-xs text-slate-500 mt-1">Bonus until {formatRaceInfoLabel(raceInfo.bonusTiming)}</div>
+                                                        </div>
+                                                        <div className="royal-stat-card rounded-2xl p-5 border border-green-500/10">
+                                                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-green-400/80 mb-2">Finished Window</div>
+                                                            <div className="text-green-400 font-black text-lg">{formatRaceInfoLabel(raceInfo.finishedTiming)}</div>
+                                                            <div className="text-xs text-slate-500 mt-1">After this, status becomes DNF</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
+                                                    <div className="glass-panel p-6 rounded-2xl border border-white/10">
+                                                        <div className="flex items-center gap-3 mb-4">
+                                                            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                                                <Icon name="map" size="20" />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="text-white font-black text-lg">Route Details</h4>
+                                                                <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Traditional course reference</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="rounded-2xl border border-primary/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(201,163,74,0.03))] px-5 py-6">
+                                                            <div className="text-2xl font-black text-white">{raceInfo.route}</div>
+                                                            <p className="text-sm text-slate-400 mt-3 leading-relaxed">
+
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="glass-panel p-6 rounded-2xl border border-amber-500/15 bg-amber-500/5">
+                                                        <div className="flex items-center gap-3 mb-4">
+                                                            <div className="size-10 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-400">
+                                                                <Icon name="military_tech" size="20" />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="text-white font-black text-lg">Record Details</h4>
+                                                                <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Best known category mark</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            <div>
+                                                                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-400/80 mb-1">Record Timing</div>
+                                                                <div className="text-3xl font-black text-white">{raceInfo.recordTiming} min</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 mb-1">Record Holder</div>
+                                                                <div className="text-white font-bold">{raceInfo.recordHolder}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 mb-1">Year</div>
+                                                                <div className="text-slate-300 font-bold">{raceInfo.recordYear}</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+
                             {categoryModalTab === 'list' && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                     {(() => {
@@ -1877,7 +2003,7 @@ const Hodsons: React.FC = () => {
                                                                         </td>
                                                                         <td>
                                                                             <div className="flex flex-col">
-                                                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${r.qualifyingType === 'qualified' ? 'text-primary' : 'text-slate-500'}`}>
+                                                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${r.qualifyingType === 'qualified' ? 'text-primary' : r.qualifyingType === 'bonus' ? 'text-sky-300' : 'text-slate-500'}`}>
                                                                                     {r.qualifyingType.replace('_', ' ')}
                                                                                 </span>
                                                                                 {r.preQualifyingType !== 'participating' && r.preQualifyingType !== 'pending' && (
@@ -1960,6 +2086,13 @@ const Hodsons: React.FC = () => {
                                             <span className="text-[9px] text-slate-500 font-black uppercase tracking-wide leading-tight">Qualified</span>
                                         </div>
                                         <span className="text-green-400 text-[1.75rem] leading-none font-black">{selectedStandingsStats.stats.qualified}</span>
+                                    </div>
+                                    <div className="bg-white/[0.04] rounded-xl p-4 border border-sky-500/10 hover:border-sky-500/20 transition-colors">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="size-7 rounded-lg bg-sky-500/10 flex items-center justify-center"><Icon name="stars" size="14" className="text-sky-300" /></div>
+                                            <span className="text-[9px] text-slate-500 font-black uppercase tracking-wide leading-tight">Bonus</span>
+                                        </div>
+                                        <span className="text-sky-300 text-[1.75rem] leading-none font-black">{selectedStandingsStats.stats.bonusQualified}</span>
                                     </div>
                                     <div className="bg-white/[0.04] rounded-xl p-4 border border-white/5 hover:border-white/10 transition-colors">
                                         <div className="flex items-center gap-2 mb-2">
@@ -2085,6 +2218,10 @@ const Hodsons: React.FC = () => {
                                                 <span>Qualified for Finals</span>
                                                 <span className="text-slate-500 italic">0 pts</span>
                                             </li>
+                                            <li className="flex justify-between items-center bg-white/[0.03] p-2 rounded border border-white/5">
+                                                <span>Bonus Qualifier</span>
+                                                <span className="text-sky-300 font-bold">0 pts / Finals access</span>
+                                            </li>
                                         </ul>
                                     </div>
                                     <div>
@@ -2177,6 +2314,7 @@ const Hodsons: React.FC = () => {
                                                 name: h,
                                                 Participated: hs[h].part,
                                                 Qualified: hs[h].qual,
+                                                Bonus: hs[h].bonusQual,
                                                 Finished: hs[h].finished,
                                                 DNF: hs[h].dnf,
                                                 Absent: hs[h].absent,
@@ -2192,6 +2330,7 @@ const Hodsons: React.FC = () => {
                                                         <Tooltip cursor={{ fill: 'rgba(201,163,74,0.06)' }} contentStyle={chartTooltipStyle} itemStyle={{ color: '#fff7e4', fontWeight: 'bold', fontSize: '12px' }} />
                                                         <Bar dataKey="Participated" fill="#3a7f5d" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Qualified" fill="#c9a34a" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
+                                                        <Bar dataKey="Bonus" fill="#7dd3fc" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Finished" fill="#ecd8a6" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="DNF" fill="#9c7a47" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
                                                         <Bar dataKey="Absent" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={12} animationDuration={800} />
@@ -2534,40 +2673,40 @@ const Hodsons: React.FC = () => {
             {editCategory && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={closeCategoryEditor}></div>
-                    <div className="relative w-full max-w-7xl h-[90vh] bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl overflow-hidden flex flex-col animate-in fade-in duration-200">
-                        <div className="border-b border-primary/10 bg-[linear-gradient(135deg,rgba(201,163,74,0.14),rgba(255,255,255,0.03))]">
+                    <div className="relative w-full max-w-7xl h-[90vh] min-h-0 bg-[#0f172a] rounded-2xl border border-primary/15 shadow-2xl overflow-hidden flex flex-col animate-in fade-in duration-200">
+                        <div className="shrink-0 border-b border-primary/10 bg-[linear-gradient(135deg,rgba(201,163,74,0.12),rgba(255,255,255,0.02))]">
                             <ModalHeader
                                 compact
                                 kicker="Results Editor"
                                 icon="edit_note"
                                 title={`Record Results: ${editCategory}`}
-                                subtitle="Manage participation states, rankings, and export lists from one control room."
+                                subtitle="Compact control room for race entries, rankings, and exports."
                                 onClose={closeCategoryEditor}
                             />
-                            <div className="px-6 pb-6">
-                                <button onClick={closeCategoryEditor} className="text-slate-400 hover:text-white text-xs mb-2 flex items-center gap-1 uppercase tracking-wider font-bold">
+                            <div className="px-5 pb-4">
+                                <button onClick={closeCategoryEditor} className="text-slate-400 hover:text-white text-[11px] mb-2 flex items-center gap-1 uppercase tracking-wider font-bold">
                                     <Icon name="arrow_back" size="14" /> Back to Categories
                                 </button>
-                                <div className="flex items-center gap-6">
+                                <div className="flex flex-wrap items-center gap-2.5">
                                     {editorAccessScope && (
-                                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${editorAccessScope === 'All' ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[#e2c98d]/30 bg-[#e2c98d]/10 text-[#f6e3b2]'}`}>
-                                            <Icon name={editorAccessScope === 'All' ? 'groups' : 'lock'} size="12" />
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-[0.18em] ${editorAccessScope === 'All' ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[#e2c98d]/30 bg-[#e2c98d]/10 text-[#f6e3b2]'}`}>
+                                            <Icon name={editorAccessScope === 'All' ? 'groups' : 'lock'} size="11" />
                                             {editorAccessScope === 'All' ? 'Full Houses Access' : `${editorAccessScope} Access`}
                                         </span>
                                     )}
                                     {skipQualifyingCategories.includes(editCategory) && (
-                                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-amber-400/30 bg-amber-500/10 text-amber-300 text-[10px] font-black uppercase tracking-widest">
-                                            <Icon name="fast_forward" size="12" />
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-400/30 bg-amber-500/10 text-amber-300 text-[9px] font-black uppercase tracking-[0.18em]">
+                                            <Icon name="fast_forward" size="11" />
                                             Qualifying Skipped
                                         </span>
                                     )}
-                                    <div className="flex items-center gap-2">
-                                        <Icon name="filter_list" size="16" className="text-slate-400" />
+                                    <div className="ml-auto flex items-center gap-2">
+                                        <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">House Filter</span>
                                         <select
                                             value={filterHouse}
                                             onChange={(e) => setFilterHouse(e.target.value as HouseAccessScope)}
                                             disabled={editorAccessScope !== 'All'}
-                                            className={`royal-input rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${editorAccessScope !== 'All' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-white/5'}`}
+                                            className={`royal-input rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors min-w-[9rem] ${editorAccessScope !== 'All' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-white/5'}`}
                                         >
                                             <option value="All">All Houses</option>
                                             <option value="Vindhya">Vindhya</option>
@@ -2577,29 +2716,74 @@ const Hodsons: React.FC = () => {
                                         </select>
                                     </div>
                                 </div>
-                                <p className="text-xs text-slate-300 mt-2 flex items-center gap-2">
-                                    <Icon name="info" size="12" className="text-primary" />
-                                    <b>Only Qualified</b> Move To Finals | <b>Qualifying:</b> Finished +1, Absent/DNF -1 | <b>Finals (Q+Pos):</b> 1st 20, 2nd 19 ... 15th 6, then 5 pts each | <b>Finals Finisher:</b> +1 | <b>Finals Absent/DNF:</b> -1
-                                </p>
+                                <div className="mt-3 grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-3">
+                                    <div className="rounded-2xl border border-white/8 bg-black/15 px-3 py-2.5">
+                                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-primary/75">
+                                            <Icon name="info" size="11" className="text-primary" />
+                                            Quick Guide
+                                        </div>
+                                        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] leading-5 text-slate-300">
+                                            <span><b className="text-[#f6e3b2]">Finals access:</b> Qualified + Bonus</span>
+                                            <span><b className="text-[#f6e3b2]">Qualifying auto-tags:</b> cutoff = Qualified, +1 min = Bonus, +2 mins = Finished, then DNF</span>
+                                            <span><b className="text-[#f6e3b2]">Qualifying points:</b> Finished +1, Bonus 0, Absent/DNF -1</span>
+                                            <span><b className="text-[#f6e3b2]">Finals points:</b> 1st 20 ... 15th 6, then 5 pts, finisher +1</span>
+                                        </div>
+                                    </div>
+                                    {(() => {
+                                        const raceInfo = HODSONS_RACE_INFO[editCategory];
+                                        return (
+                                            <div className="rounded-2xl border border-primary/10 bg-[linear-gradient(135deg,rgba(201,163,74,0.08),rgba(255,255,255,0.02))] px-3 py-2.5">
+                                                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-primary/75">
+                                                    <Icon name="flag" size="11" className="text-primary" />
+                                                    Race Info
+                                                </div>
+                                                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                                                    <div className="rounded-xl border border-white/6 bg-white/[0.025] px-2.5 py-2">
+                                                        <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-black">Race</div>
+                                                        <div className="mt-1 text-white font-black">{raceInfo.distanceKm} km</div>
+                                                        <div className="text-slate-400 truncate">{raceInfo.division}</div>
+                                                    </div>
+                                                    <div className="rounded-xl border border-white/6 bg-white/[0.025] px-2.5 py-2">
+                                                        <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-black">Timings</div>
+                                                        <div className="mt-1 text-green-400 font-black">{formatRaceInfoLabel(raceInfo.qualifyingTiming)}</div>
+                                                        <div className="text-sky-300 font-bold">Bonus {formatRaceInfoLabel(raceInfo.bonusTiming)}</div>
+                                                        <div className="text-primary font-bold">Finish {formatRaceInfoLabel(raceInfo.finishedTiming)}</div>
+                                                    </div>
+                                                    <div className="rounded-xl border border-white/6 bg-white/[0.025] px-2.5 py-2">
+                                                        <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-black">Route</div>
+                                                        <div className="mt-1 text-white font-bold leading-4">{raceInfo.route}</div>
+                                                        <div className="text-slate-500">{raceInfo.ageGroup}</div>
+                                                    </div>
+                                                    <div className="rounded-xl border border-white/6 bg-white/[0.025] px-2.5 py-2">
+                                                        <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-black">Record</div>
+                                                        <div className="mt-1 text-white font-black">{raceInfo.recordTiming} min</div>
+                                                        <div className="text-slate-400 truncate">{raceInfo.recordHolder}</div>
+                                                        <div className="text-slate-500">Year {raceInfo.recordYear}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
                                 {skipQualifyingCategories.includes(editCategory) && (
-                                    <p className="text-xs text-amber-300 mt-2 flex items-center gap-2">
+                                    <p className="text-[11px] text-amber-300 mt-2 flex items-center gap-2">
                                         <Icon name="warning" size="12" className="text-amber-400" />
                                         This category is in skip-qualifying mode, so the full enrolled list is available in finals.
                                     </p>
                                 )}
-                                <div className="flex flex-wrap gap-3 mt-6">
+                                <div className="flex flex-wrap gap-2.5 mt-3">
                                     {(editorAccessScope === 'All' || !skipQualifyingCategories.includes(editCategory)) && (
-                                        <button onClick={() => setActivePhase('pre_qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'pre_qualifying' ? 'bg-black/20 text-[#fff4d4] border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>0. Pre-Qualifying List</button>
+                                        <button onClick={() => setActivePhase('pre_qualifying')} className={`px-3 py-2 font-bold uppercase tracking-wider text-[11px] rounded-xl transition-all ${activePhase === 'pre_qualifying' ? 'bg-black/25 text-[#fff4d4] border border-primary/40 shadow-[0_10px_30px_rgba(201,163,74,0.12)]' : 'text-slate-400 hover:text-white bg-white/[0.04] border border-white/6'}`}>0. Pre-Qualifying</button>
                                     )}
                                     {editorAccessScope === 'All' && (
                                         <>
-                                            <button onClick={() => setActivePhase('qualifying')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'qualifying' ? 'bg-black/20 text-[#fff4d4] border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>1. Qualifying Stage</button>
+                                            <button onClick={() => setActivePhase('qualifying')} className={`px-3 py-2 font-bold uppercase tracking-wider text-[11px] rounded-xl transition-all ${activePhase === 'qualifying' ? 'bg-black/25 text-[#fff4d4] border border-primary/40 shadow-[0_10px_30px_rgba(201,163,74,0.12)]' : 'text-slate-400 hover:text-white bg-white/[0.04] border border-white/6'}`}>1. Qualifying</button>
                                         </>
                                     )}
-                                    <button onClick={() => setActivePhase('pre_finals')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'pre_finals' ? 'bg-black/20 text-[#fff4d4] border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>1.5 Pre-Finals List</button>
+                                    <button onClick={() => setActivePhase('pre_finals')} className={`px-3 py-2 font-bold uppercase tracking-wider text-[11px] rounded-xl transition-all ${activePhase === 'pre_finals' ? 'bg-black/25 text-[#fff4d4] border border-primary/40 shadow-[0_10px_30px_rgba(201,163,74,0.12)]' : 'text-slate-400 hover:text-white bg-white/[0.04] border border-white/6'}`}>1.5 Pre-Finals</button>
                                     {editorAccessScope === 'All' && (
                                         <>
-                                            <button onClick={() => setActivePhase('finals')} className={`px-4 py-3 font-bold uppercase tracking-wider text-xs rounded-t-lg transition-all ${activePhase === 'finals' ? 'bg-black/20 text-[#fff4d4] border-b-2 border-primary' : 'text-slate-500 hover:text-white bg-white/5'}`}>2. Finals Stage</button>
+                                            <button onClick={() => setActivePhase('finals')} className={`px-3 py-2 font-bold uppercase tracking-wider text-[11px] rounded-xl transition-all ${activePhase === 'finals' ? 'bg-black/25 text-[#fff4d4] border border-primary/40 shadow-[0_10px_30px_rgba(201,163,74,0.12)]' : 'text-slate-400 hover:text-white bg-white/[0.04] border border-white/6'}`}>2. Finals</button>
                                         </>
                                     )}
                                 </div>
@@ -2612,7 +2796,7 @@ const Hodsons: React.FC = () => {
 
                                     if (isPreQual || isPreFinals) {
                                         return (
-                                            <div className="flex items-center gap-6 mt-4 py-2.5 px-4 bg-white/[0.03] border border-white/5 rounded-xl animate-in slide-in-from-top-2">
+                                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 py-2 px-3 bg-white/[0.03] border border-white/5 rounded-xl animate-in slide-in-from-top-2">
                                                 <div className="flex items-center gap-2">
                                                     <Icon name="groups" size="14" className="text-slate-500" />
                                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
@@ -2635,19 +2819,19 @@ const Hodsons: React.FC = () => {
                                     return null;
                                 })()}
 
-                                <div className="flex flex-wrap items-center gap-3 mt-4">
+                                <div className="flex flex-wrap items-center gap-2.5 mt-3">
                                     {editorAccessScope === 'All' && (
                                         !skipQualifyingCategories.includes(editCategory) ? (
                                             <button
                                                 onClick={() => handleSkipQualifyingPhase(editCategory)}
-                                                className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-amber-500/20 bg-amber-500/10 border-amber-500/20 text-amber-300"
+                                                className="px-3 py-2 rounded-lg transition-all flex items-center gap-2 border text-[11px] font-bold uppercase tracking-wider hover:bg-amber-500/20 bg-amber-500/10 border-amber-500/20 text-amber-300"
                                             >
                                                 <Icon name="fast_forward" size="16" /> Skip Qualifying Phase
                                             </button>
                                         ) : (
                                             <button
                                                 onClick={() => handleRestoreQualifyingPhase(editCategory)}
-                                                className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-primary/20 bg-primary/10 border-primary/20 text-primary"
+                                                className="px-3 py-2 rounded-lg transition-all flex items-center gap-2 border text-[11px] font-bold uppercase tracking-wider hover:bg-primary/20 bg-primary/10 border-primary/20 text-primary"
                                             >
                                                 <Icon name="restore" size="16" /> Restore Qualifying Phase
                                             </button>
@@ -2659,7 +2843,7 @@ const Hodsons: React.FC = () => {
                                         <select
                                             value={downloadFormat}
                                             onChange={(e) => setDownloadFormat(e.target.value as any)}
-                                            className="royal-input rounded-lg px-2 py-1.5 text-xs font-bold cursor-pointer transition-colors hover:bg-white/5"
+                                            className="royal-input rounded-lg px-2 py-1.5 text-[11px] font-bold cursor-pointer transition-colors hover:bg-white/5"
                                         >
                                             <option value="xlsx">.xlsx</option>
                                             <option value="docx">.docx</option>
@@ -2669,7 +2853,7 @@ const Hodsons: React.FC = () => {
                                     <button
                                         disabled={isDownloading}
                                         onClick={() => editCategory && downloadCategoryStageList(editCategory, activePhase, downloadFormat)}
-                                        className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider ${isDownloading ? 'opacity-60 cursor-not-allowed' : ''} royal-secondary-btn`}
+                                        className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 border text-[11px] font-bold uppercase tracking-wider ${isDownloading ? 'opacity-60 cursor-not-allowed' : ''} royal-secondary-btn`}
                                     >
                                         <Icon name="download" size="16" /> Download {activePhase.replace('_', ' ')} List
                                     </button>
@@ -2709,32 +2893,30 @@ const Hodsons: React.FC = () => {
                                                     setResults(newResults);
                                                 }
                                             }}
-                                            className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 border text-xs font-bold uppercase tracking-wider hover:bg-primary/20 bg-primary/10 border-primary/20 text-primary"
+                                            className="px-3 py-2 rounded-lg transition-all flex items-center gap-2 border text-[11px] font-bold uppercase tracking-wider hover:bg-primary/20 bg-primary/10 border-primary/20 text-primary"
                                         >
                                             <Icon name="auto_awesome" size="16" /> Auto-Rank by Time
                                         </button>
                                     )}
-                                </div>
-                            </div>
-                            <div className="px-6 pb-6 pt-0 flex justify-end">
-                                <div className="flex flex-col gap-2">
+                                    <div className="ml-auto flex items-center gap-2">
+                                        <button
+                                            onClick={() => handleClearCategoryResults(editCategory)}
+                                            className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-black rounded-lg transition-all flex items-center justify-center gap-2 border border-red-500/20 text-[10px] uppercase tracking-wider active:scale-95"
+                                        >
+                                            <Icon name="delete_sweep" size="14" /> Clear All
+                                        </button>
                                     <button
                                         onClick={() => handleSaveResult(editCategory)}
-                                        className="px-6 py-3 bg-green-500 hover:bg-green-400 text-white font-black rounded-xl shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-widest active:scale-95 border-b-2 border-green-700"
+                                        className="px-4 py-2.5 bg-green-500 hover:bg-green-400 text-white font-black rounded-xl shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2 text-[11px] uppercase tracking-[0.18em] active:scale-95 border-b-2 border-green-700"
                                     >
-                                        <Icon name="cloud_upload" size="18" /> Save Changes
+                                        <Icon name="cloud_upload" size="16" /> Save Changes
                                     </button>
-                                    <button
-                                        onClick={() => handleClearCategoryResults(editCategory)}
-                                        className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-black rounded-lg transition-all flex items-center justify-center gap-2 border border-red-500/20 text-[10px] uppercase tracking-wider active:scale-95"
-                                    >
-                                        <Icon name="delete_sweep" size="14" /> Clear All
-                                    </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-[300px]">
+                        <div className="px-5 pb-5 pt-3 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                             <table className="royal-data-table min-w-[46rem]">
                                 <thead>
                                     <tr>
@@ -2748,11 +2930,11 @@ const Hodsons: React.FC = () => {
                                         <th className="royal-col-secondary cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
                                             <div className="flex items-center gap-1">House {listSortField === 'house' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                         </th>
+                                        <th className="royal-col-secondary">Position</th>
+                                        <th>Timing</th>
                                         <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'status' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('status'); }}>
                                             <div className="flex items-center gap-1">Status {listSortField === 'status' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                         </th>
-                                        <th className="royal-col-secondary">Position</th>
-                                        <th>Timing</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2776,7 +2958,7 @@ const Hodsons: React.FC = () => {
                                             const res = results.find(r => r.studentId === stu.id) || { studentId: stu.id, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
                                             const preQualOk = res.preQualifyingType === 'participating';
                                             const skipsQualifying = !!editCategory && skipQualifyingCategories.includes(editCategory);
-                                            const qualifiesForPreFinals = skipsQualifying || res.qualifyingType === 'qualified';
+                                            const qualifiesForPreFinals = qualifiesForFinals(res.qualifyingType, skipsQualifying);
                                             const preFinalsOk = res.preFinalsType === 'participating';
 
                                             if (activePhase === 'qualifying' && !skipsQualifying && !preQualOk) return false;
@@ -2799,59 +2981,6 @@ const Hodsons: React.FC = () => {
                                                             {stu.house}
                                                         </span>
                                                     </td>
-                                                    <td>
-                                                        {activePhase === 'pre_qualifying' ? (
-                                                            <select
-                                                                value={res.preQualifyingType || 'pending'}
-                                                                disabled={skipsQualifying}
-                                                                onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', e.target.value, res.preFinalsType || 'pending')}
-                                                                className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-slate-400 w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                            >
-                                                                <option value="pending">Pending</option>
-                                                                <option value="participating">Participating</option>
-                                                                <option value="on_leave">On Leave</option>
-                                                                <option value="medically_excused">Medically Excused</option>
-                                                            </select>
-                                                        ) : activePhase === 'pre_finals' ? (
-                                                            <select
-                                                                value={res.preFinalsType || 'pending'}
-                                                                onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', e.target.value)}
-                                                                className="royal-input rounded px-2 py-1 text-xs w-full max-w-[200px]"
-                                                            >
-                                                                <option value="pending">Pending</option>
-                                                                <option value="participating">Participating</option>
-                                                                <option value="on_leave">On Leave</option>
-                                                                <option value="medically_excused">Medically Excused</option>
-                                                            </select>
-                                                        ) : activePhase === 'qualifying' ? (
-                                                            <select
-                                                                value={res.qualifyingType}
-                                                                disabled={skipsQualifying}
-                                                                onChange={(e) => handleResultChange(stu.id, 'qualifying', e.target.value, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
-                                                                className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-primary w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                            >
-                                                                <option value="pending">Pending</option>
-                                                                <option value="qualified">Qualified</option>
-                                                                <option value="finished">Finished</option>
-                                                                <option value="dnf">DNF</option>
-                                                                <option value="absent">Absent</option>
-                                                                <option value="medically_excused">Medically Excused</option>
-                                                            </select>
-                                                        ) : (
-                                                            <select
-                                                                value={res.finalsType}
-                                                                onChange={(e) => handleResultChange(stu.id, 'finals', e.target.value, (res.finalsPosition || '').toString(), res.finalsTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
-                                                                className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 w-full max-w-[150px]"
-                                                            >
-                                                                <option value="pending">Pending</option>
-                                                                <option value="qualified_pos">Qualified + Position</option>
-                                                                <option value="finisher">Finisher</option>
-                                                                <option value="dnf">DNF</option>
-                                                                <option value="absent">Absent</option>
-                                                                <option value="medically_excused">Medically Excused</option>
-                                                            </select>
-                                                        )}
-                                                    </td>
                                                     <td className="royal-col-secondary">
                                                         {(activePhase === 'finals' && (res.finalsType === 'qualified_pos')) || (activePhase === 'qualifying' && res.qualifyingType === 'qualified') ? (
                                                             <div className="flex flex-col">
@@ -2868,7 +2997,7 @@ const Hodsons: React.FC = () => {
                                                     </td>
                                                     <td>
                                                         {(() => {
-                                                            const isQualTiming = activePhase === 'qualifying' && res.qualifyingType === 'qualified';
+                                                            const isQualTiming = activePhase === 'qualifying';
                                                             const isFinalsTiming = activePhase === 'finals' && (res.finalsType === 'qualified_pos' || res.finalsType === 'finisher');
                                                             const show = isQualTiming || isFinalsTiming;
                                                             if (!show) return <span className="text-slate-500 text-xs italic">—</span>;
@@ -2876,7 +3005,10 @@ const Hodsons: React.FC = () => {
                                                             const currentTiming = isQualTiming ? res.qualifyingTiming : res.finalsTiming;
                                                             const tp = parseTiming(currentTiming);
                                                             const border = isQualTiming ? 'focus:border-primary' : 'focus:border-amber-400';
-                                                            const placeholder = isQualTiming ? 'MM:SS (req for Qualified)' : 'MM:SS';
+                                                            const raceInfo = editCategory ? HODSONS_RACE_INFO[editCategory] : null;
+                                                            const placeholder = isQualTiming
+                                                                ? `${raceInfo?.qualifyingTiming || 'MM:SS'} qual / ${raceInfo?.bonusTiming || 'MM:SS'} bonus / ${raceInfo?.finishedTiming || 'MM:SS'} fin`
+                                                                : 'MM:SS';
 
                                                             return (
                                                                 <div className="flex items-center gap-2">
@@ -2927,6 +3059,74 @@ const Hodsons: React.FC = () => {
                                                                 </div>
                                                             );
                                                         })()}
+                                                    </td>
+                                                    <td>
+                                                        {activePhase === 'pre_qualifying' ? (
+                                                            <select
+                                                                value={res.preQualifyingType || 'pending'}
+                                                                disabled={skipsQualifying}
+                                                                onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', e.target.value, res.preFinalsType || 'pending')}
+                                                                className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-slate-400 w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            >
+                                                                <option value="pending">Pending</option>
+                                                                <option value="participating">Participating</option>
+                                                                <option value="on_leave">On Leave</option>
+                                                                <option value="medically_excused">Medically Excused</option>
+                                                            </select>
+                                                        ) : activePhase === 'pre_finals' ? (
+                                                            <select
+                                                                value={res.preFinalsType || 'pending'}
+                                                                onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', e.target.value)}
+                                                                className="royal-input rounded px-2 py-1 text-xs w-full max-w-[200px]"
+                                                            >
+                                                                <option value="pending">Pending</option>
+                                                                <option value="participating">Participating</option>
+                                                                <option value="on_leave">On Leave</option>
+                                                                <option value="medically_excused">Medically Excused</option>
+                                                            </select>
+                                                        ) : activePhase === 'qualifying' ? (
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <select
+                                                                    value={res.qualifyingType}
+                                                                    disabled={skipsQualifying}
+                                                                    onChange={(e) => handleResultChange(stu.id, 'qualifying', e.target.value, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
+                                                                    className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-primary w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                >
+                                                                    <option value="pending">Pending / Auto</option>
+                                                                    <option value="bonus">Bonus</option>
+                                                                    <option value="qualified">Qualified (auto)</option>
+                                                                    <option value="finished">Finished (auto)</option>
+                                                                    <option value="dnf">DNF (auto)</option>
+                                                                    <option value="absent">Absent</option>
+                                                                    <option value="medically_excused">Medically Excused</option>
+                                                                </select>
+                                                                <span className={`text-[10px] font-black uppercase tracking-[0.16em] ${res.qualifyingType === 'qualified' ? 'text-primary' :
+                                                                    res.qualifyingType === 'bonus' ? 'text-sky-300' :
+                                                                        res.qualifyingType === 'finished' ? 'text-green-400' :
+                                                                            res.qualifyingType === 'dnf' ? 'text-slate-300' :
+                                                                                res.qualifyingType === 'absent' ? 'text-red-400' :
+                                                                                    res.qualifyingType === 'medically_excused' ? 'text-slate-300' :
+                                                                                        'text-slate-500'
+                                                                    }`}>
+                                                                    {res.qualifyingType === 'pending'
+                                                                        ? 'Enter timing to auto-classify'
+                                                                        : res.qualifyingType.replace('_', ' ')}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <select
+                                                                value={res.finalsType}
+                                                                onChange={(e) => handleResultChange(stu.id, 'finals', e.target.value, (res.finalsPosition || '').toString(), res.finalsTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
+                                                                className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 w-full max-w-[150px]"
+                                                            >
+                                                                <option value="pending">Pending</option>
+                                                                <option value="qualified_pos">Qualified + Position</option>
+                                                                <option value="finisher">Finisher</option>
+                                                                <option value="dnf">DNF</option>
+                                                                <option value="absent">Absent</option>
+                                                                <option value="medically_excused">Medically Excused</option>
+                                                            </select>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );

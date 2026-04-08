@@ -54,6 +54,7 @@ const Layout: React.FC = () => {
       case '/attendance': return { title: 'Sports Attendance', subtitle: 'Individual participation tracking' };
       case '/teams': return { title: 'School Teams', subtitle: 'Competitive squads across all age groups' };
       case '/hodsons': return { title: 'Hodson\'s Run 2026', subtitle: 'Annual Cross Country Championship' };
+      case '/staff-login': return { title: 'Staff Login', subtitle: 'Protected access to staff-only controls' };
       default: return { title: 'Sanawar Sports', subtitle: 'Analytics Dashboard' };
     }
   };
@@ -103,6 +104,7 @@ const Layout: React.FC = () => {
         <nav className="flex-1 px-4 py-4 flex flex-col gap-2 overflow-y-auto">
           {/* Removed other navigation items */}
           <SidebarItem to="/hodsons" icon="directions_run" label="Hodsons 2026" />
+          <SidebarItem to="/staff-login" icon="lock_person" label="Staff Login" />
         </nav>
 
       </aside>

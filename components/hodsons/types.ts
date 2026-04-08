@@ -26,6 +26,7 @@ export interface CategoryHouseStats {
   total: number;
   partQual: number;
   qual: number;
+  bonusQual: number;
   finishedQual: number;
   dnfQual: number;
   medExcused: number;
@@ -49,6 +50,7 @@ export interface CategoryHouseStats {
 
 export interface CategoryStatsSummary {
   qualified: number;
+  bonusQualified: number;
   participants: number;
   total: number;
   dnfCount: number;
@@ -87,6 +89,7 @@ export interface DepartmentHouseStats {
   total: number;
   part: number;
   qual: number;
+  bonusQual: number;
   absent: number;
   medExcused: number;
   onLeave: number;
@@ -97,6 +100,7 @@ export interface DepartmentHouseStats {
 
 export interface DepartmentStatsSummary {
   qualified: number;
+  bonusQualified: number;
   participants: number;
   total: number;
   onLeave: number;

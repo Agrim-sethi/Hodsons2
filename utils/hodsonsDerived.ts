@@ -16,14 +16,15 @@ import {
 const HOUSES: HouseName[] = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'];
 
 const createCategoryHouseStats = (): CategoryHouseStatsMap => ({
-  Vindhya: { total: 0, partQual: 0, qual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 },
-  Himalaya: { total: 0, partQual: 0, qual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 },
-  Nilgiri: { total: 0, partQual: 0, qual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 },
-  Siwalik: { total: 0, partQual: 0, qual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 }
+  Vindhya: { total: 0, partQual: 0, qual: 0, bonusQual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 },
+  Himalaya: { total: 0, partQual: 0, qual: 0, bonusQual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 },
+  Nilgiri: { total: 0, partQual: 0, qual: 0, bonusQual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 },
+  Siwalik: { total: 0, partQual: 0, qual: 0, bonusQual: 0, finishedQual: 0, dnfQual: 0, medExcused: 0, absentQual: 0, onLeaveQual: 0, partFinals: 0, qualFinals: 0, finishedFinals: 0, dnfFinals: 0, absentFinals: 0, medExcusedFinals: 0, onLeaveFinals: 0, preQualMedExcused: 0, preQualOnLeave: 0, preFinalsMedExcused: 0, preFinalsOnLeave: 0, points: 0, qualifyingPoints: 0, finalsPoints: 0 }
 });
 
 const createCategoryStats = (): CategoryStatsSummary => ({
   qualified: 0,
+  bonusQualified: 0,
   participants: 0,
   total: 0,
   dnfCount: 0,
@@ -38,12 +39,12 @@ const createCategoryStats = (): CategoryStatsSummary => ({
 
 const createDepartmentStandings = (title: string): DepartmentStandingsData => ({
   title,
-  stats: { qualified: 0, participants: 0, total: 0, onLeave: 0, absent: 0, medExcused: 0, dnfCount: 0, finishedCount: 0, qualificationRate: '0%' },
+  stats: { qualified: 0, bonusQualified: 0, participants: 0, total: 0, onLeave: 0, absent: 0, medExcused: 0, dnfCount: 0, finishedCount: 0, qualificationRate: '0%' },
   houseStats: {
-    Vindhya: { total: 0, part: 0, qual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 },
-    Himalaya: { total: 0, part: 0, qual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 },
-    Nilgiri: { total: 0, part: 0, qual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 },
-    Siwalik: { total: 0, part: 0, qual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 }
+    Vindhya: { total: 0, part: 0, qual: 0, bonusQual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 },
+    Himalaya: { total: 0, part: 0, qual: 0, bonusQual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 },
+    Nilgiri: { total: 0, part: 0, qual: 0, bonusQual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 },
+    Siwalik: { total: 0, part: 0, qual: 0, bonusQual: 0, absent: 0, medExcused: 0, onLeave: 0, dnf: 0, finished: 0, points: 0 }
   },
   categoryPointsMap: {},
   breakdown: []
@@ -88,7 +89,7 @@ export const buildDerivedHodsonsData = (
       department.categoryPointsMap[stu.category] = { name: stu.category, Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
     }
 
-    if (['qualified', 'finished', 'dnf', 'late'].includes(res.qualifyingType as string)) {
+    if (['qualified', 'bonus', 'finished', 'dnf', 'late'].includes(res.qualifyingType as string)) {
       department.stats.participants += 1;
       department.houseStats[stu.house].part += 1;
     }
@@ -96,6 +97,11 @@ export const buildDerivedHodsonsData = (
     if (res.qualifyingType === 'qualified') {
       department.stats.qualified += 1;
       department.houseStats[stu.house].qual += 1;
+    }
+
+    if (res.qualifyingType === 'bonus') {
+      department.stats.bonusQualified += 1;
+      department.houseStats[stu.house].bonusQual += 1;
     }
 
     if (res.qualifyingType === 'finished' || res.finalsType === 'finisher') {
@@ -166,6 +172,10 @@ export const buildDerivedHodsonsData = (
         if (result.qualifyingType === 'qualified') {
           house.qual += 1;
         }
+        if (result.qualifyingType === 'bonus') {
+          house.bonusQual += 1;
+          category.stats.bonusQualified += 1;
+        }
       }
 
       if (result.qualifyingTiming && (!category.bestTiming || result.qualifyingTiming < category.bestTiming.timing)) {
@@ -177,7 +187,7 @@ export const buildDerivedHodsonsData = (
       qualifyingPoints = totalPoints;
     }
 
-    const progressed = skipsQualifying || result.qualifyingType === 'qualified';
+    const progressed = skipsQualifying || result.qualifyingType === 'qualified' || result.qualifyingType === 'bonus';
 
     if (progressed) {
       if (result.finalsType === 'qualified_pos') {

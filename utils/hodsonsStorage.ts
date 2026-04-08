@@ -11,7 +11,7 @@ export interface HodsonsStudent {
 }
 
 export type HodsonsPrePhaseType = 'pending' | 'participating' | 'on_leave' | 'medically_excused';
-export type HodsonsQualifyingType = 'pending' | 'qualified' | 'finished' | 'dnf' | 'absent' | 'medically_excused';
+export type HodsonsQualifyingType = 'pending' | 'qualified' | 'bonus' | 'finished' | 'dnf' | 'absent' | 'medically_excused';
 export type HodsonsFinalsType = 'pending' | 'qualified_pos' | 'finisher' | 'dnf' | 'absent' | 'medically_excused';
 
 export interface HodsonsResult {
