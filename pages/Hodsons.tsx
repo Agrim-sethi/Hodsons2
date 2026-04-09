@@ -131,7 +131,7 @@ const Hodsons: React.FC = () => {
     const [selectedStandingsStats, setSelectedStandingsStats] = useState<DepartmentStandingsData | null>(null);
     const [filterHouse, setFilterHouse] = useState<HouseAccessScope>('All');
     const [activePhase, setActivePhase] = useState<EditorPhase>('pre_qualifying');
-    const [listSortField, setListSortField] = useState<'id' | 'house' | 'name' | 'status'>('id');
+    const [listSortField, setListSortField] = useState<'id' | 'house' | 'name' | 'class' | 'status' | 'performance'>('id');
     const [listSortOrder, setListSortOrder] = useState<'asc' | 'desc'>('asc');
     const [selectedResultsDept, setSelectedResultsDept] = useState<ResultsDepartmentKey>('BD');
     const [selectedAddResultsDept, setSelectedAddResultsDept] = useState<ResultsDepartmentKey>('BD');
@@ -751,6 +751,7 @@ const Hodsons: React.FC = () => {
                         'SN': idx + 1,
                         'Comp No': stu.id,
                         'Name': stu.name,
+                        'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
                         'House': stu.house,
                         'Category': stu.category
                     }));
@@ -782,13 +783,13 @@ const Hodsons: React.FC = () => {
                     width: { size: 100, type: WidthType.PERCENTAGE },
                     rows: [
                         new TableRow({
-                            children: ['SN', 'Comp No', 'Name', 'House'].map(h => new TableCell({
+                            children: ['SN', 'Comp No', 'Name', 'Class', 'House'].map(h => new TableCell({
                                 children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })] })],
                                 shading: { fill: 'EEEEEE', type: ShadingType.CLEAR }
                             }))
                         }),
                         ...students.map((s, idx) => new TableRow({
-                            children: [String(idx + 1), s.id, s.name, s.house].map(v => new TableCell({
+                            children: [String(idx + 1), s.id, s.name, (studentClasses as Record<string, string>)[s.id] || '—', s.house].map(v => new TableCell({
                                 children: [new Paragraph(String(v))]
                             }))
                         }))
@@ -854,6 +855,7 @@ const Hodsons: React.FC = () => {
                             SN: idx + 1,
                             'Comp No': stu.id,
                             'Player Name': stu.name,
+                            'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
                             House: stu.house,
                             Status: getStageExportStatus(res, 'pre_qualifying')
                         };
@@ -864,6 +866,7 @@ const Hodsons: React.FC = () => {
                             SN: idx + 1,
                             'Comp No': stu.id,
                             'Player Name': stu.name,
+                            'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
                             House: stu.house,
                             Status: getStageExportStatus(res, 'pre_finals', skipsQualifying)
                         };
@@ -874,6 +877,7 @@ const Hodsons: React.FC = () => {
                             SN: idx + 1,
                             'Comp No': stu.id,
                             'Player Name': stu.name,
+                            'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
                             House: stu.house,
                             Status: getStageExportStatus(res, 'qualifying'),
                             Timing: res.qualifyingTiming || '—'
@@ -884,6 +888,7 @@ const Hodsons: React.FC = () => {
                         SN: idx + 1,
                         'Comp No': stu.id,
                         'Player Name': stu.name,
+                        'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
                         House: stu.house,
                         Status: getStageExportStatus(res, 'finals'),
                         Position: res.finalsPosition || '—',
@@ -903,9 +908,9 @@ const Hodsons: React.FC = () => {
             }
 
             const headers = rows.length > 0 ? Object.keys(rows[0]) : (
-                stage === 'pre_qualifying' || stage === 'pre_finals' ? ['SN', 'Comp No', 'Player Name', 'House', 'Status']
-                    : stage === 'qualifying' ? ['SN', 'Comp No', 'Player Name', 'House', 'Status', 'Timing']
-                        : ['SN', 'Comp No', 'Player Name', 'House', 'Status', 'Position', 'Timing']
+                stage === 'pre_qualifying' || stage === 'pre_finals' ? ['SN', 'Comp No', 'Player Name', 'Class', 'House', 'Status']
+                    : stage === 'qualifying' ? ['SN', 'Comp No', 'Player Name', 'Class', 'House', 'Status', 'Timing']
+                        : ['SN', 'Comp No', 'Player Name', 'Class', 'House', 'Status', 'Position', 'Timing']
             );
 
             const table = new Table({
@@ -973,6 +978,7 @@ const Hodsons: React.FC = () => {
                         'SN': idx + 1,
                         'Comp No': stu.id,
                         'Athlete Name': stu.name,
+                        'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
                         'House': stu.house,
                         'Qualifying Status': getStageExportStatus(r, 'qualifying'),
                         'Qualifying Time': r.qualifyingTiming || '—',
@@ -1008,7 +1014,7 @@ const Hodsons: React.FC = () => {
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 rows: [
                     new TableRow({
-                        children: ['SN', 'ID', 'Athlete Name', 'House', 'Qualifying', 'Finals'].map(h => new TableCell({
+                        children: ['SN', 'ID', 'Athlete Name', 'Class', 'House', 'Qualifying', 'Finals'].map(h => new TableCell({
                             children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 18 })] })],
                             shading: { fill: 'EEEEEE', type: ShadingType.CLEAR }
                         }))
@@ -1026,6 +1032,7 @@ const Hodsons: React.FC = () => {
                                 String(idx + 1),
                                 stu.id,
                                 stu.name,
+                                (studentClasses as Record<string, string>)[stu.id] || '—',
                                 stu.house,
                                 qualCell,
                                 finalsCell
@@ -1075,7 +1082,7 @@ const Hodsons: React.FC = () => {
                 <div className="flex flex-col sm:flex-row gap-4">
                     <button
                         onClick={() => setShowAllResultsModal(true)}
-                        className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-all border border-white/10"
+                        className="flex items-center gap-2 px-6 py-3.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl transition-all border border-primary/20 shadow-[0_16px_32px_rgba(0,0,0,0.18)] hover:border-primary/30 hover:shadow-primary/10"
                     >
                         <Icon name="history_edu" />
                         <span>View All Results</span>
@@ -1083,7 +1090,7 @@ const Hodsons: React.FC = () => {
                     {isLoggedIn && (
                         <button
                             onClick={() => setShowModal(true)}
-                            className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-[#b38b33] text-[#091423] hover:text-[#06101b] font-bold rounded-xl transition-all shadow-lg shadow-primary/20 border border-primary/30 whitespace-nowrap"
+                            className="flex items-center gap-2 px-6 py-3.5 bg-primary hover:bg-[#b38b33] text-[#091423] hover:text-[#06101b] font-bold rounded-2xl transition-all shadow-[0_18px_36px_rgba(201,163,74,0.26)] border border-primary/35 whitespace-nowrap ring-1 ring-primary/10"
                         >
                             <Icon name="edit_document" />
                             <span>Manage Results</span>
@@ -2094,6 +2101,9 @@ const Hodsons: React.FC = () => {
                                                             <th className="royal-col-secondary cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
                                                                 <div className="flex items-center gap-1">House {listSortField === 'house' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                                             </th>
+                                                            <th className="royal-col-secondary cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'class' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('class'); }}>
+                                                                <div className="flex items-center gap-1">Class {listSortField === 'class' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                                            </th>
                                                             <th>Qualifying</th>
                                                             <th className="royal-col-optional">Finals</th>
                                                             <th className="text-right cursor-pointer hover:text-white transition-colors" onClick={() => { setListSortOrder(listSortField === 'performance' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('performance'); }}>
@@ -2133,6 +2143,7 @@ const Hodsons: React.FC = () => {
                                                                 }
 
                                                                 if (listSortField === 'house') return factor * a.house.localeCompare(b.house);
+                                                                if (listSortField === 'class') return factor * (((studentClasses as Record<string, string>)[a.id] || '—').localeCompare((studentClasses as Record<string, string>)[b.id] || '—'));
                                                                 if (listSortField === 'name') return factor * a.name.localeCompare(b.name);
                                                                 return factor * a.id.localeCompare(b.id);
                                                             })
@@ -2155,6 +2166,11 @@ const Hodsons: React.FC = () => {
                                                                         <td className="royal-col-secondary">
                                                                             <span className={`inline-flex items-center gap-1.5 font-black ${hInfo.text} text-[10px] uppercase border ${hInfo.border}/20 px-2 py-0.5 rounded bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]`}>
                                                                                 {stu.house}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="royal-col-secondary">
+                                                                            <span className="inline-flex items-center rounded-full border border-white/8 bg-white/[0.035] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-200">
+                                                                                {(studentClasses as Record<string, string>)[stu.id] || '—'}
                                                                             </span>
                                                                         </td>
                                                                         <td>
@@ -3112,6 +3128,9 @@ const Hodsons: React.FC = () => {
                                             <th className="royal-col-secondary cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
                                                 <div className="flex items-center gap-1">House {listSortField === 'house' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
                                             </th>
+                                            <th className="royal-col-secondary cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'class' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('class'); }}>
+                                                <div className="flex items-center gap-1">Class {listSortField === 'class' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                            </th>
                                             <th className="royal-col-secondary">Position</th>
                                             <th>Timing</th>
                                             <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'status' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('status'); }}>
@@ -3126,6 +3145,7 @@ const Hodsons: React.FC = () => {
                                             .sort((a, b) => {
                                                 const factor = listSortOrder === 'asc' ? 1 : -1;
                                                 if (listSortField === 'house') return factor * a.house.localeCompare(b.house);
+                                                if (listSortField === 'class') return factor * (((studentClasses as Record<string, string>)[a.id] || '—').localeCompare((studentClasses as Record<string, string>)[b.id] || '—'));
                                                 if (listSortField === 'name') return factor * a.name.localeCompare(b.name);
                                                 if (listSortField === 'status') {
                                                     const resA = results.find(r => r.studentId === a.id);
@@ -3161,6 +3181,11 @@ const Hodsons: React.FC = () => {
                                                         <td className="royal-col-secondary">
                                                             <span className={`inline-flex items-center justify-center gap-1 uppercase tracking-wider text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.bg}/20 ${cfg.text} border ${cfg.border}/30`}>
                                                                 {stu.house}
+                                                            </span>
+                                                        </td>
+                                                        <td className="royal-col-secondary">
+                                                            <span className="inline-flex items-center rounded-full border border-white/8 bg-white/[0.035] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-200">
+                                                                {(studentClasses as Record<string, string>)[stu.id] || '—'}
                                                             </span>
                                                         </td>
                                                         <td className="royal-col-secondary">
