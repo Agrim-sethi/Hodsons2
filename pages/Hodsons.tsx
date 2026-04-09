@@ -2894,10 +2894,10 @@ const Hodsons: React.FC = () => {
                                             Quick Guide
                                         </div>
                                         <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] leading-5 text-slate-300">
-                                            <span><b className="text-[#f6e3b2]">Finals access:</b> Qualified + Bonus</span>
-                                            <span><b className="text-[#f6e3b2]">Qualifying auto-tags:</b> cutoff = Qualified, +1 min = Bonus, +2 mins = Finished, then DNF</span>
-                                            <span><b className="text-[#f6e3b2]">Qualifying points:</b> Finished +1, Bonus 0, Absent/DNF -1</span>
-                                            <span><b className="text-[#f6e3b2]">Finals points:</b> 1st 20 ... 15th 6, then 5 pts, finisher +1</span>
+                                            <span><b className="text-[#f6e3b2]">Finals Access:</b> Qualified + Bonus</span>
+                                            <span><b className="text-[#f6e3b2]">Qualifying Auto-Tags:</b> Cutoff = Qualified, +1 min = Bonus, +2 mins = Finished, Then DNF</span>
+                                            <span><b className="text-[#f6e3b2]">Qualifying Stage Points:</b> Finished = +1, Bonus = 0, Absent/DNF = -1</span>
+                                            <span><b className="text-[#f6e3b2]">Finals Stage Points:</b> Qualified = 1st +20 ... 15th +6, Then +5, Finisher = +1</span>
                                         </div>
                                     </div>
                                     {(() => {
@@ -3089,232 +3089,232 @@ const Hodsons: React.FC = () => {
                                         >
                                             <Icon name="delete_sweep" size="14" /> Clear All
                                         </button>
-                                    <button
-                                        onClick={() => handleSaveResult(editCategory)}
-                                        className="px-4 py-2.5 bg-green-500 hover:bg-green-400 text-white font-black rounded-xl shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2 text-[11px] uppercase tracking-[0.18em] active:scale-95 border-b-2 border-green-700"
-                                    >
-                                        <Icon name="cloud_upload" size="16" /> Save Changes
-                                    </button>
+                                        <button
+                                            onClick={() => handleSaveResult(editCategory)}
+                                            className="px-4 py-2.5 bg-green-500 hover:bg-green-400 text-white font-black rounded-xl shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2 text-[11px] uppercase tracking-[0.18em] active:scale-95 border-b-2 border-green-700"
+                                        >
+                                            <Icon name="cloud_upload" size="16" /> Save Changes
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                             <div className="px-5 pb-5 pt-3">
                                 <table className="royal-data-table min-w-[46rem]">
-                                <thead>
-                                    <tr>
-                                        <th>SN</th>
-                                        <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'id' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('id'); }}>
-                                            <div className="flex items-center gap-1">Comp No {listSortField === 'id' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
-                                        </th>
-                                        <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'name' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('name'); }}>
-                                            <div className="flex items-center gap-1">Player Name {listSortField === 'name' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
-                                        </th>
-                                        <th className="royal-col-secondary cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
-                                            <div className="flex items-center gap-1">House {listSortField === 'house' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
-                                        </th>
-                                        <th className="royal-col-secondary">Position</th>
-                                        <th>Timing</th>
-                                        <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'status' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('status'); }}>
-                                            <div className="flex items-center gap-1">Status {listSortField === 'status' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {mockStudents
-                                        .filter(s => s.category === editCategory)
-                                        .filter(s => filterHouse === 'All' || s.house === filterHouse)
-                                        .sort((a, b) => {
-                                            const factor = listSortOrder === 'asc' ? 1 : -1;
-                                            if (listSortField === 'house') return factor * a.house.localeCompare(b.house);
-                                            if (listSortField === 'name') return factor * a.name.localeCompare(b.name);
-                                            if (listSortField === 'status') {
-                                                const resA = results.find(r => r.studentId === a.id);
-                                                const resB = results.find(r => r.studentId === b.id);
-                                                const statusA = (activePhase === 'pre_qualifying' ? resA?.preQualifyingType : activePhase === 'pre_finals' ? resA?.preFinalsType : activePhase === 'qualifying' ? resA?.qualifyingType : resA?.finalsType) || 'pending';
-                                                const statusB = (activePhase === 'pre_qualifying' ? resB?.preQualifyingType : activePhase === 'pre_finals' ? resB?.preFinalsType : activePhase === 'qualifying' ? resB?.qualifyingType : resB?.finalsType) || 'pending';
-                                                return factor * statusA.localeCompare(statusB);
-                                            }
-                                            return factor * a.id.localeCompare(b.id);
-                                        })
-                                        .filter(stu => {
-                                            const res = results.find(r => r.studentId === stu.id) || { studentId: stu.id, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
-                                            const preQualOk = res.preQualifyingType === 'participating';
-                                            const skipsQualifying = !!editCategory && skipQualifyingCategories.includes(editCategory);
-                                            const qualifiesForPreFinals = qualifiesForFinals(res.qualifyingType, skipsQualifying);
-                                            const preFinalsOk = res.preFinalsType === 'participating';
+                                    <thead>
+                                        <tr>
+                                            <th>SN</th>
+                                            <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'id' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('id'); }}>
+                                                <div className="flex items-center gap-1">Comp No {listSortField === 'id' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                            </th>
+                                            <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'name' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('name'); }}>
+                                                <div className="flex items-center gap-1">Player Name {listSortField === 'name' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                            </th>
+                                            <th className="royal-col-secondary cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'house' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('house'); }}>
+                                                <div className="flex items-center gap-1">House {listSortField === 'house' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                            </th>
+                                            <th className="royal-col-secondary">Position</th>
+                                            <th>Timing</th>
+                                            <th className="cursor-pointer hover:text-white" onClick={() => { setListSortOrder(listSortField === 'status' ? (listSortOrder === 'asc' ? 'desc' : 'asc') : 'asc'); setListSortField('status'); }}>
+                                                <div className="flex items-center gap-1">Status {listSortField === 'status' && <Icon name={listSortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'} size="12" />}</div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {mockStudents
+                                            .filter(s => s.category === editCategory)
+                                            .filter(s => filterHouse === 'All' || s.house === filterHouse)
+                                            .sort((a, b) => {
+                                                const factor = listSortOrder === 'asc' ? 1 : -1;
+                                                if (listSortField === 'house') return factor * a.house.localeCompare(b.house);
+                                                if (listSortField === 'name') return factor * a.name.localeCompare(b.name);
+                                                if (listSortField === 'status') {
+                                                    const resA = results.find(r => r.studentId === a.id);
+                                                    const resB = results.find(r => r.studentId === b.id);
+                                                    const statusA = (activePhase === 'pre_qualifying' ? resA?.preQualifyingType : activePhase === 'pre_finals' ? resA?.preFinalsType : activePhase === 'qualifying' ? resA?.qualifyingType : resA?.finalsType) || 'pending';
+                                                    const statusB = (activePhase === 'pre_qualifying' ? resB?.preQualifyingType : activePhase === 'pre_finals' ? resB?.preFinalsType : activePhase === 'qualifying' ? resB?.qualifyingType : resB?.finalsType) || 'pending';
+                                                    return factor * statusA.localeCompare(statusB);
+                                                }
+                                                return factor * a.id.localeCompare(b.id);
+                                            })
+                                            .filter(stu => {
+                                                const res = results.find(r => r.studentId === stu.id) || { studentId: stu.id, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
+                                                const preQualOk = res.preQualifyingType === 'participating';
+                                                const skipsQualifying = !!editCategory && skipQualifyingCategories.includes(editCategory);
+                                                const qualifiesForPreFinals = qualifiesForFinals(res.qualifyingType, skipsQualifying);
+                                                const preFinalsOk = res.preFinalsType === 'participating';
 
-                                            if (activePhase === 'qualifying' && !skipsQualifying && !preQualOk) return false;
-                                            if (activePhase === 'pre_finals' && !qualifiesForPreFinals) return false;
-                                            if (activePhase === 'finals' && (!qualifiesForPreFinals || !preFinalsOk)) return false;
-                                            return true;
-                                        })
-                                        .map((stu, index) => {
-                                            const res = results.find(r => r.studentId === stu.id) || { studentId: stu.id, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
-                                            const cfg = houseConfig(stu.house);
-                                            const skipsQualifying = !!editCategory && skipQualifyingCategories.includes(editCategory);
+                                                if (activePhase === 'qualifying' && !skipsQualifying && !preQualOk) return false;
+                                                if (activePhase === 'pre_finals' && !qualifiesForPreFinals) return false;
+                                                if (activePhase === 'finals' && (!qualifiesForPreFinals || !preFinalsOk)) return false;
+                                                return true;
+                                            })
+                                            .map((stu, index) => {
+                                                const res = results.find(r => r.studentId === stu.id) || { studentId: stu.id, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
+                                                const cfg = houseConfig(stu.house);
+                                                const skipsQualifying = !!editCategory && skipQualifyingCategories.includes(editCategory);
 
-                                            return (
-                                                <tr key={stu.id} className="hover:bg-white/[0.02]">
-                                                    <td className="font-mono text-xs text-slate-500">{index + 1}</td>
-                                                    <td className="font-mono text-xs">{stu.id}</td>
-                                                    <td className="font-bold text-white">{stu.name}</td>
-                                                    <td className="royal-col-secondary">
-                                                        <span className={`inline-flex items-center justify-center gap-1 uppercase tracking-wider text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.bg}/20 ${cfg.text} border ${cfg.border}/30`}>
-                                                            {stu.house}
-                                                        </span>
-                                                    </td>
-                                                    <td className="royal-col-secondary">
-                                                        {(activePhase === 'finals' && (res.finalsType === 'qualified_pos')) || (activePhase === 'qualifying' && res.qualifyingType === 'qualified') ? (
-                                                            <div className="flex flex-col">
-                                                                <span className={`${activePhase === 'qualifying' ? 'text-primary' : 'text-amber-400'} font-bold text-[10px] uppercase tracking-wider`}>
-                                                                    {res[activePhase === 'qualifying' ? 'qualifyingPosition' : 'finalsPosition'] ? 'Ranked' : 'To be ranked'}
-                                                                </span>
-                                                                {res[activePhase === 'qualifying' ? 'qualifyingPosition' : 'finalsPosition'] && (
-                                                                    <span className="text-white font-black text-xs">#{res[activePhase === 'qualifying' ? 'qualifyingPosition' : 'finalsPosition']}</span>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-slate-500 text-xs italic">—</span>
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        {(() => {
-                                                            const isQualTiming = activePhase === 'qualifying';
-                                                            const isFinalsTiming = activePhase === 'finals' && (res.finalsType === 'qualified_pos' || res.finalsType === 'finisher');
-                                                            const show = isQualTiming || isFinalsTiming;
-                                                            if (!show) return <span className="text-slate-500 text-xs italic">—</span>;
-
-                                                            const currentTiming = isQualTiming ? res.qualifyingTiming : res.finalsTiming;
-                                                            const tp = parseTiming(currentTiming);
-                                                            const border = isQualTiming ? 'focus:border-primary' : 'focus:border-amber-400';
-                                                            const raceInfo = editCategory ? HODSONS_RACE_INFO[editCategory] : null;
-                                                            const placeholder = isQualTiming
-                                                                ? `${raceInfo?.qualifyingTiming || 'MM:SS'} qual / ${raceInfo?.bonusTiming || 'MM:SS'} bonus / ${raceInfo?.finishedTiming || 'MM:SS'} fin`
-                                                                : 'MM:SS';
-
-                                                            return (
-                                                                <div className="flex items-center gap-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        inputMode="numeric"
-                                                                        pattern="[0-9]*"
-                                                                        placeholder="MM"
-                                                                        value={tp.mm}
-                                                                        onChange={(e) => {
-                                                                            const val = e.target.value.replace(/\D/g, '').slice(0, 3);
-                                                                            const t = buildTiming(val, tp.ss);
-                                                                            handleResultChange(
-                                                                                stu.id,
-                                                                                isQualTiming ? 'qualifying' : 'finals',
-                                                                                isQualTiming ? res.qualifyingType : res.finalsType,
-                                                                                (isQualTiming ? (res.qualifyingPosition || '') : (res.finalsPosition || '')).toString(),
-                                                                                t || '',
-                                                                                res.preQualifyingType || 'pending',
-                                                                                res.preFinalsType || 'pending'
-                                                                            );
-                                                                        }}
-                                                                        className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none ${border} w-16 font-mono`}
-                                                                    />
-                                                                    <span className="text-slate-500 font-black">:</span>
-                                                                    <input
-                                                                        type="text"
-                                                                        inputMode="numeric"
-                                                                        pattern="[0-9]*"
-                                                                        placeholder="SS"
-                                                                        value={tp.ss}
-                                                                        onChange={(e) => {
-                                                                            const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                                                                            const t = buildTiming(tp.mm, val);
-                                                                            handleResultChange(
-                                                                                stu.id,
-                                                                                isQualTiming ? 'qualifying' : 'finals',
-                                                                                isQualTiming ? res.qualifyingType : res.finalsType,
-                                                                                (isQualTiming ? (res.qualifyingPosition || '') : (res.finalsPosition || '')).toString(),
-                                                                                t || '',
-                                                                                res.preQualifyingType || 'pending',
-                                                                                res.preFinalsType || 'pending'
-                                                                            );
-                                                                        }}
-                                                                        className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none ${border} w-16 font-mono`}
-                                                                    />
-                                                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider hidden xl:inline">{placeholder}</span>
+                                                return (
+                                                    <tr key={stu.id} className="hover:bg-white/[0.02]">
+                                                        <td className="font-mono text-xs text-slate-500">{index + 1}</td>
+                                                        <td className="font-mono text-xs">{stu.id}</td>
+                                                        <td className="font-bold text-white">{stu.name}</td>
+                                                        <td className="royal-col-secondary">
+                                                            <span className={`inline-flex items-center justify-center gap-1 uppercase tracking-wider text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.bg}/20 ${cfg.text} border ${cfg.border}/30`}>
+                                                                {stu.house}
+                                                            </span>
+                                                        </td>
+                                                        <td className="royal-col-secondary">
+                                                            {(activePhase === 'finals' && (res.finalsType === 'qualified_pos')) || (activePhase === 'qualifying' && res.qualifyingType === 'qualified') ? (
+                                                                <div className="flex flex-col">
+                                                                    <span className={`${activePhase === 'qualifying' ? 'text-primary' : 'text-amber-400'} font-bold text-[10px] uppercase tracking-wider`}>
+                                                                        {res[activePhase === 'qualifying' ? 'qualifyingPosition' : 'finalsPosition'] ? 'Ranked' : 'To be ranked'}
+                                                                    </span>
+                                                                    {res[activePhase === 'qualifying' ? 'qualifyingPosition' : 'finalsPosition'] && (
+                                                                        <span className="text-white font-black text-xs">#{res[activePhase === 'qualifying' ? 'qualifyingPosition' : 'finalsPosition']}</span>
+                                                                    )}
                                                                 </div>
-                                                            );
-                                                        })()}
-                                                    </td>
-                                                    <td>
-                                                        {activePhase === 'pre_qualifying' ? (
-                                                            <select
-                                                                value={res.preQualifyingType || 'pending'}
-                                                                disabled={skipsQualifying}
-                                                                onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', e.target.value, res.preFinalsType || 'pending')}
-                                                                className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-slate-400 w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                            >
-                                                                <option value="pending">Pending</option>
-                                                                <option value="participating">Participating</option>
-                                                                <option value="on_leave">On Leave</option>
-                                                                <option value="medically_excused">Medically Excused</option>
-                                                            </select>
-                                                        ) : activePhase === 'pre_finals' ? (
-                                                            <select
-                                                                value={res.preFinalsType || 'pending'}
-                                                                onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', e.target.value)}
-                                                                className="royal-input rounded px-2 py-1 text-xs w-full max-w-[200px]"
-                                                            >
-                                                                <option value="pending">Pending</option>
-                                                                <option value="participating">Participating</option>
-                                                                <option value="on_leave">On Leave</option>
-                                                                <option value="medically_excused">Medically Excused</option>
-                                                            </select>
-                                                        ) : activePhase === 'qualifying' ? (
-                                                            <div className="flex flex-col gap-1.5">
+                                                            ) : (
+                                                                <span className="text-slate-500 text-xs italic">—</span>
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            {(() => {
+                                                                const isQualTiming = activePhase === 'qualifying';
+                                                                const isFinalsTiming = activePhase === 'finals' && (res.finalsType === 'qualified_pos' || res.finalsType === 'finisher');
+                                                                const show = isQualTiming || isFinalsTiming;
+                                                                if (!show) return <span className="text-slate-500 text-xs italic">—</span>;
+
+                                                                const currentTiming = isQualTiming ? res.qualifyingTiming : res.finalsTiming;
+                                                                const tp = parseTiming(currentTiming);
+                                                                const border = isQualTiming ? 'focus:border-primary' : 'focus:border-amber-400';
+                                                                const raceInfo = editCategory ? HODSONS_RACE_INFO[editCategory] : null;
+                                                                const placeholder = isQualTiming
+                                                                    ? `${raceInfo?.qualifyingTiming || 'MM:SS'} qual / ${raceInfo?.bonusTiming || 'MM:SS'} bonus / ${raceInfo?.finishedTiming || 'MM:SS'} fin`
+                                                                    : 'MM:SS';
+
+                                                                return (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            inputMode="numeric"
+                                                                            pattern="[0-9]*"
+                                                                            placeholder="MM"
+                                                                            value={tp.mm}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                                                                                const t = buildTiming(val, tp.ss);
+                                                                                handleResultChange(
+                                                                                    stu.id,
+                                                                                    isQualTiming ? 'qualifying' : 'finals',
+                                                                                    isQualTiming ? res.qualifyingType : res.finalsType,
+                                                                                    (isQualTiming ? (res.qualifyingPosition || '') : (res.finalsPosition || '')).toString(),
+                                                                                    t || '',
+                                                                                    res.preQualifyingType || 'pending',
+                                                                                    res.preFinalsType || 'pending'
+                                                                                );
+                                                                            }}
+                                                                            className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none ${border} w-16 font-mono`}
+                                                                        />
+                                                                        <span className="text-slate-500 font-black">:</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            inputMode="numeric"
+                                                                            pattern="[0-9]*"
+                                                                            placeholder="SS"
+                                                                            value={tp.ss}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                                                                                const t = buildTiming(tp.mm, val);
+                                                                                handleResultChange(
+                                                                                    stu.id,
+                                                                                    isQualTiming ? 'qualifying' : 'finals',
+                                                                                    isQualTiming ? res.qualifyingType : res.finalsType,
+                                                                                    (isQualTiming ? (res.qualifyingPosition || '') : (res.finalsPosition || '')).toString(),
+                                                                                    t || '',
+                                                                                    res.preQualifyingType || 'pending',
+                                                                                    res.preFinalsType || 'pending'
+                                                                                );
+                                                                            }}
+                                                                            className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none ${border} w-16 font-mono`}
+                                                                        />
+                                                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider hidden xl:inline">{placeholder}</span>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </td>
+                                                        <td>
+                                                            {activePhase === 'pre_qualifying' ? (
                                                                 <select
-                                                                    value={res.qualifyingType}
+                                                                    value={res.preQualifyingType || 'pending'}
                                                                     disabled={skipsQualifying}
-                                                                    onChange={(e) => handleResultChange(stu.id, 'qualifying', e.target.value, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
-                                                                    className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-primary w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', e.target.value, res.preFinalsType || 'pending')}
+                                                                    className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-slate-400 w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                 >
-                                                                    <option value="pending">Pending / Auto</option>
-                                                                    <option value="bonus">Bonus</option>
-                                                                    <option value="qualified">Qualified (auto)</option>
-                                                                    <option value="finished">Finished (auto)</option>
-                                                                    <option value="dnf">DNF (auto)</option>
+                                                                    <option value="pending">Pending</option>
+                                                                    <option value="participating">Participating</option>
+                                                                    <option value="on_leave">On Leave</option>
+                                                                    <option value="medically_excused">Medically Excused</option>
+                                                                </select>
+                                                            ) : activePhase === 'pre_finals' ? (
+                                                                <select
+                                                                    value={res.preFinalsType || 'pending'}
+                                                                    onChange={(e) => handleResultChange(stu.id, 'qualifying', res.qualifyingType, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', e.target.value)}
+                                                                    className="royal-input rounded px-2 py-1 text-xs w-full max-w-[200px]"
+                                                                >
+                                                                    <option value="pending">Pending</option>
+                                                                    <option value="participating">Participating</option>
+                                                                    <option value="on_leave">On Leave</option>
+                                                                    <option value="medically_excused">Medically Excused</option>
+                                                                </select>
+                                                            ) : activePhase === 'qualifying' ? (
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    <select
+                                                                        value={res.qualifyingType}
+                                                                        disabled={skipsQualifying}
+                                                                        onChange={(e) => handleResultChange(stu.id, 'qualifying', e.target.value, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
+                                                                        className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-primary w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    >
+                                                                        <option value="pending">Pending / Auto</option>
+                                                                        <option value="bonus">Bonus</option>
+                                                                        <option value="qualified">Qualified (auto)</option>
+                                                                        <option value="finished">Finished (auto)</option>
+                                                                        <option value="dnf">DNF (auto)</option>
+                                                                        <option value="absent">Absent</option>
+                                                                        <option value="medically_excused">Medically Excused</option>
+                                                                    </select>
+                                                                    <span className={`text-[10px] font-black uppercase tracking-[0.16em] ${res.qualifyingType === 'qualified' ? 'text-primary' :
+                                                                        res.qualifyingType === 'bonus' ? 'text-sky-300' :
+                                                                            res.qualifyingType === 'finished' ? 'text-green-400' :
+                                                                                res.qualifyingType === 'dnf' ? 'text-slate-300' :
+                                                                                    res.qualifyingType === 'absent' ? 'text-red-400' :
+                                                                                        res.qualifyingType === 'medically_excused' ? 'text-slate-300' :
+                                                                                            'text-slate-500'
+                                                                        }`}>
+                                                                        {res.qualifyingType === 'pending'
+                                                                            ? 'Enter timing to auto-classify'
+                                                                            : res.qualifyingType.replace('_', ' ')}
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <select
+                                                                    value={res.finalsType}
+                                                                    onChange={(e) => handleResultChange(stu.id, 'finals', e.target.value, (res.finalsPosition || '').toString(), res.finalsTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
+                                                                    className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 w-full max-w-[150px]"
+                                                                >
+                                                                    <option value="pending">Pending</option>
+                                                                    <option value="qualified_pos">Qualified + Position</option>
+                                                                    <option value="finisher">Finisher</option>
+                                                                    <option value="dnf">DNF</option>
                                                                     <option value="absent">Absent</option>
                                                                     <option value="medically_excused">Medically Excused</option>
                                                                 </select>
-                                                                <span className={`text-[10px] font-black uppercase tracking-[0.16em] ${res.qualifyingType === 'qualified' ? 'text-primary' :
-                                                                    res.qualifyingType === 'bonus' ? 'text-sky-300' :
-                                                                        res.qualifyingType === 'finished' ? 'text-green-400' :
-                                                                            res.qualifyingType === 'dnf' ? 'text-slate-300' :
-                                                                                res.qualifyingType === 'absent' ? 'text-red-400' :
-                                                                                    res.qualifyingType === 'medically_excused' ? 'text-slate-300' :
-                                                                                        'text-slate-500'
-                                                                    }`}>
-                                                                    {res.qualifyingType === 'pending'
-                                                                        ? 'Enter timing to auto-classify'
-                                                                        : res.qualifyingType.replace('_', ' ')}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <select
-                                                                value={res.finalsType}
-                                                                onChange={(e) => handleResultChange(stu.id, 'finals', e.target.value, (res.finalsPosition || '').toString(), res.finalsTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
-                                                                className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-400 w-full max-w-[150px]"
-                                                            >
-                                                                <option value="pending">Pending</option>
-                                                                <option value="qualified_pos">Qualified + Position</option>
-                                                                <option value="finisher">Finisher</option>
-                                                                <option value="dnf">DNF</option>
-                                                                <option value="absent">Absent</option>
-                                                                <option value="medically_excused">Medically Excused</option>
-                                                            </select>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                </tbody>
-                            </table>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
