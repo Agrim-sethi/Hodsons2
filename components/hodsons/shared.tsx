@@ -9,7 +9,7 @@ const houseConfig = (house: string) => {
   return HOUSE_COLORS[key] ?? HOUSE_COLORS.nilgiri;
 };
 
-export const PodiumStep: React.FC<{ player: PodiumPlayer | null; rank: number }> = ({ player, rank }) => {
+export const PodiumStep: React.FC<{ player: PodiumPlayer | null; rank: number; isRecord?: boolean }> = ({ player, rank, isRecord = false }) => {
   if (!player) {
     return (
       <div className="flex flex-col items-center justify-end z-10 w-full px-1 opacity-50">
@@ -35,6 +35,12 @@ export const PodiumStep: React.FC<{ player: PodiumPlayer | null; rank: number }>
         <div className={`inline-flex items-center justify-center gap-1 uppercase tracking-wider text-[10px] font-bold px-2 py-0.5 rounded-full ${config.bg}/20 ${config.text} border ${config.border}/30 mb-1`}>
           {player.house}
         </div>
+        {isRecord && (
+          <div className="mb-1 inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-400/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-amber-200">
+            <Icon name="workspace_premium" className="text-[12px]" />
+            Record
+          </div>
+        )}
         {player.timing && (
           <div className="text-[10px] lg:text-xs font-mono text-slate-400 mb-1 leading-none">{player.timing}</div>
         )}

@@ -1,6 +1,7 @@
 import { HOUSE_COLORS } from '../constants';
 import studentClasses from './studentClasses.json';
 import { CATEGORIES_LIST, HodsonsCategory, HodsonsResult, mockStudents } from './hodsonsStorage';
+import { timingToSeconds } from './hodsonsRaceInfo';
 import {
   CategoryData,
   CategoryHouseStatsMap,
@@ -178,7 +179,7 @@ export const buildDerivedHodsonsData = (
         }
       }
 
-      if (result.qualifyingTiming && (!category.bestTiming || result.qualifyingTiming < category.bestTiming.timing)) {
+      if (result.qualifyingTiming && (!category.bestTiming || timingToSeconds(result.qualifyingTiming) < timingToSeconds(category.bestTiming.timing))) {
         category.bestTiming = { name: student.name, timing: result.qualifyingTiming, house: student.house };
       }
 
@@ -205,7 +206,7 @@ export const buildDerivedHodsonsData = (
         if (position === 2) category.top3[1] = { ...student, position: 2, timing: result.finalsTiming, class: (studentClasses as Record<string, string>)[student.id] || '—', rank: 2 };
         if (position === 3) category.top3[2] = { ...student, position: 3, timing: result.finalsTiming, class: (studentClasses as Record<string, string>)[student.id] || '—', rank: 3 };
 
-        if (result.finalsTiming && (!category.bestTiming || result.finalsTiming < category.bestTiming.timing)) {
+        if (result.finalsTiming && (!category.bestTiming || timingToSeconds(result.finalsTiming) < timingToSeconds(category.bestTiming.timing))) {
           category.bestTiming = { name: student.name, timing: result.finalsTiming, house: student.house };
         }
       } else if (result.finalsType === 'finisher') {
@@ -214,7 +215,7 @@ export const buildDerivedHodsonsData = (
         house.finishedFinals += 1;
         totalPoints += 1;
 
-        if (result.finalsTiming && (!category.bestTiming || result.finalsTiming < category.bestTiming.timing)) {
+        if (result.finalsTiming && (!category.bestTiming || timingToSeconds(result.finalsTiming) < timingToSeconds(category.bestTiming.timing))) {
           category.bestTiming = { name: student.name, timing: result.finalsTiming, house: student.house };
         }
       } else if (result.finalsType === 'absent') {

@@ -158,6 +158,8 @@ const Hodsons: React.FC = () => {
     const [editorAccessScope, setEditorAccessScope] = useState<HouseAccessScope | null>(null);
     const [passcodeInput, setPasscodeInput] = useState('');
     const [passcodeError, setPasscodeError] = useState(false);
+    const [mainSectionTab, setMainSectionTab] = useState<'standings' | 'results' | 'summary'>('standings');
+    const [lastSavedMeta, setLastSavedMeta] = useState<{ category: string; savedAt: string } | null>(null);
 
     const categoryRecordAlerts = categoriesData
         .map((category) => getCategoryRecordAlert(category))
@@ -377,6 +379,10 @@ const Hodsons: React.FC = () => {
         showToast({
             title: 'Results Saved',
             description: `${cat} has been saved and rankings have been refreshed.`
+        });
+        setLastSavedMeta({
+            category: cat,
+            savedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
         });
     };
 
@@ -1080,13 +1086,6 @@ const Hodsons: React.FC = () => {
                     </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4">
-                    <button
-                        onClick={() => setShowAllResultsModal(true)}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl transition-all border border-primary/20 shadow-[0_16px_32px_rgba(0,0,0,0.18)] hover:border-primary/30 hover:shadow-primary/10"
-                    >
-                        <Icon name="history_edu" />
-                        <span>View All Results</span>
-                    </button>
                     {isLoggedIn && (
                         <button
                             onClick={() => setShowModal(true)}
@@ -1099,7 +1098,40 @@ const Hodsons: React.FC = () => {
                 </div>
             </div>
 
-            {/* Standings Section */}
+            <div className="mb-8">
+                <div className="mx-auto max-w-fit rounded-2xl border border-primary/15 bg-[#0b1322]/88 px-2 py-2 shadow-[0_16px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                        {[
+                            { key: 'standings', label: 'Standings', icon: 'leaderboard' },
+                            { key: 'results', label: 'Age Category Results', icon: 'category' },
+                            { key: 'summary', label: 'Summary', icon: 'history_edu' }
+                        ].map((tab) => {
+                            const isActive = mainSectionTab === tab.key;
+                            return (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setMainSectionTab(tab.key as 'standings' | 'results' | 'summary')}
+                                    className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] transition-all ${isActive ? 'bg-primary text-[#091423] shadow-[0_10px_24px_rgba(201,163,74,0.28)]' : 'text-slate-300 hover:bg-white/6 hover:text-white'}`}
+                                >
+                                    <Icon name={tab.icon} size="16" />
+                                    <span>{tab.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            {isLoggedIn && lastSavedMeta && (
+                <div className="mb-8 flex items-center gap-2 rounded-2xl border border-emerald-400/15 bg-emerald-500/[0.06] px-4 py-3 text-sm text-emerald-100 shadow-[0_12px_24px_rgba(0,0,0,0.12)]">
+                    <Icon name="check_circle" size="18" className="text-emerald-300" />
+                    <span className="font-bold">Last saved:</span>
+                    <span>{lastSavedMeta.category}</span>
+                    <span className="text-emerald-200/75">at {lastSavedMeta.savedAt}</span>
+                </div>
+            )}
+
+            {mainSectionTab === 'standings' && (
             <div className="relative mb-24">
                 <div className="flex items-center gap-3 mb-8 relative z-10">
                     <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
@@ -1145,7 +1177,10 @@ const Hodsons: React.FC = () => {
                 {/* Decorative Background for Standings */}
                 <div className="absolute -inset-x-8 -top-8 -bottom-12 bg-white/[0.01] rounded-[40px] border border-white/[0.02] pointer-events-none -z-10"></div>
             </div>
+            )}
 
+            {mainSectionTab === 'results' && (
+            <>
             {/* Intricate Visual Divider */}
             <div className="relative h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-20 flex justify-center items-center">
                 <div className="absolute size-12 rounded-full border border-white/10 bg-[#0f172a] flex items-center justify-center shadow-2xl">
@@ -1284,7 +1319,17 @@ const Hodsons: React.FC = () => {
                                     {/* Podium Display */}
                                     <div className="flex items-end justify-center gap-0 lg:gap-2 h-[260px] mb-8 relative z-10 w-full max-w-[400px] mx-auto opacity-90 group-hover:opacity-100 transition-opacity">
                                         {[cat.top3[1], cat.top3[0], cat.top3[2]].map((player: any, i: number) => (
-                                            <PodiumStep key={i} player={player} rank={player ? player.rank : (i === 0 ? 2 : i === 1 ? 1 : 3)} />
+                                            <PodiumStep
+                                                key={i}
+                                                player={player}
+                                                rank={player ? player.rank : (i === 0 ? 2 : i === 1 ? 1 : 3)}
+                                                isRecord={Boolean(
+                                                    player &&
+                                                    player.rank === 1 &&
+                                                    categoryRecordAlertMap[cat.name]?.athleteName === player.name &&
+                                                    categoryRecordAlertMap[cat.name]?.currentTiming === player.timing
+                                                )}
+                                            />
                                         ))}
                                     </div>
 
@@ -1346,6 +1391,19 @@ const Hodsons: React.FC = () => {
                     </>
                 );
             })()}
+            </>
+            )}
+            {mainSectionTab === 'summary' && (
+                <div className="glass-panel rounded-[32px] border border-white/10 overflow-hidden">
+                    <AllResultsContent
+                        categories={categoriesData}
+                        newRecords={categoryRecordAlerts}
+                        standings={standingsDetailsMap}
+                        onDownload={downloadAllResultsDocx}
+                        isDownloading={isDownloading}
+                    />
+                </div>
+            )}
             {selectedCategoryStats && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSelectedCategoryStats(null)}></div>
@@ -3361,6 +3419,137 @@ const Hodsons: React.FC = () => {
     );
 };
 
+function AllResultsContent({ categories, newRecords, standings, onDownload, isDownloading }: { categories: any[]; newRecords: CategoryRecordAlert[]; standings: any; onDownload: () => void; isDownloading: boolean }) {
+    return (
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-12">
+            <div className="flex items-center justify-end">
+                <button
+                    onClick={onDownload}
+                    disabled={isDownloading}
+                    className="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+                >
+                    <Icon name={isDownloading ? 'sync' : 'download'} className={isDownloading ? 'animate-spin' : ''} />
+                    <span>Download Full Results (.docx)</span>
+                </button>
+            </div>
+            {newRecords.length > 0 && (
+                <div>
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-px flex-1 bg-white/5"></div>
+                        <span className="text-[10px] font-black text-amber-300 uppercase tracking-[4px]">New Records</span>
+                        <div className="h-px flex-1 bg-white/5"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {newRecords.map((record) => (
+                            <div key={record.category} className="rounded-[26px] border border-amber-300/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(201,163,74,0.06))] p-5 shadow-[0_18px_34px_rgba(0,0,0,0.2)]">
+                                <div className="flex items-start gap-3">
+                                    <div className="size-11 rounded-2xl bg-amber-300/15 border border-amber-200/20 flex items-center justify-center text-amber-200">
+                                        <Icon name="workspace_premium" size="20" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-100/90">{record.category}</div>
+                                        <div className="text-white text-lg font-black mt-1">{record.athleteName}</div>
+                                        <div className="text-[11px] text-amber-100/85 mt-1">
+                                            {record.currentTiming} for {record.athleteHouse} | {record.marginLabel}
+                                        </div>
+                                        <div className="text-[11px] text-slate-300 mt-2">
+                                            Previous: {record.recordTiming} by {record.recordHolder} ({record.recordYear})
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div>
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="h-px flex-1 bg-white/5"></div>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[4px]">Category Podiums</span>
+                    <div className="h-px flex-1 bg-white/5"></div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {categories.map((cat, idx) => (
+                        <div key={idx} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 hover:border-white/10 transition-all">
+                            <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-3 border-b border-white/5 pb-2">{cat.name}</h4>
+                            <div className="space-y-2">
+                                {cat.top3.map((stu: any, rankIdx: number) => (
+                                    <div key={rankIdx} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-[10px] font-black w-6 h-6 rounded flex items-center justify-center ${rankIdx === 0 ? 'bg-yellow-400/10 text-yellow-400' : rankIdx === 1 ? 'bg-slate-300/10 text-slate-300' : 'bg-amber-600/10 text-amber-600'}`}>
+                                                {rankIdx + 1}
+                                            </span>
+                                            <span className="text-xs text-white font-bold truncate max-w-[120px]" title={stu?.name}>{stu?.name || 'TBD'}</span>
+                                            {stu?.class && <span className="text-[9px] text-slate-500 font-medium">({stu.class})</span>}
+                                            {rankIdx === 0 && stu && newRecords.some((record) => record.category === cat.name && record.athleteName === stu.name && record.currentTiming === stu.timing) && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/25 bg-amber-400/12 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-amber-200">
+                                                    <Icon name="workspace_premium" className="text-[10px]" />
+                                                    Record
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[9px] font-bold text-slate-500 uppercase">{stu?.house || '—'}</span>
+                                            <span className="text-[10px] font-mono text-slate-400">{stu?.timing || '—'}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div>
+                <div className="flex items-center gap-3 mb-8">
+                    <div className="h-px flex-1 bg-white/5"></div>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[4px]">House Leaderboards</span>
+                    <div className="h-px flex-1 bg-white/5"></div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {['Overall', 'BD', 'GD', 'PD'].map(deptKey => {
+                        const dept = standings[deptKey];
+                        if (!dept) return null;
+                        return (
+                            <div key={deptKey} className="glass-panel p-6 border border-white/10 bg-white/[0.02] rounded-2xl">
+                                <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+                                    <Icon name="military_tech" size="18" className="text-primary" />
+                                    {dept.title}
+                                </h3>
+                                <div className="space-y-4">
+                                    {['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik']
+                                        .map(h => ({ name: h, points: dept.houseStats[h]?.points || 0 }))
+                                        .sort((a, b) => b.points - a.points)
+                                        .map((h, i) => {
+                                            const config = houseConfig(h.name);
+                                            return (
+                                                <div key={h.name} className="flex items-center justify-between group">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-xs font-black text-slate-600">#{i + 1}</span>
+                                                        <div className={`size-2 rounded-full ${config.bg}`}></div>
+                                                        <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">{h.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-black text-white">{h.points}</span>
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">pts</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function AllResultsModal({ categories, newRecords, standings, onClose, onDownload, isDownloading }: { categories: any[]; newRecords: CategoryRecordAlert[]; standings: any; onClose: () => void; onDownload: () => void; isDownloading: boolean }) {
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8">
@@ -3372,130 +3561,15 @@ function AllResultsModal({ categories, newRecords, standings, onClose, onDownloa
                     title="Hodson's Run 2026 Summary"
                     subtitle="Podium results and comprehensive house standings in one export-friendly overview."
                     onClose={onClose}
-                    actions={
-                        <button
-                            onClick={onDownload}
-                            disabled={isDownloading}
-                            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
-                        >
-                            <Icon name={isDownloading ? 'sync' : 'download'} className={isDownloading ? 'animate-spin' : ''} />
-                            <span>Download Full Results (.docx)</span>
-                        </button>
-                    }
+                    actions={null}
                 />
-
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-12">
-                    {newRecords.length > 0 && (
-                        <div>
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="h-px flex-1 bg-white/5"></div>
-                                <span className="text-[10px] font-black text-amber-300 uppercase tracking-[4px]">New Records</span>
-                                <div className="h-px flex-1 bg-white/5"></div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                {newRecords.map((record) => (
-                                    <div key={record.category} className="rounded-[26px] border border-amber-300/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(201,163,74,0.06))] p-5 shadow-[0_18px_34px_rgba(0,0,0,0.2)]">
-                                        <div className="flex items-start gap-3">
-                                            <div className="size-11 rounded-2xl bg-amber-300/15 border border-amber-200/20 flex items-center justify-center text-amber-200">
-                                                <Icon name="workspace_premium" size="20" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-100/90">{record.category}</div>
-                                                <div className="text-white text-lg font-black mt-1">{record.athleteName}</div>
-                                                <div className="text-[11px] text-amber-100/85 mt-1">
-                                                    {record.currentTiming} for {record.athleteHouse} | {record.marginLabel}
-                                                </div>
-                                                <div className="text-[11px] text-slate-300 mt-2">
-                                                    Previous: {record.recordTiming} by {record.recordHolder} ({record.recordYear})
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Podium Results Grouping */}
-                    <div>
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="h-px flex-1 bg-white/5"></div>
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[4px]">Category Podiums</span>
-                            <div className="h-px flex-1 bg-white/5"></div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {categories.map((cat, idx) => (
-                                <div key={idx} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 hover:border-white/10 transition-all">
-                                    <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-3 border-b border-white/5 pb-2">{cat.name}</h4>
-                                    <div className="space-y-2">
-                                        {cat.top3.map((stu: any, rankIdx: number) => (
-                                            <div key={rankIdx} className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`text-[10px] font-black w-6 h-6 rounded flex items-center justify-center ${rankIdx === 0 ? 'bg-yellow-400/10 text-yellow-400' : rankIdx === 1 ? 'bg-slate-300/10 text-slate-300' : 'bg-amber-600/10 text-amber-600'}`}>
-                                                        {rankIdx + 1}
-                                                    </span>
-                                                    <span className="text-xs text-white font-bold truncate max-w-[120px]" title={stu?.name}>{stu?.name || 'TBD'}</span>
-                                                    {stu?.class && <span className="text-[9px] text-slate-500 font-medium">({stu.class})</span>}
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-[9px] font-bold text-slate-500 uppercase">{stu?.house || '—'}</span>
-                                                    <span className="text-[10px] font-mono text-slate-400">{stu?.timing || '—'}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* House Standings Grouping */}
-                    <div>
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="h-px flex-1 bg-white/5"></div>
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[4px]">House Leaderboards</span>
-                            <div className="h-px flex-1 bg-white/5"></div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {['Overall', 'BD', 'GD', 'PD'].map(deptKey => {
-                                const dept = standings[deptKey];
-                                if (!dept) return null;
-                                return (
-                                    <div key={deptKey} className="glass-panel p-6 border border-white/10 bg-white/[0.02] rounded-2xl">
-                                        <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-                                            <Icon name="military_tech" size="18" className="text-primary" />
-                                            {dept.title}
-                                        </h3>
-                                        <div className="space-y-4">
-                                            {['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik']
-                                                .map(h => ({ name: h, points: dept.houseStats[h]?.points || 0 }))
-                                                .sort((a, b) => b.points - a.points)
-                                                .map((h, i) => {
-                                                    const config = houseConfig(h.name);
-                                                    return (
-                                                        <div key={h.name} className="flex items-center justify-between group">
-                                                            <div className="flex items-center gap-3">
-                                                                <span className="text-xs font-black text-slate-600">#{i + 1}</span>
-                                                                <div className={`size-2 rounded-full ${config.bg}`}></div>
-                                                                <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">{h.name}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-black text-white">{h.points}</span>
-                                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">pts</span>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
+                <AllResultsContent
+                    categories={categories}
+                    newRecords={newRecords}
+                    standings={standings}
+                    onDownload={onDownload}
+                    isDownloading={isDownloading}
+                />
             </div>
         </div>
     );
