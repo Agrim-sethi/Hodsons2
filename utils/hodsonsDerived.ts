@@ -241,11 +241,11 @@ export const buildDerivedHodsonsData = (
     const progressed = skipsQualifying || result.qualifyingType === 'qualified' || result.qualifyingType === 'bonus';
 
     if (progressed) {
+      house.qualFinals += 1;
       if (result.finalsType === 'qualified_pos') {
         category.stats.qualified += 1;
         category.stats.participants += 1;
         house.partFinals += 1;
-        house.qualFinals += 1;
 
         let points = 5;
         const position = result.finalsPosition || 0;

@@ -334,11 +334,7 @@ const Hodsons: React.FC = () => {
 
         if (qualResults.length > 0) {
             const sortedByTime = [...qualResults].sort((a, b) => {
-                const parseToSec = (t: string) => {
-                    const [m, s] = t.split(':').map(val => parseInt(val) || 0);
-                    return m * 60 + s;
-                };
-                return parseToSec(a.qualifyingTiming!) - parseToSec(b.qualifyingTiming!);
+                return parseExtendedTimingToSeconds(a.qualifyingTiming!) - parseExtendedTimingToSeconds(b.qualifyingTiming!);
             });
 
             sortedByTime.forEach((r, idx) => {
@@ -358,11 +354,7 @@ const Hodsons: React.FC = () => {
 
         if (finalResults.length > 0) {
             const sortedByTime = [...finalResults].sort((a, b) => {
-                const parseToSec = (t: string) => {
-                    const [m, s] = t.split(':').map(val => parseInt(val) || 0);
-                    return m * 60 + s;
-                };
-                return parseToSec(a.finalsTiming!) - parseToSec(b.finalsTiming!);
+                return parseExtendedTimingToSeconds(a.finalsTiming!) - parseExtendedTimingToSeconds(b.finalsTiming!);
             });
 
             sortedByTime.forEach((r, idx) => {
@@ -2046,7 +2038,7 @@ const Hodsons: React.FC = () => {
                                                     {(() => {
                                                         const hs = selectedCategoryStats.houseStats;
                                                         const qualData = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik']
-                                                            .map(h => ({ name: h, value: hs[h].qual + hs[h].bonusQual, color: HOUSE_COLORS[h.toLowerCase() as keyof typeof HOUSE_COLORS].hex }))
+                                                            .map(h => ({ name: h, value: hs[h as any].qual + hs[h as any].bonusQual, color: HOUSE_COLORS[h.toLowerCase() as keyof typeof HOUSE_COLORS].hex }))
                                                             .filter(d => d.value > 0);
                                                         if (qualData.length === 0) return <div className="flex items-center justify-center h-full text-slate-500 text-sm italic">No qualifications yet</div>;
                                                         return (
