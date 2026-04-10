@@ -3095,7 +3095,9 @@ const Hodsons: React.FC = () => {
                                                     <button
                                                         onClick={() => {
                                                             if (!editCategory) return;
-                                                            const studentsInCat = mockStudents.filter(s => s.category === editCategory);
+                                                            const studentsInCat = mockStudents
+                                                                .filter(s => s.category === editCategory)
+                                                                .filter(s => filterHouse === 'All' || s.house === filterHouse);
                                                             setResults(prev => {
                                                                 const newResults = [...prev];
                                                                 studentsInCat.forEach(stu => {
@@ -3117,7 +3119,9 @@ const Hodsons: React.FC = () => {
                                                     <button
                                                         onClick={() => {
                                                             if (!editCategory) return;
-                                                            const studentsInCat = mockStudents.filter(s => s.category === editCategory);
+                                                            const studentsInCat = mockStudents
+                                                                .filter(s => s.category === editCategory)
+                                                                .filter(s => filterHouse === 'All' || s.house === filterHouse);
                                                             const skipsQualifying = skipQualifyingCategories.includes(editCategory);
                                                             setResults(prev => {
                                                                 const newResults = [...prev];
