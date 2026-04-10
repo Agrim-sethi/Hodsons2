@@ -1,7 +1,7 @@
 import { HOUSE_COLORS } from '../constants';
 import studentClasses from './studentClasses.json';
 import { CATEGORIES_LIST, HodsonsCategory, HodsonsResult, mockStudents } from './hodsonsStorage';
-import { timingToSeconds } from './hodsonsRaceInfo';
+import { HODSONS_RACE_INFO, timingToSeconds } from './hodsonsRaceInfo';
 import {
   CategoryData,
   CategoryHouseStatsMap,
@@ -50,6 +50,19 @@ const createDepartmentStandings = (title: string): DepartmentStandingsData => ({
   categoryPointsMap: {},
   breakdown: []
 });
+
+const parseExtendedTimingToSeconds = (timing?: string): number => {
+  if (!timing) return Number.POSITIVE_INFINITY;
+  const parts = timing.split(':').map((segment) => parseInt(segment, 10));
+  if (parts.some((value) => Number.isNaN(value))) return Number.POSITIVE_INFINITY;
+  if (parts.length >= 3) {
+    return (parts[0] * 60) + parts[1] + (parts[2] / 100);
+  }
+  if (parts.length === 2) {
+    return (parts[0] * 60) + parts[1];
+  }
+  return Number.POSITIVE_INFINITY;
+};
 
 export const buildDerivedHodsonsData = (
   storedResults: HodsonsResult[],
@@ -183,6 +196,13 @@ export const buildDerivedHodsonsData = (
         category.bestTiming = { name: student.name, timing: result.qualifyingTiming, house: student.house };
       }
 
+      if (result.qualifyingTiming) {
+        const raceInfo = HODSONS_RACE_INFO[student.category];
+        if (raceInfo && parseExtendedTimingToSeconds(result.qualifyingTiming) < parseExtendedTimingToSeconds(raceInfo.recordTiming)) {
+          totalPoints += 3;
+        }
+      }
+
       house.qualifyingPoints += totalPoints;
       category.stats.qualifyingPoints += totalPoints;
       qualifyingPoints = totalPoints;
@@ -209,6 +229,13 @@ export const buildDerivedHodsonsData = (
         if (result.finalsTiming && (!category.bestTiming || timingToSeconds(result.finalsTiming) < timingToSeconds(category.bestTiming.timing))) {
           category.bestTiming = { name: student.name, timing: result.finalsTiming, house: student.house };
         }
+
+        if (result.finalsTiming) {
+          const raceInfo = HODSONS_RACE_INFO[student.category];
+          if (raceInfo && parseExtendedTimingToSeconds(result.finalsTiming) < parseExtendedTimingToSeconds(raceInfo.recordTiming)) {
+            totalPoints += 3;
+          }
+        }
       } else if (result.finalsType === 'finisher') {
         category.stats.participants += 1;
         house.partFinals += 1;
@@ -217,6 +244,13 @@ export const buildDerivedHodsonsData = (
 
         if (result.finalsTiming && (!category.bestTiming || timingToSeconds(result.finalsTiming) < timingToSeconds(category.bestTiming.timing))) {
           category.bestTiming = { name: student.name, timing: result.finalsTiming, house: student.house };
+        }
+
+        if (result.finalsTiming) {
+          const raceInfo = HODSONS_RACE_INFO[student.category];
+          if (raceInfo && parseExtendedTimingToSeconds(result.finalsTiming) < parseExtendedTimingToSeconds(raceInfo.recordTiming)) {
+            totalPoints += 3;
+          }
         }
       } else if (result.finalsType === 'absent') {
         house.absentFinals += 1;

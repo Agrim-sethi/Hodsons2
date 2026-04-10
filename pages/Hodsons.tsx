@@ -2030,7 +2030,7 @@ const Hodsons: React.FC = () => {
                                                     {(() => {
                                                         const hs = selectedCategoryStats.houseStats;
                                                         const qualData = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik']
-                                                            .map(h => ({ name: h, value: hs[h].qual, color: HOUSE_COLORS[h.toLowerCase() as keyof typeof HOUSE_COLORS].hex }))
+                                                            .map(h => ({ name: h, value: hs[h].qual + hs[h].bonusQual, color: HOUSE_COLORS[h.toLowerCase() as keyof typeof HOUSE_COLORS].hex }))
                                                             .filter(d => d.value > 0);
                                                         if (qualData.length === 0) return <div className="flex items-center justify-center h-full text-slate-500 text-sm italic">No qualifications yet</div>;
                                                         return (
@@ -2467,6 +2467,10 @@ const Hodsons: React.FC = () => {
                                             <li className="flex justify-between items-center bg-white/[0.03] p-2 rounded border border-white/5">
                                                 <span>Finisher</span>
                                                 <span className="text-green-400 font-bold">+1 pt</span>
+                                            </li>
+                                            <li className="flex justify-between items-center bg-[linear-gradient(135deg,rgba(245,158,11,0.1),rgba(255,255,255,0.02))] p-2 rounded border border-amber-500/20">
+                                                <span title="Awarded to the house whose student breaks the category record" className="flex items-center gap-1.5"><Icon name="workspace_premium" size="14" className="text-amber-400" /> Record Breaker</span>
+                                                <span className="text-amber-400 font-bold">+3 pts</span>
                                             </li>
                                             <li className="flex justify-between items-center bg-white/[0.03] p-2 rounded border border-white/5">
                                                 <span>Absent / DNF</span>
