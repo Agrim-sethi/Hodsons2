@@ -1869,31 +1869,47 @@ const Hodsons: React.FC = () => {
                                                             <span className="text-slate-400">Finals Absentees</span>
                                                             <span className="text-slate-500 font-black">{h.absentFinals}</span>
                                                         </div>
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <span className="text-slate-400">Finals DNF</span>
-                                                            <span className="text-slate-500 font-black">{h.dnfFinals}</span>
+                                                        <div className="flex justify-between items-center text-sm gap-2">
+                                                            <span className="text-slate-400 truncate">Progressed To Finals</span>
+                                                            <span className="text-white font-black shrink-0">{h.qual + h.bonusQual}</span>
                                                         </div>
-                                                        <div className="flex justify-between items-center text-[10px] italic border-t border-white/5 pt-3">
-                                                            <span className="text-slate-500">Pre-F Med: <span className="text-slate-300 font-bold">{h.preFinalsMedExcused + h.medExcusedFinals}</span></span>
-                                                            <span className="text-slate-500">Pre-F Leave: <span className="text-slate-300 font-bold">{h.preFinalsOnLeave}</span></span>
+                                                        <div className="flex justify-between items-center text-sm gap-2">
+                                                            <span className="text-slate-400 truncate">Total Qualified</span>
+                                                            <span className="text-white font-black shrink-0">{h.qualFinals}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm gap-2">
+                                                            <span className="text-slate-400 truncate">Total Finishers</span>
+                                                            <span className="text-white font-black shrink-0">{h.finishedFinals}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm gap-2">
+                                                            <span className="text-slate-400 truncate">Finals Absentees</span>
+                                                            <span className="text-slate-500 font-black shrink-0">{h.absentFinals}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm gap-2">
+                                                            <span className="text-slate-400 truncate">Finals DNF</span>
+                                                            <span className="text-slate-500 font-black shrink-0">{h.dnfFinals}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-[10px] italic border-t border-white/5 pt-3 gap-2">
+                                                            <span className="text-slate-500 truncate">Pre-F Med: <span className="text-slate-300 font-bold">{h.preFinalsMedExcused + h.medExcusedFinals}</span></span>
+                                                            <span className="text-slate-500 truncate">Pre-F Leave: <span className="text-slate-300 font-bold">{h.preFinalsOnLeave}</span></span>
                                                         </div>
                                                         <div className="flex flex-col gap-1 border-t border-white/10 pt-4">
-                                                            <div className="flex justify-between items-baseline mb-1">
-                                                                <span className="text-slate-400 font-bold text-xs uppercase">Total Points</span>
-                                                                <span className={`font-black text-2xl ${h.points > 0 ? 'text-amber-400' : h.points < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                                                            <div className="flex justify-between items-baseline mb-1 gap-2">
+                                                                <span className="text-slate-400 font-bold text-xs uppercase truncate">Total Points</span>
+                                                                <span className={`font-black text-2xl shrink-0 ${h.points > 0 ? 'text-amber-400' : h.points < 0 ? 'text-red-400' : 'text-slate-400'}`}>
                                                                     {h.points > 0 ? `+${h.points}` : h.points}
                                                                 </span>
                                                             </div>
                                                             <div className="flex flex-col gap-1 px-1">
-                                                                <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                                                                    <span>Qualifying Breakdown</span>
-                                                                    <span className="text-slate-400">{h.qualifyingPoints} pts</span>
+                                                                <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest gap-2">
+                                                                    <span className="truncate">Qualifying Breakdown</span>
+                                                                    <span className="text-slate-400 shrink-0">{h.qualifyingPoints} pts</span>
                                                                 </div>
-                                                                <div className="flex justify-between items-center text-[9px] font-black text-amber-500/80 uppercase tracking-widest border-t border-white/5 pt-1">
-                                                                    <span>Finals Breakdown</span>
-                                                                    <span className="text-amber-400">{h.finalsPoints} pts</span>
+                                                                <div className="flex justify-between items-center text-[9px] font-black text-amber-500/80 uppercase tracking-widest border-t border-white/5 pt-1 gap-2">
+                                                                    <span className="truncate">Finals Breakdown</span>
+                                                                    <span className="text-amber-400 shrink-0">{h.finalsPoints} pts</span>
                                                                 </div>
-                                                                <p className="text-[8px] text-slate-600 font-medium italic text-right leading-tight">
+                                                                <p className="text-[8px] text-slate-600 font-medium italic text-right leading-tight truncate">
                                                                     (Podium + {h.finishedFinals} Fin. - {h.absentFinals} Abs. - {h.dnfFinals} DNF)
                                                                 </p>
                                                             </div>
@@ -1907,17 +1923,17 @@ const Hodsons: React.FC = () => {
                                         <div className="glass-panel rounded-2xl p-6 border border-amber-500/20 bg-amber-500/5">
                                             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="size-12 rounded-full bg-amber-500 flex items-center justify-center text-black">
+                                                    <div className="size-12 rounded-full bg-amber-500 flex items-center justify-center text-black shrink-0">
                                                         <Icon name="military_tech" size="32" />
                                                     </div>
-                                                    <div>
-                                                        <h4 className="text-amber-400 font-bold uppercase text-xs tracking-widest">Category Champion</h4>
-                                                        <p className="text-white text-xl font-black">{selectedCategoryStats.bestTiming.name} <span className="text-slate-500 font-normal">({selectedCategoryStats.bestTiming.house})</span></p>
+                                                    <div className="min-w-0">
+                                                        <h4 className="text-amber-400 font-bold uppercase text-xs tracking-widest whitespace-nowrap">Category Champion</h4>
+                                                        <p className="text-white text-xl font-black truncate">{selectedCategoryStats.bestTiming.name} <span className="text-slate-500 font-normal whitespace-nowrap">({selectedCategoryStats.bestTiming.house})</span></p>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <h4 className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Winning Timing</h4>
-                                                    <p className="text-amber-400 text-3xl font-mono font-black">{selectedCategoryStats.bestTiming.timing}</p>
+                                                <div className="text-right shrink-0">
+                                                    <h4 className="text-slate-400 font-bold uppercase text-[10px] tracking-widest whitespace-nowrap">Winning Timing</h4>
+                                                    <p className="text-amber-400 text-3xl font-mono font-black tabular-nums">{selectedCategoryStats.bestTiming.timing}</p>
                                                 </div>
                                             </div>
                                             {getCategoryRecordAlert(selectedCategoryStats) && (
@@ -3058,22 +3074,80 @@ const Hodsons: React.FC = () => {
 
                                     if (isPreQual || isPreFinals) {
                                         return (
-                                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 py-2 px-3 bg-white/[0.03] border border-white/5 rounded-xl animate-in slide-in-from-top-2">
-                                                <div className="flex items-center gap-2">
-                                                    <Icon name="groups" size="14" className="text-slate-500" />
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                                                        {isPreQual ? "Pre-Qualify Summary" : "Pre-Finals Summary"}:
+                                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 py-2.5 px-3.5 bg-white/[0.03] border border-white/10 rounded-xl animate-in slide-in-from-top-2 overflow-hidden">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <Icon name="groups" size="14" className="text-amber-500 shrink-0" />
+                                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none whitespace-nowrap truncate">
+                                                        {isPreQual ? "Pre-Qualify Summary" : "Pre-Finals Summary"}
                                                     </span>
                                                 </div>
-                                                <div className="flex gap-4">
-                                                    <div className="flex items-center gap-2">
+                                                <div className="flex gap-4 shrink-0 items-center border-l border-white/10 pl-5 ml-1">
+                                                    <div className="flex items-center gap-2 whitespace-nowrap">
                                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Medically Excused:</span>
-                                                        <span className="text-sm font-black text-amber-500">{isPreQual ? catData.stats.preQualMedExcused : catData.stats.preFinalsMedExcused}</span>
+                                                        <span className="text-sm font-black text-amber-500 tabular-nums">{isPreQual ? catData.stats.preQualMedExcused : catData.stats.preFinalsMedExcused}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 whitespace-nowrap">
                                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">On Leave:</span>
-                                                        <span className="text-sm font-black text-[#e7cf96]">{isPreQual ? catData.stats.preQualOnLeave : catData.stats.preFinalsOnLeave}</span>
+                                                        <span className="text-sm font-black text-[#e7cf96] tabular-nums">{isPreQual ? catData.stats.preQualOnLeave : catData.stats.preFinalsOnLeave}</span>
                                                     </div>
+                                                </div>
+                                                <div className="ml-auto flex items-center gap-2 shrink-0">
+                                                    <button
+                                                        onClick={() => {
+                                                            if (!editCategory) return;
+                                                            const studentsInCat = mockStudents.filter(s => s.category === editCategory);
+                                                            setResults(prev => {
+                                                                const newResults = [...prev];
+                                                                studentsInCat.forEach(stu => {
+                                                                    const existing = newResults.find(r => r.studentId === stu.id);
+                                                                    if (existing) {
+                                                                        if (isPreQual) existing.preQualifyingType = 'pending';
+                                                                        else if (isPreFinals) existing.preFinalsType = 'pending';
+                                                                    }
+                                                                });
+                                                                return newResults;
+                                                            });
+                                                            showToast({ title: 'Status Reset', description: `All student statuses reset to pending for ${isPreQual ? 'pre-qualifying' : 'pre-finals'}.` });
+                                                        }}
+                                                        className="px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 border text-[10px] font-bold uppercase tracking-wider hover:bg-slate-500/20 bg-slate-500/10 border-white/5 text-slate-400 active:scale-95 whitespace-nowrap shadow-sm"
+                                                        title="Reset all to pending"
+                                                    >
+                                                        <Icon name="history" size="14" /> Undo
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (!editCategory) return;
+                                                            const studentsInCat = mockStudents.filter(s => s.category === editCategory);
+                                                            const skipsQualifying = skipQualifyingCategories.includes(editCategory);
+                                                            setResults(prev => {
+                                                                const newResults = [...prev];
+                                                                studentsInCat.forEach(stu => {
+                                                                    const existing = newResults.find(r => r.studentId === stu.id);
+                                                                    if (isPreQual) {
+                                                                        if (existing) {
+                                                                            if (existing.preQualifyingType !== 'medically_excused' && existing.preQualifyingType !== 'on_leave') {
+                                                                                existing.preQualifyingType = 'participating';
+                                                                            }
+                                                                        } else {
+                                                                            newResults.push({ studentId: stu.id, preQualifyingType: 'participating', preFinalsType: 'pending', qualifyingType: 'pending', finalsType: 'pending' } as any);
+                                                                        }
+                                                                    } else if (isPreFinals) {
+                                                                        const qualifiesForPreFinals = qualifiesForFinals(existing?.qualifyingType, skipsQualifying);
+                                                                        if (qualifiesForPreFinals && existing) {
+                                                                            if (existing.preFinalsType !== 'medically_excused' && existing.preFinalsType !== 'on_leave') {
+                                                                                existing.preFinalsType = 'participating';
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                });
+                                                                return newResults;
+                                                            });
+                                                            showToast({ title: 'Marked All', description: `All eligible students marked as participating for ${isPreQual ? 'pre-qualifying' : 'pre-finals'}.` });
+                                                        }}
+                                                        className="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 border text-[10px] font-bold uppercase tracking-wider hover:bg-green-500/20 bg-green-500/10 border-green-500/20 text-green-400 active:scale-95 whitespace-nowrap shadow-sm"
+                                                    >
+                                                        <Icon name="check_circle" size="14" /> Mark All as Participating
+                                                    </button>
                                                 </div>
                                             </div>
                                         );
@@ -3488,12 +3562,6 @@ function AllResultsContent({ categories, newRecords, standings, onDownload, isDo
                                             </span>
                                             <span className="text-xs text-white font-bold truncate max-w-[120px]" title={stu?.name}>{stu?.name || 'TBD'}</span>
                                             {stu?.class && <span className="text-[9px] text-slate-500 font-medium">({stu.class})</span>}
-                                            {rankIdx === 0 && stu && newRecords.some((record) => record.category === cat.name && record.athleteName === stu.name && record.currentTiming === stu.timing) && (
-                                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/25 bg-amber-400/12 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-amber-200">
-                                                    <Icon name="workspace_premium" className="text-[10px]" />
-                                                    Record
-                                                </span>
-                                            )}
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <span className="text-[9px] font-bold text-slate-500 uppercase">{stu?.house || '—'}</span>

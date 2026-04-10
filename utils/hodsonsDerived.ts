@@ -94,7 +94,7 @@ export const buildDerivedHodsonsData = (
     PD: createDepartmentStandings('PD Department Standings')
   };
 
-  const updateDeptStats = (deptKey: StandingsScopeKey, stu: typeof mockStudents[number], res: HodsonsResult, pts = 0) => {
+  const updateDeptStats = (deptKey: StandingsScopeKey, stu: typeof mockStudents[number], res: HodsonsResult, pts = 0, skipsQual = false) => {
     const department = deptDataMap[deptKey];
     department.stats.total += 1;
     department.houseStats[stu.house].total += 1;
@@ -103,39 +103,69 @@ export const buildDerivedHodsonsData = (
       department.categoryPointsMap[stu.category] = { name: stu.category, Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
     }
 
-    if (['qualified', 'bonus', 'finished', 'dnf', 'late'].includes(res.qualifyingType as string)) {
+    // Determine best status across both qualifying and finals phases
+    // Priority: qualified > bonus > finished > dnf > absent
+    const qualType = (res.qualifyingType as string) || 'pending';
+    const finalType = (res.finalsType as string) || 'pending';
+    const normalizedStatuses: string[] = [];
+    let participated = false;
+
+    // Collect qualifying statuses
+    if (!skipsQual && qualType !== 'pending') {
+      if (['qualified', 'bonus', 'finished', 'dnf', 'late'].includes(qualType)) {
+        participated = true;
+        if (qualType === 'qualified') normalizedStatuses.push('qualified');
+        else if (qualType === 'bonus') normalizedStatuses.push('bonus');
+        else if (qualType === 'finished') normalizedStatuses.push('finished');
+        else normalizedStatuses.push('dnf');
+      }
+      if (qualType === 'absent') normalizedStatuses.push('absent');
+    }
+
+    // Collect finals statuses
+    if (finalType !== 'pending') {
+      if (['qualified_pos', 'finisher', 'dnf'].includes(finalType)) {
+        participated = true;
+        if (finalType === 'qualified_pos') normalizedStatuses.push('qualified');
+        else if (finalType === 'finisher') normalizedStatuses.push('finished');
+        else normalizedStatuses.push('dnf');
+      }
+      if (finalType === 'absent') normalizedStatuses.push('absent');
+    }
+
+    if (participated) {
       department.stats.participants += 1;
       department.houseStats[stu.house].part += 1;
     }
 
-    if (res.qualifyingType === 'qualified') {
+    // Count only the single best status
+    const priority = ['qualified', 'bonus', 'finished', 'dnf', 'absent'];
+    let bestStatus = 'none';
+    for (const p of priority) {
+      if (normalizedStatuses.includes(p)) { bestStatus = p; break; }
+    }
+
+    if (bestStatus === 'qualified') {
       department.stats.qualified += 1;
       department.houseStats[stu.house].qual += 1;
-    }
-
-    if (res.qualifyingType === 'bonus') {
+    } else if (bestStatus === 'bonus') {
       department.stats.bonusQualified += 1;
       department.houseStats[stu.house].bonusQual += 1;
-    }
-
-    if (res.qualifyingType === 'finished' || res.finalsType === 'finisher') {
+    } else if (bestStatus === 'finished') {
       department.stats.finishedCount += 1;
       department.houseStats[stu.house].finished += 1;
-    }
-
-    if (res.qualifyingType === 'dnf' || (res.qualifyingType as string) === 'late' || res.finalsType === 'dnf') {
+    } else if (bestStatus === 'dnf') {
       department.stats.dnfCount += 1;
       department.houseStats[stu.house].dnf += 1;
-    }
-
-    if (res.qualifyingType === 'absent' || res.finalsType === 'absent') {
+    } else if (bestStatus === 'absent') {
       department.stats.absent += 1;
       department.houseStats[stu.house].absent += 1;
     }
 
+    // Medical excused and on-leave remain separate counters
     if (
-      res.qualifyingType === 'medically_excused' ||
-      res.finalsType === 'medically_excused' ||
+      qualType === 'medically_excused' ||
+      finalType === 'medically_excused' ||
       res.preQualifyingType === 'medically_excused' ||
       res.preFinalsType === 'medically_excused'
     ) {
@@ -284,10 +314,10 @@ export const buildDerivedHodsonsData = (
       else if (student.category.startsWith('PD')) pdPoints[student.house] += totalPoints;
     }
 
-    updateDeptStats('Overall', student, result, totalPoints);
-    if (student.category.startsWith('BD')) updateDeptStats('BD', student, result, totalPoints);
-    else if (student.category.startsWith('GD')) updateDeptStats('GD', student, result, totalPoints);
-    else if (student.category.startsWith('PD')) updateDeptStats('PD', student, result, totalPoints);
+    updateDeptStats('Overall', student, result, totalPoints, skipsQualifying);
+    if (student.category.startsWith('BD')) updateDeptStats('BD', student, result, totalPoints, skipsQualifying);
+    else if (student.category.startsWith('GD')) updateDeptStats('GD', student, result, totalPoints, skipsQualifying);
+    else if (student.category.startsWith('PD')) updateDeptStats('PD', student, result, totalPoints, skipsQualifying);
   });
 
   Object.values(deptDataMap).forEach((department) => {
