@@ -244,7 +244,7 @@ const Hodsons: React.FC = () => {
         const skippedCategories = getSkipQualifyingCategories();
         const storedExtraStudents = getExtraStudents();
         const storedExtraClasses = getExtraClasses();
-        
+
         setExtraStudents(storedExtraStudents);
         setExtraClasses(storedExtraClasses);
         setSkipQualifyingCategories(skippedCategories);
@@ -347,7 +347,10 @@ const Hodsons: React.FC = () => {
         saveHodsonsResults(results);
         loadData();
         setEditCategory(null);
-        showToast(`Results for ${cat} saved successfully!`, 'success');
+        showToast({
+            title: 'Results Saved',
+            description: `Results for ${cat} saved successfully!`
+        });
         setLastSavedMeta({
             category: cat,
             savedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
@@ -356,13 +359,19 @@ const Hodsons: React.FC = () => {
 
     const handleAddExtraStudent = () => {
         if (!newStudentData.id || !newStudentData.name || !newStudentData.class || !editCategory) {
-            showToast('Please fill all student details.', 'error');
+            showToast({
+                title: 'Missing Details',
+                description: 'Please fill all student details.'
+            });
             return;
         }
 
         const compNo = newStudentData.id.trim();
         if (allHodsonsStudents.some(s => s.id === compNo)) {
-            showToast('Student with this Computer No already exists.', 'error');
+            showToast({
+                title: 'Duplicate Entry',
+                description: 'Student with this Computer No already exists.'
+            });
             return;
         }
 
@@ -378,7 +387,7 @@ const Hodsons: React.FC = () => {
 
         saveExtraStudents(updatedStudents);
         saveExtraClasses(updatedClasses);
-        
+
         // Also ensure a result entry exists for this new student
         const newResult: HodsonsResult = {
             studentId: compNo,
@@ -391,7 +400,10 @@ const Hodsons: React.FC = () => {
 
         setNewStudentData({ id: '', name: '', house: 'Vindhya', class: '' });
         loadData();
-        showToast(`Student ${newStu.name} added to ${editCategory}!`, 'success');
+        showToast({
+            title: 'Student Added',
+            description: `Student ${newStu.name} added to ${editCategory}!`
+        });
     };
 
     const handleClearCategoryResults = (cat: string) => {
@@ -1136,266 +1148,266 @@ const Hodsons: React.FC = () => {
             )}
 
             {mainSectionTab === 'standings' && (
-            <div className="relative mb-24">
-                <div className="flex items-center gap-3 mb-8 relative z-10">
-                    <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                        <Icon name="military_tech" size="24" />
+                <div className="relative mb-24">
+                    <div className="flex items-center gap-3 mb-8 relative z-10">
+                        <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                            <Icon name="military_tech" size="24" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Championship Leaderboards</h2>
+                            <p className="text-sm text-slate-400">Departmental breakdown and overall house point distribution</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-black text-white uppercase tracking-tight">Championship Leaderboards</h2>
-                        <p className="text-sm text-slate-400">Departmental breakdown and overall house point distribution</p>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
+                        <StandingsChart
+                            title="Overall House Standings"
+                            subtitle="Cumulative points combined across all 12 categories"
+                            data={standings}
+                            icon="leaderboard"
+                            onClick={() => setSelectedStandingsStats(standingsDetailsMap['Overall'])}
+                        />
+                        <StandingsChart
+                            title="BD Department Standings"
+                            subtitle="Points from Boys Department Opens & Under Divisions"
+                            data={bdStandings}
+                            icon="boy"
+                            onClick={() => setSelectedStandingsStats(standingsDetailsMap['BD'])}
+                        />
+                        <StandingsChart
+                            title="GD Department Standings"
+                            subtitle="Points from Girls Department Opens & Under Divisions"
+                            data={gdStandings}
+                            icon="girl"
+                            onClick={() => setSelectedStandingsStats(standingsDetailsMap['GD'])}
+                        />
+                        <StandingsChart
+                            title="PD Department Standings"
+                            subtitle="Points from Prep Department (PDG + PDB) Divisions"
+                            data={pdStandings}
+                            icon="child_care"
+                            onClick={() => setSelectedStandingsStats(standingsDetailsMap['PD'])}
+                        />
                     </div>
-                </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
-                    <StandingsChart
-                        title="Overall House Standings"
-                        subtitle="Cumulative points combined across all 12 categories"
-                        data={standings}
-                        icon="leaderboard"
-                        onClick={() => setSelectedStandingsStats(standingsDetailsMap['Overall'])}
-                    />
-                    <StandingsChart
-                        title="BD Department Standings"
-                        subtitle="Points from Boys Department Opens & Under Divisions"
-                        data={bdStandings}
-                        icon="boy"
-                        onClick={() => setSelectedStandingsStats(standingsDetailsMap['BD'])}
-                    />
-                    <StandingsChart
-                        title="GD Department Standings"
-                        subtitle="Points from Girls Department Opens & Under Divisions"
-                        data={gdStandings}
-                        icon="girl"
-                        onClick={() => setSelectedStandingsStats(standingsDetailsMap['GD'])}
-                    />
-                    <StandingsChart
-                        title="PD Department Standings"
-                        subtitle="Points from Prep Department (PDG + PDB) Divisions"
-                        data={pdStandings}
-                        icon="child_care"
-                        onClick={() => setSelectedStandingsStats(standingsDetailsMap['PD'])}
-                    />
+                    {/* Decorative Background for Standings */}
+                    <div className="absolute -inset-x-8 -top-8 -bottom-12 bg-white/[0.01] rounded-[40px] border border-white/[0.02] pointer-events-none -z-10"></div>
                 </div>
-
-                {/* Decorative Background for Standings */}
-                <div className="absolute -inset-x-8 -top-8 -bottom-12 bg-white/[0.01] rounded-[40px] border border-white/[0.02] pointer-events-none -z-10"></div>
-            </div>
             )}
 
             {mainSectionTab === 'results' && (
-            <>
-            {/* Intricate Visual Divider */}
-            <div className="relative h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-20 flex justify-center items-center">
-                <div className="absolute size-12 rounded-full border border-white/10 bg-[#0f172a] flex items-center justify-center shadow-2xl">
-                    <div className="size-8 rounded-full bg-gradient-to-br from-[#f1d386] via-primary to-[#8d6b23] flex items-center justify-center animate-pulse">
-                        <Icon name="expand_more" className="text-white text-xl" />
+                <>
+                    {/* Intricate Visual Divider */}
+                    <div className="relative h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-20 flex justify-center items-center">
+                        <div className="absolute size-12 rounded-full border border-white/10 bg-[#0f172a] flex items-center justify-center shadow-2xl">
+                            <div className="size-8 rounded-full bg-gradient-to-br from-[#f1d386] via-primary to-[#8d6b23] flex items-center justify-center animate-pulse">
+                                <Icon name="expand_more" className="text-white text-xl" />
+                            </div>
+                        </div>
+                        <div className="absolute -top-10 text-[80px] font-black text-white/[0.12] uppercase tracking-[20px] pointer-events-none select-none">
+                            RESULTS
+                        </div>
                     </div>
-                </div>
-                <div className="absolute -top-10 text-[80px] font-black text-white/[0.12] uppercase tracking-[20px] pointer-events-none select-none">
-                    RESULTS
-                </div>
-            </div>
 
-            <div className="flex items-center gap-3 mb-8">
-                <div className="size-10 rounded-xl bg-white/5 flex items-center justify-center text-white border border-white/10">
-                    <Icon name="category" size="22" />
-                </div>
-                <div>
-                    <div className="royal-kicker mb-1">Championship Ledger</div>
-                    <h3 className="text-2xl font-black text-white uppercase tracking-tight">Category Results</h3>
-                    <p className="text-sm text-slate-400">Podium standings and detailed metrics for each age group</p>
-                </div>
-                <span className="ml-auto px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest hidden md:inline">
-                    Click cards for detailed stats
-                </span>
-            </div>
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="size-10 rounded-xl bg-white/5 flex items-center justify-center text-white border border-white/10">
+                            <Icon name="category" size="22" />
+                        </div>
+                        <div>
+                            <div className="royal-kicker mb-1">Championship Ledger</div>
+                            <h3 className="text-2xl font-black text-white uppercase tracking-tight">Category Results</h3>
+                            <p className="text-sm text-slate-400">Podium standings and detailed metrics for each age group</p>
+                        </div>
+                        <span className="ml-auto px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest hidden md:inline">
+                            Click cards for detailed stats
+                        </span>
+                    </div>
 
-            {(() => {
-                const activeDept = RESULTS_DEPARTMENTS.find(dept => dept.key === selectedResultsDept)!;
-                const visibleCategories = categoriesData.filter(cat => cat.name.startsWith(selectedResultsDept));
+                    {(() => {
+                        const activeDept = RESULTS_DEPARTMENTS.find(dept => dept.key === selectedResultsDept)!;
+                        const visibleCategories = categoriesData.filter(cat => cat.name.startsWith(selectedResultsDept));
 
-                return (
-                    <>
-                        <div className="glass-panel section-plaque rounded-[32px] border border-primary/15 p-5 sm:p-6 mb-8 overflow-hidden relative">
-                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent pointer-events-none"></div>
-                            <div className="absolute -top-8 -right-8 size-32 rounded-full bg-primary/10 blur-2xl pointer-events-none"></div>
-                            <div className="relative z-10 flex flex-col gap-5">
-                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                    <div>
-                                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${activeDept.chip} ${activeDept.accent} text-[10px] font-black uppercase tracking-[0.25em] mb-3`}>
-                                            <Icon name={activeDept.icon} size="14" />
-                                            Department Navigation
-                                        </div>
-                                        <h4 className="text-white text-xl sm:text-2xl font-black tracking-tight">Browse Results By Department</h4>
-                                        <p className="text-sm text-slate-400 mt-1">Switch between `BD`, `GD`, and `PD` to jump straight to the age-category cards you need.</p>
-                                    </div>
-                                    <div className="flex items-center gap-3 self-start lg:self-auto">
-                                        <div className="royal-stat-card px-4 py-2 rounded-2xl shadow-[inset_0_1px_0_rgba(255,244,214,0.04)]">
-                                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Showing</div>
-                                            <div className="text-white text-lg font-black">{visibleCategories.length} Categories</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    {RESULTS_DEPARTMENTS.map(dept => {
-                                        const deptCategories = categoriesData.filter(cat => cat.name.startsWith(dept.key));
-                                        const isActive = dept.key === selectedResultsDept;
-
-                                        return (
-                                            <button
-                                                key={dept.key}
-                                                onClick={() => setSelectedResultsDept(dept.key)}
-                                                className={`rounded-2xl border px-4 py-4 text-left transition-all group ${isActive ? dept.buttonActive : dept.buttonIdle}`}
-                                            >
-                                                <div className="flex items-start justify-between gap-3 mb-3">
-                                                    <div className={`size-11 rounded-2xl flex items-center justify-center border ${dept.chip} ${isActive ? 'scale-105' : ''} transition-transform`}>
-                                                        <Icon name={dept.icon} size="22" className={dept.accent} />
-                                                    </div>
-                                                    <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>
-                                                        {dept.shortLabel}
-                                                    </span>
+                        return (
+                            <>
+                                <div className="glass-panel section-plaque rounded-[32px] border border-primary/15 p-5 sm:p-6 mb-8 overflow-hidden relative">
+                                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent pointer-events-none"></div>
+                                    <div className="absolute -top-8 -right-8 size-32 rounded-full bg-primary/10 blur-2xl pointer-events-none"></div>
+                                    <div className="relative z-10 flex flex-col gap-5">
+                                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                            <div>
+                                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${activeDept.chip} ${activeDept.accent} text-[10px] font-black uppercase tracking-[0.25em] mb-3`}>
+                                                    <Icon name={activeDept.icon} size="14" />
+                                                    Department Navigation
                                                 </div>
-                                                <div className={`text-base font-black mb-1 ${isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>{dept.label}</div>
-                                                <div className="text-xs text-slate-400">{deptCategories.length} age categories</div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-4 mb-6">
-                            <div>
-                                <div className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] ${activeDept.accent}`}>
-                                    <Icon name={activeDept.icon} size="14" />
-                                    {activeDept.shortLabel} Results
-                                </div>
-                                <h4 className="text-white text-xl font-black mt-2">{activeDept.label}</h4>
-                            </div>
-                            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-primary/15 bg-primary/[0.06] text-xs font-bold uppercase tracking-widest text-[#f2e2b7]">
-                                <Icon name="touch_app" size="14" />
-                                Select a card to open deeper stats
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {visibleCategories.map((cat, idx) => (
-                                <div
-                                    key={`${selectedResultsDept}-${idx}`}
-                                    onClick={() => setSelectedCategoryStats(cat)}
-                                    className="glass-panel rounded-[28px] p-6 relative overflow-hidden cursor-pointer border border-primary/12 hover:border-primary/35 focus:border-primary/40 transition-all hover:shadow-[0_24px_48px_rgba(0,0,0,0.32)] flex flex-col h-full group outline-none"
-                                >
-                                    {(() => {
-                                        const recordAlert = categoryRecordAlertMap[cat.name];
-                                        return recordAlert ? (
-                                            <div className="absolute left-4 right-4 top-4 z-20 rounded-2xl border border-amber-300/35 bg-[linear-gradient(135deg,rgba(245,158,11,0.24),rgba(201,163,74,0.12))] px-4 py-3 shadow-[0_14px_30px_rgba(166,118,18,0.22)] backdrop-blur-sm">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="mt-0.5 size-9 rounded-xl bg-amber-300/15 border border-amber-200/20 flex items-center justify-center text-amber-200">
-                                                        <Icon name="workspace_premium" size="18" />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className="text-[10px] font-black uppercase tracking-[0.26em] text-amber-100/90">New Record</div>
-                                                        <div className="text-sm font-black text-white leading-tight mt-1">
-                                                            {recordAlert.athleteName} clocked {recordAlert.currentTiming}
-                                                        </div>
-                                                        <div className="text-[11px] text-amber-100/80 mt-1">
-                                                            {recordAlert.marginLabel} than {recordAlert.recordTiming}
-                                                        </div>
-                                                    </div>
+                                                <h4 className="text-white text-xl sm:text-2xl font-black tracking-tight">Browse Results By Department</h4>
+                                                <p className="text-sm text-slate-400 mt-1">Switch between `BD`, `GD`, and `PD` to jump straight to the age-category cards you need.</p>
+                                            </div>
+                                            <div className="flex items-center gap-3 self-start lg:self-auto">
+                                                <div className="royal-stat-card px-4 py-2 rounded-2xl shadow-[inset_0_1px_0_rgba(255,244,214,0.04)]">
+                                                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Showing</div>
+                                                    <div className="text-white text-lg font-black">{visibleCategories.length} Categories</div>
                                                 </div>
                                             </div>
-                                        ) : null;
-                                    })()}
-                                    <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent pointer-events-none"></div>
-                                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,163,74,0.10),transparent_34%)] opacity-80 pointer-events-none"></div>
-                                    <div className="absolute top-4 right-4 text-primary/10 pointer-events-none group-hover:text-primary/20 transition-colors">
-                                        <Icon name="directions_run" className="text-6xl" />
-                                    </div>
+                                        </div>
 
-                                    <div className={`relative z-10 border-b border-primary/10 pb-4 ${categoryRecordAlertMap[cat.name] ? 'pt-24 mb-5' : 'mb-6'}`}>
-                                        <div className="text-[10px] font-black uppercase tracking-[0.28em] text-primary/80 mb-2">Age Category Performance Cards</div>
-                                        <h3 className="text-2xl font-black text-white uppercase tracking-wide group-hover:text-primary transition-colors">{cat.name}</h3>
-                                        <p className="text-slate-400 text-sm mt-1">HODSON Podium and House Merit Snapshot</p>
-                                    </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                            {RESULTS_DEPARTMENTS.map(dept => {
+                                                const deptCategories = categoriesData.filter(cat => cat.name.startsWith(dept.key));
+                                                const isActive = dept.key === selectedResultsDept;
 
-                                    {/* Podium Display */}
-                                    <div className="flex items-end justify-center gap-0 lg:gap-2 h-[260px] mb-8 relative z-10 w-full max-w-[400px] mx-auto opacity-90 group-hover:opacity-100 transition-opacity">
-                                        {[cat.top3[1], cat.top3[0], cat.top3[2]].map((player: any, i: number) => (
-                                            <PodiumStep
-                                                key={i}
-                                                player={player}
-                                                rank={player ? player.rank : (i === 0 ? 2 : i === 1 ? 1 : 3)}
-                                                isRecord={Boolean(
-                                                    player &&
-                                                    player.rank === 1 &&
-                                                    categoryRecordAlertMap[cat.name]?.athleteName === player.name &&
-                                                    categoryRecordAlertMap[cat.name]?.currentTiming === player.timing
-                                                )}
-                                            />
-                                        ))}
-                                    </div>
-
-                                    <div className="flex flex-col gap-6 mb-8 mt-auto px-2 border-t border-primary/10 pt-6">
-                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                            {['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'].map(houseName => {
-                                                const house = cat.houseStats[houseName];
-                                                const cfg = houseConfig(houseName);
                                                 return (
-                                                    <div key={houseName} className="text-center bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(201,163,74,0.02))] p-3 rounded-xl border border-primary/10 group-hover:border-primary/20 transition-colors">
-                                                        <p className={`text-[8px] font-bold uppercase tracking-[0.2em] mb-1 ${cfg.text}`}>{houseName}</p>
-                                                        <p className="text-xl font-black text-white">
-                                                            {house.points > 0 ? `+${house.points}` : house.points}
-                                                        </p>
-                                                    </div>
+                                                    <button
+                                                        key={dept.key}
+                                                        onClick={() => setSelectedResultsDept(dept.key)}
+                                                        className={`rounded-2xl border px-4 py-4 text-left transition-all group ${isActive ? dept.buttonActive : dept.buttonIdle}`}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-3 mb-3">
+                                                            <div className={`size-11 rounded-2xl flex items-center justify-center border ${dept.chip} ${isActive ? 'scale-105' : ''} transition-transform`}>
+                                                                <Icon name={dept.icon} size="22" className={dept.accent} />
+                                                            </div>
+                                                            <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                                                                {dept.shortLabel}
+                                                            </span>
+                                                        </div>
+                                                        <div className={`text-base font-black mb-1 ${isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>{dept.label}</div>
+                                                        <div className="text-xs text-slate-400">{deptCategories.length} age categories</div>
+                                                    </button>
                                                 );
                                             })}
                                         </div>
+                                    </div>
+                                </div>
 
-                                        <div className="flex items-center justify-between gap-4 py-3 px-5 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(201,163,74,0.03))] rounded-2xl border border-primary/10">
-                                            <div className="flex flex-col flex-1">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Pre-Qualifying Off-Rolls</span>
-                                                    <Icon name="history" size="10" className="text-slate-600" />
-                                                </div>
-                                                <div className="flex gap-4">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
-                                                        <span className="text-[10px] font-black text-slate-300">MED: <span className="text-amber-500">{cat.stats.preQualMedExcused}</span></span>
+                                <div className="flex items-center justify-between gap-4 mb-6">
+                                    <div>
+                                        <div className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] ${activeDept.accent}`}>
+                                            <Icon name={activeDept.icon} size="14" />
+                                            {activeDept.shortLabel} Results
+                                        </div>
+                                        <h4 className="text-white text-xl font-black mt-2">{activeDept.label}</h4>
+                                    </div>
+                                    <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-primary/15 bg-primary/[0.06] text-xs font-bold uppercase tracking-widest text-[#f2e2b7]">
+                                        <Icon name="touch_app" size="14" />
+                                        Select a card to open deeper stats
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {visibleCategories.map((cat, idx) => (
+                                        <div
+                                            key={`${selectedResultsDept}-${idx}`}
+                                            onClick={() => setSelectedCategoryStats(cat)}
+                                            className="glass-panel rounded-[28px] p-6 relative overflow-hidden cursor-pointer border border-primary/12 hover:border-primary/35 focus:border-primary/40 transition-all hover:shadow-[0_24px_48px_rgba(0,0,0,0.32)] flex flex-col h-full group outline-none"
+                                        >
+                                            {(() => {
+                                                const recordAlert = categoryRecordAlertMap[cat.name];
+                                                return recordAlert ? (
+                                                    <div className="absolute left-4 right-4 top-4 z-20 rounded-2xl border border-amber-300/35 bg-[linear-gradient(135deg,rgba(245,158,11,0.24),rgba(201,163,74,0.12))] px-4 py-3 shadow-[0_14px_30px_rgba(166,118,18,0.22)] backdrop-blur-sm">
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="mt-0.5 size-9 rounded-xl bg-amber-300/15 border border-amber-200/20 flex items-center justify-center text-amber-200">
+                                                                <Icon name="workspace_premium" size="18" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="text-[10px] font-black uppercase tracking-[0.26em] text-amber-100/90">New Record</div>
+                                                                <div className="text-sm font-black text-white leading-tight mt-1">
+                                                                    {recordAlert.athleteName} clocked {recordAlert.currentTiming}
+                                                                </div>
+                                                                <div className="text-[11px] text-amber-100/80 mt-1">
+                                                                    {recordAlert.marginLabel} than {recordAlert.recordTiming}
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div className="size-1.5 rounded-full bg-[#d6bd84]/70 shadow-[0_0_8px_rgba(214,189,132,0.32)]"></div>
-                                                        <span className="text-[10px] font-black text-slate-300">LEAVE: <span className="text-[#e7cf96]">{cat.stats.preQualOnLeave}</span></span>
-                                                    </div>
-                                                </div>
+                                                ) : null;
+                                            })()}
+                                            <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent pointer-events-none"></div>
+                                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,163,74,0.10),transparent_34%)] opacity-80 pointer-events-none"></div>
+                                            <div className="absolute top-4 right-4 text-primary/10 pointer-events-none group-hover:text-primary/20 transition-colors">
+                                                <Icon name="directions_run" className="text-6xl" />
                                             </div>
-                                            <div className="w-px h-8 bg-white/5"></div>
-                                            <div className="flex flex-col flex-1 items-end">
-                                                <div className="flex justify-between items-center mb-2 w-full">
-                                                    <Icon name="emoji_events" size="10" className="text-slate-600" />
-                                                    <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Pre-Finals Off-Rolls</span>
+
+                                            <div className={`relative z-10 border-b border-primary/10 pb-4 ${categoryRecordAlertMap[cat.name] ? 'pt-24 mb-5' : 'mb-6'}`}>
+                                                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-primary/80 mb-2">Age Category Performance Cards</div>
+                                                <h3 className="text-2xl font-black text-white uppercase tracking-wide group-hover:text-primary transition-colors">{cat.name}</h3>
+                                                <p className="text-slate-400 text-sm mt-1">HODSON Podium and House Merit Snapshot</p>
+                                            </div>
+
+                                            {/* Podium Display */}
+                                            <div className="flex items-end justify-center gap-0 lg:gap-2 h-[260px] mb-8 relative z-10 w-full max-w-[400px] mx-auto opacity-90 group-hover:opacity-100 transition-opacity">
+                                                {[cat.top3[1], cat.top3[0], cat.top3[2]].map((player: any, i: number) => (
+                                                    <PodiumStep
+                                                        key={i}
+                                                        player={player}
+                                                        rank={player ? player.rank : (i === 0 ? 2 : i === 1 ? 1 : 3)}
+                                                        isRecord={Boolean(
+                                                            player &&
+                                                            player.rank === 1 &&
+                                                            categoryRecordAlertMap[cat.name]?.athleteName === player.name &&
+                                                            categoryRecordAlertMap[cat.name]?.currentTiming === player.timing
+                                                        )}
+                                                    />
+                                                ))}
+                                            </div>
+
+                                            <div className="flex flex-col gap-6 mb-8 mt-auto px-2 border-t border-primary/10 pt-6">
+                                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                                    {['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'].map(houseName => {
+                                                        const house = cat.houseStats[houseName];
+                                                        const cfg = houseConfig(houseName);
+                                                        return (
+                                                            <div key={houseName} className="text-center bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(201,163,74,0.02))] p-3 rounded-xl border border-primary/10 group-hover:border-primary/20 transition-colors">
+                                                                <p className={`text-[8px] font-bold uppercase tracking-[0.2em] mb-1 ${cfg.text}`}>{houseName}</p>
+                                                                <p className="text-xl font-black text-white">
+                                                                    {house.points > 0 ? `+${house.points}` : house.points}
+                                                                </p>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
-                                                <div className="flex gap-4">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
-                                                        <span className="text-[10px] font-black text-slate-300">MED: <span className="text-amber-500">{cat.stats.preFinalsMedExcused}</span></span>
+
+                                                <div className="flex items-center justify-between gap-4 py-3 px-5 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(201,163,74,0.03))] rounded-2xl border border-primary/10">
+                                                    <div className="flex flex-col flex-1">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Pre-Qualifying Off-Rolls</span>
+                                                            <Icon name="history" size="10" className="text-slate-600" />
+                                                        </div>
+                                                        <div className="flex gap-4">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
+                                                                <span className="text-[10px] font-black text-slate-300">MED: <span className="text-amber-500">{cat.stats.preQualMedExcused}</span></span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="size-1.5 rounded-full bg-[#d6bd84]/70 shadow-[0_0_8px_rgba(214,189,132,0.32)]"></div>
+                                                                <span className="text-[10px] font-black text-slate-300">LEAVE: <span className="text-[#e7cf96]">{cat.stats.preQualOnLeave}</span></span>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div className="size-1.5 rounded-full bg-[#d6bd84]/70 shadow-[0_0_8px_rgba(214,189,132,0.32)]"></div>
-                                                        <span className="text-[10px] font-black text-slate-300">LEAVE: <span className="text-[#e7cf96]">{cat.stats.preFinalsOnLeave}</span></span>
+                                                    <div className="w-px h-8 bg-white/5"></div>
+                                                    <div className="flex flex-col flex-1 items-end">
+                                                        <div className="flex justify-between items-center mb-2 w-full">
+                                                            <Icon name="emoji_events" size="10" className="text-slate-600" />
+                                                            <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Pre-Finals Off-Rolls</span>
+                                                        </div>
+                                                        <div className="flex gap-4">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
+                                                                <span className="text-[10px] font-black text-slate-300">MED: <span className="text-amber-500">{cat.stats.preFinalsMedExcused}</span></span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="size-1.5 rounded-full bg-[#d6bd84]/70 shadow-[0_0_8px_rgba(214,189,132,0.32)]"></div>
+                                                                <span className="text-[10px] font-black text-slate-300">LEAVE: <span className="text-[#e7cf96]">{cat.stats.preFinalsOnLeave}</span></span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    </>
-                );
-            })()}
-            </>
+                            </>
+                        );
+                    })()}
+                </>
             )}
             {mainSectionTab === 'summary' && (
                 <div className="glass-panel rounded-[32px] border border-white/10 overflow-hidden">
@@ -3444,7 +3456,7 @@ const Hodsons: React.FC = () => {
                                                                     <option value="participating">Participating</option>
                                                                     <option value="on_leave">On Leave</option>
                                                                     <option value="medically_excused">Medically Excused</option>
-                                                                    <option value="left_school">Left School</option>
+                                                                    <option value="left_school">Left School / Invalid</option>
                                                                 </select>
                                                             ) : activePhase === 'pre_finals' ? (
                                                                 <select
@@ -3456,7 +3468,7 @@ const Hodsons: React.FC = () => {
                                                                     <option value="participating">Participating</option>
                                                                     <option value="on_leave">On Leave</option>
                                                                     <option value="medically_excused">Medically Excused</option>
-                                                                    <option value="left_school">Left School</option>
+                                                                    <option value="left_school">Left School / Invalid</option>
                                                                 </select>
                                                             ) : activePhase === 'qualifying' ? (
                                                                 <select
@@ -3472,7 +3484,7 @@ const Hodsons: React.FC = () => {
                                                                     <option value="dnf">DNF</option>
                                                                     <option value="absent">Absent</option>
                                                                     <option value="medically_excused">Medically Excused</option>
-                                                                    <option value="left_school">Left School</option>
+                                                                    <option value="left_school">Left School / Invalid</option>
                                                                 </select>
                                                             ) : (
                                                                 <select
@@ -3486,7 +3498,7 @@ const Hodsons: React.FC = () => {
                                                                     <option value="dnf">DNF</option>
                                                                     <option value="absent">Absent</option>
                                                                     <option value="medically_excused">Medically Excused</option>
-                                                                    <option value="left_school">Left School</option>
+                                                                    <option value="left_school">Left School / Invalid</option>
                                                                 </select>
                                                             )}
                                                         </td>
@@ -3509,7 +3521,7 @@ const Hodsons: React.FC = () => {
                                             <p className="text-[10px] text-slate-500 uppercase tracking-widest leading-tight">Officially add a student to {editCategory}</p>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Comp. No</label>
@@ -3554,7 +3566,7 @@ const Hodsons: React.FC = () => {
                                             />
                                         </div>
                                     </div>
-                                    
+
                                     <div className="mt-6 flex justify-end">
                                         <button
                                             onClick={handleAddExtraStudent}

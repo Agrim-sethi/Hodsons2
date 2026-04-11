@@ -1,6 +1,6 @@
 import { HOUSE_COLORS } from '../constants';
 import studentClasses from './studentClasses.json';
-import { CATEGORIES_LIST, HodsonsCategory, HodsonsResult, mockStudents } from './hodsonsStorage';
+import { CATEGORIES_LIST, HodsonsCategory, HodsonsResult, mockStudents, HodsonsStudent } from './hodsonsStorage';
 import { HODSONS_RACE_INFO, timingToSeconds } from './hodsonsRaceInfo';
 import {
   CategoryData,
@@ -98,12 +98,7 @@ export const buildDerivedHodsonsData = (
 
   const updateDeptStats = (deptKey: StandingsScopeKey, stu: HodsonsStudent, res: HodsonsResult, pts = 0, skipsQual = false) => {
     const department = deptDataMap[deptKey];
-    department.stats.total += 1;
-    department.houseStats[stu.house].total += 1;
 
-    if (!department.categoryPointsMap[stu.category]) {
-      department.categoryPointsMap[stu.category] = { name: stu.category, Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
-    }
     const qualType = (res.qualifyingType as string) || 'pending';
     const finalType = (res.finalsType as string) || 'pending';
     const preQualType = (res.preQualifyingType as string) || 'pending';
@@ -196,7 +191,13 @@ export const buildDerivedHodsonsData = (
   };
 
   allStudents.forEach((student) => {
-    const result = storedResults.find((entry) => entry.studentId === student.id) || { studentId: student.id, qualifyingType: 'pending', finalsType: 'pending' };
+    const result = storedResults.find((entry) => entry.studentId === student.id) || { 
+        studentId: student.id, 
+        qualifyingType: 'pending' as const, 
+        finalsType: 'pending' as const,
+        preQualifyingType: 'pending' as const,
+        preFinalsType: 'pending' as const
+    };
     
     if (result.qualifyingType === 'left_school' || result.finalsType === 'left_school' || result.preQualifyingType === 'left_school' || result.preFinalsType === 'left_school') {
       return;
