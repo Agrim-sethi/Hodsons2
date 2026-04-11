@@ -305,68 +305,30 @@ const Hodsons: React.FC = () => {
         const studentsInCat = mockStudents.filter(s => s.category === cat);
         const getRes = (stuId: string) => results.find(r => r.studentId === stuId) || { studentId: stuId, preQualifyingType: 'pending' as const, preFinalsType: 'pending' as const, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
 
-        const missingQualTiming: string[] = [];
-        const missingFinalsTiming: string[] = [];
+        const missingQualPosition: string[] = [];
         const missingFinalsPosition: string[] = [];
 
         studentsInCat.forEach(stu => {
             const r: any = getRes(stu.id);
-            if (['qualified', 'bonus'].includes(r.qualifyingType)) {
-                if (!r.qualifyingTiming) missingQualTiming.push(`${stu.id} ${stu.name}`);
+            if (r.qualifyingType === 'qualified' && !r.qualifyingPosition) {
+                missingQualPosition.push(`${stu.id} ${stu.name}`);
             }
-            if (r.finalsType === 'qualified_pos') {
-                if (!r.finalsTiming) missingFinalsTiming.push(`${stu.id} ${stu.name}`);
+            if (r.finalsType === 'qualified_pos' && !r.finalsPosition) {
+                missingFinalsPosition.push(`${stu.id} ${stu.name}`);
             }
         });
 
-        if (missingQualTiming.length || missingFinalsTiming.length || missingFinalsPosition.length) {
+        if (missingQualPosition.length || missingFinalsPosition.length) {
             const lines = [
                 `Cannot save ${cat}. Fix these first:`,
-                missingQualTiming.length ? `- Qualifying timing missing (Qualified/Bonus): ${missingQualTiming.length}` : null,
-                missingFinalsTiming.length ? `- Finals timing missing (Qualified/Participating): ${missingFinalsTiming.length}` : null
+                missingQualPosition.length ? `- Qualifying position missing (Qualified): ${missingQualPosition.length}` : null,
+                missingFinalsPosition.length ? `- Finals position missing (Qualified + Position): ${missingFinalsPosition.length}` : null
             ].filter(Boolean) as string[];
             window.alert(lines.join('\n'));
             return;
         }
 
-        // Automatically rank Qualifiers by Timing in the Qualifying stage
-        const qualResults = results.filter(r => {
-            const stu = studentsInCat.find(s => s.id === r.studentId);
-            return stu && r.qualifyingType === 'qualified' && r.qualifyingTiming;
-        });
-
-        if (qualResults.length > 0) {
-            const sortedByTime = [...qualResults].sort((a, b) => {
-                return parseExtendedTimingToSeconds(a.qualifyingTiming!) - parseExtendedTimingToSeconds(b.qualifyingTiming!);
-            });
-
-            sortedByTime.forEach((r, idx) => {
-                const resIdx = results.findIndex(res => res.studentId === r.studentId);
-                if (resIdx > -1) {
-                    results[resIdx].qualifyingPosition = idx + 1;
-                }
-            });
-        }
-
-        // Automatically rank Finalists by Timing in the Final phase if they are markes as Qualified + Position but position is not yet manually overridden effectively (or just auto-rank them anyway)
-        // Note: Finals rank IS points-related, so auto-ranking here is an ASSESS FILTER as requested
-        const finalResults = results.filter(r => {
-            const stu = studentsInCat.find(s => s.id === r.studentId);
-            return stu && (r.finalsType === 'qualified_pos') && r.finalsTiming;
-        });
-
-        if (finalResults.length > 0) {
-            const sortedByTime = [...finalResults].sort((a, b) => {
-                return parseExtendedTimingToSeconds(a.finalsTiming!) - parseExtendedTimingToSeconds(b.finalsTiming!);
-            });
-
-            sortedByTime.forEach((r, idx) => {
-                const resIdx = results.findIndex(res => res.studentId === r.studentId);
-                if (resIdx > -1) {
-                    results[resIdx].finalsPosition = idx + 1;
-                }
-            });
-        }
+        // Sequential ranking is now manual - auto-ranking removed.
 
         saveHodsonsResults(results);
         loadData();
@@ -517,7 +479,7 @@ const Hodsons: React.FC = () => {
 
             if (phase === 'qualifying' && !skipsQualifying && categoryObj) {
                 nextQualType = manualQualifyingStatus;
-                if (manualQualifyingStatus === 'absent' || manualQualifyingStatus === 'medically_excused' || manualQualifyingStatus === 'dnf') {
+                if (manualQualifyingStatus === 'absent' || manualQualifyingStatus === 'medically_excused' || manualQualifyingStatus === 'dnf' || manualQualifyingStatus === 'left_school') {
                     nextQualPos = undefined;
                     nextQualTiming = undefined;
                 } else if (manualQualifyingStatus === 'bonus') {
@@ -525,32 +487,32 @@ const Hodsons: React.FC = () => {
                 }
             }
 
-            if (!skipsQualifying && ['pending', 'medically_excused', 'on_leave'].includes(preQualifyingType as string)) {
-                nextQualType = 'pending';
+            if (!skipsQualifying && ['pending', 'medically_excused', 'on_leave', 'left_school'].includes(preQualifyingType as string)) {
+                nextQualType = preQualifyingType === 'left_school' ? 'left_school' : 'pending';
                 nextQualPos = undefined;
                 nextQualTiming = undefined;
-                nextPreFinalsType = 'pending';
-                nextFinalType = 'pending';
+                nextPreFinalsType = preQualifyingType === 'left_school' ? 'left_school' : 'pending';
+                nextFinalType = preQualifyingType === 'left_school' ? 'left_school' : 'pending';
                 nextFinalPos = undefined;
                 nextFinalTiming = undefined;
             }
 
             if (!qualifiesForFinals(nextQualType, skipsQualifying)) {
-                nextPreFinalsType = 'pending';
-                nextFinalType = 'pending';
+                nextPreFinalsType = nextQualType === 'left_school' ? 'left_school' : 'pending';
+                nextFinalType = nextQualType === 'left_school' ? 'left_school' : 'pending';
                 nextFinalPos = undefined;
                 nextFinalTiming = undefined;
             }
 
-            if (['pending', 'medically_excused', 'on_leave'].includes(nextPreFinalsType as string)) {
-                nextFinalType = 'pending';
+            if (['pending', 'medically_excused', 'on_leave', 'left_school'].includes(nextPreFinalsType as string)) {
+                nextFinalType = nextPreFinalsType === 'left_school' ? 'left_school' : 'pending';
                 nextFinalPos = undefined;
                 nextFinalTiming = undefined;
             }
 
             const newResult = {
                 studentId: stuId,
-                preQualifyingType,
+                preQualifyingType: (preQualifyingType === 'left_school' || nextQualType === 'left_school' || nextPreFinalsType === 'left_school' || nextFinalType === 'left_school') ? 'left_school' : preQualifyingType,
                 preFinalsType: nextPreFinalsType,
                 qualifyingType: nextQualType,
                 finalsType: nextFinalType,
@@ -2177,7 +2139,13 @@ const Hodsons: React.FC = () => {
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-primary/10">
-                                                        {mockStudents.filter(s => s.category === selectedCategoryStats.name)
+                                                        {mockStudents
+                                                            .filter(s => s.category === selectedCategoryStats.name)
+                                                            .filter(s => {
+                                                                const res = results.find(r => r.studentId === s.id);
+                                                                if (!res) return true;
+                                                                return res.preQualifyingType !== 'left_school' && res.qualifyingType !== 'left_school' && res.preFinalsType !== 'left_school' && res.finalsType !== 'left_school';
+                                                            })
                                                             .sort((a, b) => {
                                                                 const factor = listSortOrder === 'asc' ? 1 : -1;
 
@@ -3320,14 +3288,29 @@ const Hodsons: React.FC = () => {
                                                             </span>
                                                         </td>
                                                         <td className="royal-col-secondary">
-                                                            {(activePhase === 'finals' && (res.finalsType === 'qualified_pos')) || (activePhase === 'qualifying' && res.qualifyingType === 'qualified') ? (
-                                                                <div className="flex flex-col">
-                                                                    <span className={`${activePhase === 'qualifying' ? 'text-primary' : 'text-amber-400'} font-bold text-[10px] uppercase tracking-wider`}>
-                                                                        {res[activePhase === 'qualifying' ? 'qualifyingPosition' : 'finalsPosition'] ? 'Ranked' : 'To be ranked'}
-                                                                    </span>
-                                                                    {res[activePhase === 'qualifying' ? 'qualifyingPosition' : 'finalsPosition'] && (
-                                                                        <span className="text-white font-black text-xs">#{res[activePhase === 'qualifying' ? 'qualifyingPosition' : 'finalsPosition']}</span>
-                                                                    )}
+                                                            {(activePhase === 'finals' && res.finalsType === 'qualified_pos') || (activePhase === 'qualifying' && res.qualifyingType === 'qualified') ? (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-slate-500 font-bold text-[10px]">#</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        inputMode="numeric"
+                                                                        pattern="[0-9]*"
+                                                                        placeholder="Rank"
+                                                                        value={activePhase === 'qualifying' ? (res.qualifyingPosition || '') : (res.finalsPosition || '')}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                                                                            handleResultChange(
+                                                                                stu.id,
+                                                                                activePhase === 'qualifying' ? 'qualifying' : 'finals',
+                                                                                activePhase === 'qualifying' ? res.qualifyingType : res.finalsType,
+                                                                                val,
+                                                                                (activePhase === 'qualifying' ? (res.qualifyingTiming || '') : (res.finalsTiming || '')).toString(),
+                                                                                res.preQualifyingType || 'pending',
+                                                                                res.preFinalsType || 'pending'
+                                                                            );
+                                                                        }}
+                                                                        className={`bg-black/50 border ${activePhase === 'qualifying' ? 'focus:border-primary' : 'focus:border-amber-400'} border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none w-14 font-mono font-bold`}
+                                                                    />
                                                                 </div>
                                                             ) : (
                                                                 <span className="text-slate-500 text-xs italic">—</span>
@@ -3410,6 +3393,7 @@ const Hodsons: React.FC = () => {
                                                                     <option value="participating">Participating</option>
                                                                     <option value="on_leave">On Leave</option>
                                                                     <option value="medically_excused">Medically Excused</option>
+                                                                    <option value="left_school">Left School</option>
                                                                 </select>
                                                             ) : activePhase === 'pre_finals' ? (
                                                                 <select
@@ -3421,6 +3405,7 @@ const Hodsons: React.FC = () => {
                                                                     <option value="participating">Participating</option>
                                                                     <option value="on_leave">On Leave</option>
                                                                     <option value="medically_excused">Medically Excused</option>
+                                                                    <option value="left_school">Left School</option>
                                                                 </select>
                                                             ) : activePhase === 'qualifying' ? (
                                                                 <select
@@ -3436,6 +3421,7 @@ const Hodsons: React.FC = () => {
                                                                     <option value="dnf">DNF</option>
                                                                     <option value="absent">Absent</option>
                                                                     <option value="medically_excused">Medically Excused</option>
+                                                                    <option value="left_school">Left School</option>
                                                                 </select>
                                                             ) : (
                                                                 <select
@@ -3449,6 +3435,7 @@ const Hodsons: React.FC = () => {
                                                                     <option value="dnf">DNF</option>
                                                                     <option value="absent">Absent</option>
                                                                     <option value="medically_excused">Medically Excused</option>
+                                                                    <option value="left_school">Left School</option>
                                                                 </select>
                                                             )}
                                                         </td>

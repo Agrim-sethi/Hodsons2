@@ -96,6 +96,15 @@ export const buildDerivedHodsonsData = (
 
   const updateDeptStats = (deptKey: StandingsScopeKey, stu: typeof mockStudents[number], res: HodsonsResult, pts = 0, skipsQual = false) => {
     const department = deptDataMap[deptKey];
+    const qualType = (res.qualifyingType as string) || 'pending';
+    const finalType = (res.finalsType as string) || 'pending';
+    const preQualType = (res.preQualifyingType as string) || 'pending';
+    const preFinalType = (res.preFinalsType as string) || 'pending';
+
+    if (qualType === 'left_school' || finalType === 'left_school' || preQualType === 'left_school' || preFinalType === 'left_school') {
+      return;
+    }
+
     department.stats.total += 1;
     department.houseStats[stu.house].total += 1;
 
@@ -103,10 +112,6 @@ export const buildDerivedHodsonsData = (
       department.categoryPointsMap[stu.category] = { name: stu.category, Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
     }
 
-    // Determine best status across both qualifying and finals phases
-    // Priority: qualified > bonus > finished > dnf > absent
-    const qualType = (res.qualifyingType as string) || 'pending';
-    const finalType = (res.finalsType as string) || 'pending';
     const normalizedStatuses: string[] = [];
     let participated = false;
 
@@ -184,6 +189,11 @@ export const buildDerivedHodsonsData = (
 
   mockStudents.forEach((student) => {
     const result = storedResults.find((entry) => entry.studentId === student.id) || { studentId: student.id, qualifyingType: 'pending', finalsType: 'pending' };
+    
+    if (result.qualifyingType === 'left_school' || result.finalsType === 'left_school' || result.preQualifyingType === 'left_school' || result.preFinalsType === 'left_school') {
+      return;
+    }
+
     const category = catsMap[student.category];
     const house = category.houseStats[student.house];
     const skipsQualifying = skippedCategories.includes(student.category);
