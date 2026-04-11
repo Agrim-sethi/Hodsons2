@@ -305,21 +305,24 @@ const Hodsons: React.FC = () => {
         const studentsInCat = mockStudents.filter(s => s.category === cat);
         const getRes = (stuId: string) => results.find(r => r.studentId === stuId) || { studentId: stuId, preQualifyingType: 'pending' as const, preFinalsType: 'pending' as const, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
 
+        const missingQualTiming: string[] = [];
         const missingFinalsTiming: string[] = [];
         const missingFinalsPosition: string[] = [];
 
         studentsInCat.forEach(stu => {
             const r: any = getRes(stu.id);
+            if (['qualified', 'bonus'].includes(r.qualifyingType)) {
+                if (!r.qualifyingTiming) missingQualTiming.push(`${stu.id} ${stu.name}`);
+            }
             if (r.finalsType === 'qualified_pos') {
-                // If timing is present, position will be auto-calculated on save, so don't block.
-                // Only block if timing is missing.
                 if (!r.finalsTiming) missingFinalsTiming.push(`${stu.id} ${stu.name}`);
             }
         });
 
-        if (missingFinalsTiming.length || missingFinalsPosition.length) {
+        if (missingQualTiming.length || missingFinalsTiming.length || missingFinalsPosition.length) {
             const lines = [
                 `Cannot save ${cat}. Fix these first:`,
+                missingQualTiming.length ? `- Qualifying timing missing (Qualified/Bonus): ${missingQualTiming.length}` : null,
                 missingFinalsTiming.length ? `- Finals timing missing (Qualified/Participating): ${missingFinalsTiming.length}` : null
             ].filter(Boolean) as string[];
             window.alert(lines.join('\n'));
@@ -513,16 +516,12 @@ const Hodsons: React.FC = () => {
             const manualQualifyingStatus = phase === 'qualifying' ? type : (idx >= 0 ? newRes[idx].qualifyingType : 'pending');
 
             if (phase === 'qualifying' && !skipsQualifying && categoryObj) {
-                if (manualQualifyingStatus === 'absent' || manualQualifyingStatus === 'medically_excused') {
-                    nextQualType = manualQualifyingStatus;
+                nextQualType = manualQualifyingStatus;
+                if (manualQualifyingStatus === 'absent' || manualQualifyingStatus === 'medically_excused' || manualQualifyingStatus === 'dnf') {
                     nextQualPos = undefined;
                     nextQualTiming = undefined;
                 } else if (manualQualifyingStatus === 'bonus') {
-                    nextQualType = 'bonus';
                     nextQualPos = undefined;
-                } else {
-                    nextQualType = classifyQualifyingTiming(categoryObj, nextQualTiming);
-                    nextQualPos = nextQualType === 'qualified' ? nextQualPos : undefined;
                 }
             }
 
@@ -3424,34 +3423,20 @@ const Hodsons: React.FC = () => {
                                                                     <option value="medically_excused">Medically Excused</option>
                                                                 </select>
                                                             ) : activePhase === 'qualifying' ? (
-                                                                <div className="flex flex-col gap-1.5">
-                                                                    <select
-                                                                        value={res.qualifyingType}
-                                                                        disabled={skipsQualifying}
-                                                                        onChange={(e) => handleResultChange(stu.id, 'qualifying', e.target.value, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
-                                                                        className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-primary w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                                    >
-                                                                        <option value="pending">Pending / Auto</option>
-                                                                        <option value="bonus">Bonus</option>
-                                                                        <option value="qualified">Qualified (auto)</option>
-                                                                        <option value="finished">Finished (auto)</option>
-                                                                        <option value="dnf">DNF (auto)</option>
-                                                                        <option value="absent">Absent</option>
-                                                                        <option value="medically_excused">Medically Excused</option>
-                                                                    </select>
-                                                                    <span className={`text-[10px] font-black uppercase tracking-[0.16em] ${res.qualifyingType === 'qualified' ? 'text-primary' :
-                                                                        res.qualifyingType === 'bonus' ? 'text-sky-300' :
-                                                                            res.qualifyingType === 'finished' ? 'text-green-400' :
-                                                                                res.qualifyingType === 'dnf' ? 'text-slate-300' :
-                                                                                    res.qualifyingType === 'absent' ? 'text-red-400' :
-                                                                                        res.qualifyingType === 'medically_excused' ? 'text-slate-300' :
-                                                                                            'text-slate-500'
-                                                                        }`}>
-                                                                        {res.qualifyingType === 'pending'
-                                                                            ? 'Enter timing to auto-classify'
-                                                                            : res.qualifyingType.replace('_', ' ')}
-                                                                    </span>
-                                                                </div>
+                                                                <select
+                                                                    value={res.qualifyingType}
+                                                                    disabled={skipsQualifying}
+                                                                    onChange={(e) => handleResultChange(stu.id, 'qualifying', e.target.value, (res.qualifyingPosition || '').toString(), res.qualifyingTiming || '', res.preQualifyingType || 'pending', res.preFinalsType || 'pending')}
+                                                                    className={`bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-primary w-full max-w-[200px] ${skipsQualifying ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                >
+                                                                    <option value="pending">Pending</option>
+                                                                    <option value="qualified">Qualified</option>
+                                                                    <option value="bonus">Bonus</option>
+                                                                    <option value="finished">Finished</option>
+                                                                    <option value="dnf">DNF</option>
+                                                                    <option value="absent">Absent</option>
+                                                                    <option value="medically_excused">Medically Excused</option>
+                                                                </select>
                                                             ) : (
                                                                 <select
                                                                     value={res.finalsType}
