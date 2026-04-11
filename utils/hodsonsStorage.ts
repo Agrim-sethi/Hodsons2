@@ -38,6 +38,8 @@ export const mockStudents: HodsonsStudent[] = ALL_STUDENTS as unknown as Hodsons
 
 const STORAGE_KEY = 'sanawar_hodsons_results';
 const SKIP_QUALIFYING_KEY = 'sanawar_hodsons_skip_qualifying_categories';
+const EXTRA_STUDENTS_KEY = 'sanawar_hodsons_extra_students';
+const EXTRA_CLASSES_KEY = 'sanawar_hodsons_extra_classes';
 
 export const getHodsonsResults = (): HodsonsResult[] => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -72,4 +74,22 @@ export const getSkipQualifyingCategories = (): HodsonsCategory[] => {
 
 export const saveSkipQualifyingCategories = (categories: HodsonsCategory[]) => {
     localStorage.setItem(SKIP_QUALIFYING_KEY, JSON.stringify(categories));
+};
+
+export const getExtraStudents = (): HodsonsStudent[] => {
+    const stored = localStorage.getItem(EXTRA_STUDENTS_KEY);
+    return stored ? JSON.parse(stored) : [];
+};
+
+export const saveExtraStudents = (students: HodsonsStudent[]) => {
+    localStorage.setItem(EXTRA_STUDENTS_KEY, JSON.stringify(students));
+};
+
+export const getExtraClasses = (): Record<string, string> => {
+    const stored = localStorage.getItem(EXTRA_CLASSES_KEY);
+    return stored ? JSON.parse(stored) : {};
+};
+
+export const saveExtraClasses = (classes: Record<string, string>) => {
+    localStorage.setItem(EXTRA_CLASSES_KEY, JSON.stringify(classes));
 };

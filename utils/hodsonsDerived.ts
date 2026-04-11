@@ -66,7 +66,9 @@ const parseExtendedTimingToSeconds = (timing?: string): number => {
 
 export const buildDerivedHodsonsData = (
   storedResults: HodsonsResult[],
-  skippedCategories: HodsonsCategory[]
+  skippedCategories: HodsonsCategory[],
+  allStudents: HodsonsStudent[],
+  allClasses: Record<string, string>
 ): DerivedHodsonsData => {
   const housePoints: Record<HouseName, number> = { Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
   const bdPoints: Record<HouseName, number> = { Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
@@ -94,8 +96,14 @@ export const buildDerivedHodsonsData = (
     PD: createDepartmentStandings('PD Department Standings')
   };
 
-  const updateDeptStats = (deptKey: StandingsScopeKey, stu: typeof mockStudents[number], res: HodsonsResult, pts = 0, skipsQual = false) => {
+  const updateDeptStats = (deptKey: StandingsScopeKey, stu: HodsonsStudent, res: HodsonsResult, pts = 0, skipsQual = false) => {
     const department = deptDataMap[deptKey];
+    department.stats.total += 1;
+    department.houseStats[stu.house].total += 1;
+
+    if (!department.categoryPointsMap[stu.category]) {
+      department.categoryPointsMap[stu.category] = { name: stu.category, Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
+    }
     const qualType = (res.qualifyingType as string) || 'pending';
     const finalType = (res.finalsType as string) || 'pending';
     const preQualType = (res.preQualifyingType as string) || 'pending';
@@ -187,7 +195,7 @@ export const buildDerivedHodsonsData = (
     department.houseStats[stu.house].points += pts;
   };
 
-  mockStudents.forEach((student) => {
+  allStudents.forEach((student) => {
     const result = storedResults.find((entry) => entry.studentId === student.id) || { studentId: student.id, qualifyingType: 'pending', finalsType: 'pending' };
     
     if (result.qualifyingType === 'left_school' || result.finalsType === 'left_school' || result.preQualifyingType === 'left_school' || result.preFinalsType === 'left_school') {
@@ -262,9 +270,9 @@ export const buildDerivedHodsonsData = (
         if (position >= 1 && position <= 15) points += (16 - position);
         totalPoints += points;
 
-        if (position === 1) category.top3[0] = { ...student, position: 1, timing: result.finalsTiming, class: (studentClasses as Record<string, string>)[student.id] || '—', rank: 1 };
-        if (position === 2) category.top3[1] = { ...student, position: 2, timing: result.finalsTiming, class: (studentClasses as Record<string, string>)[student.id] || '—', rank: 2 };
-        if (position === 3) category.top3[2] = { ...student, position: 3, timing: result.finalsTiming, class: (studentClasses as Record<string, string>)[student.id] || '—', rank: 3 };
+        if (position === 1) category.top3[0] = { ...student, position: 1, timing: result.finalsTiming, class: (allClasses as Record<string, string>)[student.id] || '—', rank: 1 };
+        if (position === 2) category.top3[1] = { ...student, position: 2, timing: result.finalsTiming, class: (allClasses as Record<string, string>)[student.id] || '—', rank: 2 };
+        if (position === 3) category.top3[2] = { ...student, position: 3, timing: result.finalsTiming, class: (allClasses as Record<string, string>)[student.id] || '—', rank: 3 };
 
         if (result.finalsTiming && (!category.bestTiming || timingToSeconds(result.finalsTiming) < timingToSeconds(category.bestTiming.timing))) {
           category.bestTiming = { name: student.name, timing: result.finalsTiming, house: student.house };

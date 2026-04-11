@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from '../components/Icon';
 import { HOUSE_COLORS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, PieChart, Pie, Legend } from 'recharts';
-import { mockStudents, getHodsonsResults, saveHodsonsResults, HodsonsResult, CATEGORIES_LIST, getSkipQualifyingCategories, saveSkipQualifyingCategories, HodsonsCategory } from '../utils/hodsonsStorage';
+import { mockStudents, getHodsonsResults, saveHodsonsResults, HodsonsResult, CATEGORIES_LIST, getSkipQualifyingCategories, saveSkipQualifyingCategories, HodsonsCategory, HodsonsStudent, getExtraStudents, saveExtraStudents, getExtraClasses, saveExtraClasses } from '../utils/hodsonsStorage';
 import { ACCESS_OPTIONS, ACCESS_SCOPE_CONFIG, RESULTS_DEPARTMENTS } from '../components/hodsons/config';
 import { PodiumStep, StandingsChart } from '../components/hodsons/shared';
 import { buildDerivedHodsonsData } from '../utils/hodsonsDerived';
@@ -145,6 +145,12 @@ const Hodsons: React.FC = () => {
     const [categoriesData, setCategoriesData] = useState<CategoryData[]>([]);
     const [standingsDetailsMap, setStandingsDetailsMap] = useState<Record<StandingsScopeKey, DepartmentStandingsData>>({} as Record<StandingsScopeKey, DepartmentStandingsData>);
     const [skipQualifyingCategories, setSkipQualifyingCategories] = useState<HodsonsCategory[]>([]);
+    const [extraStudents, setExtraStudents] = useState<HodsonsStudent[]>([]);
+    const [extraClasses, setExtraClasses] = useState<Record<string, string>>({});
+    const [newStudentData, setNewStudentData] = useState({ id: '', name: '', house: 'Vindhya' as const, class: '' });
+
+    const allHodsonsStudents = [...mockStudents, ...extraStudents];
+    const allHodsonsClasses = { ...(studentClasses as Record<string, string>), ...extraClasses };
 
     const [categoryModalTab, setCategoryModalTab] = useState<'qualifying' | 'finals' | 'race' | 'list'>('qualifying');
     const [downloadFormat, setDownloadFormat] = useState<'xlsx' | 'docx'>('xlsx');
@@ -236,12 +242,21 @@ const Hodsons: React.FC = () => {
 
     const loadData = () => {
         const skippedCategories = getSkipQualifyingCategories();
+        const storedExtraStudents = getExtraStudents();
+        const storedExtraClasses = getExtraClasses();
+        
+        setExtraStudents(storedExtraStudents);
+        setExtraClasses(storedExtraClasses);
+        setSkipQualifyingCategories(skippedCategories);
+
+        const currentAllStudents = [...mockStudents, ...storedExtraStudents];
+        const currentAllClasses = { ...(studentClasses as Record<string, string>), ...storedExtraClasses };
+
         const storedResults = getHodsonsResults().map(raw => {
             const r = { ...raw } as any;
             const qualifyingType = r.qualifyingType === 'late' ? 'dnf' : r.qualifyingType;
             const finalsType = r.finalsType === 'late' ? 'dnf' : r.finalsType;
 
-            // If legacy data used "on_leave" in qualifying/finals, move that signal into the new pre-phases.
             const preQualifyingType = r.preQualifyingType ?? (qualifyingType === 'on_leave' ? 'on_leave' : 'pending');
             const preFinalsType = r.preFinalsType ?? (finalsType === 'on_leave' ? 'on_leave' : 'pending');
 
@@ -257,7 +272,7 @@ const Hodsons: React.FC = () => {
                 finalsPosition: r.finalsPosition ?? r.position
             };
 
-            const stu = mockStudents.find((s: any) => s.id === migrated.studentId);
+            const stu = currentAllStudents.find((s: any) => s.id === migrated.studentId);
             const skipsQualifying = stu ? skippedCategories.includes(stu.category) : false;
 
             if (!skipsQualifying && ['pending', 'medically_excused', 'on_leave'].includes(migrated.preQualifyingType as string)) {
@@ -286,7 +301,7 @@ const Hodsons: React.FC = () => {
             return migrated;
         });
 
-        const derivedData: DerivedHodsonsData = buildDerivedHodsonsData(storedResults, skippedCategories);
+        const derivedData: DerivedHodsonsData = buildDerivedHodsonsData(storedResults, skippedCategories, currentAllStudents, currentAllClasses);
 
         setResults(storedResults);
         setSkipQualifyingCategories(skippedCategories);
@@ -302,7 +317,7 @@ const Hodsons: React.FC = () => {
         // Validation rules:
         // - Qualifying: timing required for Qualified
         // - Finals: position + timing required for Qualifier + Position
-        const studentsInCat = mockStudents.filter(s => s.category === cat);
+        const studentsInCat = allHodsonsStudents.filter(s => s.category === cat);
         const getRes = (stuId: string) => results.find(r => r.studentId === stuId) || { studentId: stuId, preQualifyingType: 'pending' as const, preFinalsType: 'pending' as const, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
 
         const missingQualPosition: string[] = [];
@@ -329,25 +344,61 @@ const Hodsons: React.FC = () => {
         }
 
         // Sequential ranking is now manual - auto-ranking removed.
-
         saveHodsonsResults(results);
         loadData();
         setEditCategory(null);
-        showToast({
-            title: 'Results Saved',
-            description: `${cat} has been saved and rankings have been refreshed.`
-        });
+        showToast(`Results for ${cat} saved successfully!`, 'success');
         setLastSavedMeta({
             category: cat,
             savedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
         });
     };
 
+    const handleAddExtraStudent = () => {
+        if (!newStudentData.id || !newStudentData.name || !newStudentData.class || !editCategory) {
+            showToast('Please fill all student details.', 'error');
+            return;
+        }
+
+        const compNo = newStudentData.id.trim();
+        if (allHodsonsStudents.some(s => s.id === compNo)) {
+            showToast('Student with this Computer No already exists.', 'error');
+            return;
+        }
+
+        const newStu: HodsonsStudent = {
+            id: compNo,
+            name: newStudentData.name.trim(),
+            house: newStudentData.house,
+            category: editCategory
+        };
+
+        const updatedStudents = [...extraStudents, newStu];
+        const updatedClasses = { ...extraClasses, [compNo]: newStudentData.class.trim() };
+
+        saveExtraStudents(updatedStudents);
+        saveExtraClasses(updatedClasses);
+        
+        // Also ensure a result entry exists for this new student
+        const newResult: HodsonsResult = {
+            studentId: compNo,
+            qualifyingType: 'pending',
+            finalsType: 'pending',
+            preQualifyingType: 'pending',
+            preFinalsType: 'pending'
+        };
+        saveHodsonsResults([...results, newResult]);
+
+        setNewStudentData({ id: '', name: '', house: 'Vindhya', class: '' });
+        loadData();
+        showToast(`Student ${newStu.name} added to ${editCategory}!`, 'success');
+    };
+
     const handleClearCategoryResults = (cat: string) => {
         if (window.confirm(`Are you sure you want to completely erase ALL results for ${cat}? This cannot be undone.`)) {
             // Overwrite results for this specific category to 'pending'
             const newResults = results.map(r => {
-                const stu = mockStudents.find(s => s.id === r.studentId);
+                const stu = allHodsonsStudents.find(s => s.id === r.studentId);
                 if (stu && stu.category === cat) {
                     return { ...r, qualifyingType: 'pending' as const, finalsType: 'pending' as const, qualifyingPosition: undefined, qualifyingTiming: undefined, finalsPosition: undefined, finalsTiming: undefined };
                 }
@@ -378,11 +429,11 @@ const Hodsons: React.FC = () => {
         if (!confirmed) return;
 
         const categoryStudentIds = new Set(
-            mockStudents.filter(student => student.category === cat).map(student => student.id)
+            allHodsonsStudents.filter(student => student.category === cat).map(student => student.id)
         );
 
         const existingByStudent = new Map<string, HodsonsResult>(results.map(result => [result.studentId, result]));
-        const updatedResults = mockStudents
+        const updatedResults = allHodsonsStudents
             .filter(student => student.category === cat)
             .map(student => {
                 const current = existingByStudent.get(student.id);
@@ -423,7 +474,7 @@ const Hodsons: React.FC = () => {
         if (!confirmed) return;
 
         const nextResults = results.map(result => {
-            const student = mockStudents.find(s => s.id === result.studentId);
+            const student = allHodsonsStudents.find(s => s.id === result.studentId);
             if (!student || student.category !== cat) return result;
 
             if (result.qualifyingType === 'pending' && result.preFinalsType === 'participating') {
@@ -473,7 +524,7 @@ const Hodsons: React.FC = () => {
             let nextFinalTiming = phase === 'finals' ? timing : (idx >= 0 ? newRes[idx].finalsTiming : undefined);
             let nextPreFinalsType = preFinalsType;
 
-            const categoryObj = mockStudents.find((s: any) => s.id === stuId)?.category as HodsonsCategory | undefined;
+            const categoryObj = allHodsonsStudents.find((s: any) => s.id === stuId)?.category as HodsonsCategory | undefined;
             const skipsQualifying = categoryObj ? skipQualifyingCategories.includes(categoryObj as HodsonsCategory) : false;
             const manualQualifyingStatus = phase === 'qualifying' ? type : (idx >= 0 ? newRes[idx].qualifyingType : 'pending');
 
@@ -546,7 +597,7 @@ const Hodsons: React.FC = () => {
     const getCategoryStagePositions = (category: string, stage: 'qualifying' | 'finals') => {
         const rankedResults = results
             .filter(result => {
-                const student = mockStudents.find(stu => stu.id === result.studentId);
+                const student = allHodsonsStudents.find(stu => stu.id === result.studentId);
                 if (!student || student.category !== category) return false;
 
                 if (stage === 'qualifying') {
@@ -704,13 +755,13 @@ const Hodsons: React.FC = () => {
             const timestamp = new Date().toISOString().slice(0, 10);
 
             CATEGORIES_LIST.forEach(cat => {
-                const competitorRows = mockStudents
+                const competitorRows = allHodsonsStudents
                     .filter(s => s.category === cat)
                     .map((stu, idx) => ({
                         'SN': idx + 1,
                         'Comp No': stu.id,
                         'Name': stu.name,
-                        'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
+                        'Class': allHodsonsClasses[stu.id] || '—',
                         'House': stu.house,
                         'Category': stu.category
                     }));
@@ -737,7 +788,7 @@ const Hodsons: React.FC = () => {
             const timestamp = new Date().toISOString().slice(0, 10);
 
             const sections = CATEGORIES_LIST.map(cat => {
-                const students = mockStudents.filter(s => s.category === cat);
+                const students = allHodsonsStudents.filter(s => s.category === cat);
                 const table = new Table({
                     width: { size: 100, type: WidthType.PERCENTAGE },
                     rows: [
@@ -748,7 +799,7 @@ const Hodsons: React.FC = () => {
                             }))
                         }),
                         ...students.map((s, idx) => new TableRow({
-                            children: [String(idx + 1), s.id, s.name, (studentClasses as Record<string, string>)[s.id] || '—', s.house].map(v => new TableCell({
+                            children: [String(idx + 1), s.id, s.name, allHodsonsClasses[s.id] || '—', s.house].map(v => new TableCell({
                                 children: [new Paragraph(String(v))]
                             }))
                         }))
@@ -795,7 +846,7 @@ const Hodsons: React.FC = () => {
             const timestamp = new Date().toISOString().slice(0, 10);
             const fileBase = `Hodsons ${safeCat} ${stageLabel} List ${timestamp}`;
 
-            const rows = mockStudents
+            const rows = allHodsonsStudents
                 .filter(s => s.category === category)
                 .filter(s => filterHouse === 'All' || s.house === filterHouse)
                 .map((stu, idx) => {
@@ -814,7 +865,7 @@ const Hodsons: React.FC = () => {
                             SN: idx + 1,
                             'Comp No': stu.id,
                             'Player Name': stu.name,
-                            'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
+                            'Class': allHodsonsClasses[stu.id] || '—',
                             House: stu.house,
                             Status: getStageExportStatus(res, 'pre_qualifying')
                         };
@@ -825,7 +876,7 @@ const Hodsons: React.FC = () => {
                             SN: idx + 1,
                             'Comp No': stu.id,
                             'Player Name': stu.name,
-                            'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
+                            'Class': allHodsonsClasses[stu.id] || '—',
                             House: stu.house,
                             Status: getStageExportStatus(res, 'pre_finals', skipsQualifying)
                         };
@@ -836,7 +887,7 @@ const Hodsons: React.FC = () => {
                             SN: idx + 1,
                             'Comp No': stu.id,
                             'Player Name': stu.name,
-                            'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
+                            'Class': allHodsonsClasses[stu.id] || '—',
                             House: stu.house,
                             Status: getStageExportStatus(res, 'qualifying'),
                             Timing: res.qualifyingTiming || '—'
@@ -847,7 +898,7 @@ const Hodsons: React.FC = () => {
                         SN: idx + 1,
                         'Comp No': stu.id,
                         'Player Name': stu.name,
-                        'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
+                        'Class': allHodsonsClasses[stu.id] || '—',
                         House: stu.house,
                         Status: getStageExportStatus(res, 'finals'),
                         Position: res.finalsPosition || '—',
@@ -920,7 +971,7 @@ const Hodsons: React.FC = () => {
             const qualifyingPositions = getCategoryStagePositions(category, 'qualifying');
             const finalsPositions = getCategoryStagePositions(category, 'finals');
 
-            const rows = mockStudents
+            const rows = allHodsonsStudents
                 .filter(s => s.category === category)
                 .map((stu, idx) => {
                     const r = results.find(res => res.studentId === stu.id) || {
@@ -937,7 +988,7 @@ const Hodsons: React.FC = () => {
                         'SN': idx + 1,
                         'Comp No': stu.id,
                         'Athlete Name': stu.name,
-                        'Class': (studentClasses as Record<string, string>)[stu.id] || '—',
+                        'Class': allHodsonsClasses[stu.id] || '—',
                         'House': stu.house,
                         'Qualifying Status': getStageExportStatus(r, 'qualifying'),
                         'Qualifying Time': r.qualifyingTiming || '—',
@@ -968,7 +1019,7 @@ const Hodsons: React.FC = () => {
             const qualifyingPositions = getCategoryStagePositions(category, 'qualifying');
             const finalsPositions = getCategoryStagePositions(category, 'finals');
 
-            const students = mockStudents.filter(s => s.category === category);
+            const students = allHodsonsStudents.filter(s => s.category === category);
             const table = new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 rows: [
@@ -991,7 +1042,7 @@ const Hodsons: React.FC = () => {
                                 String(idx + 1),
                                 stu.id,
                                 stu.name,
-                                (studentClasses as Record<string, string>)[stu.id] || '—',
+                                allHodsonsClasses[stu.id] || '—',
                                 stu.house,
                                 qualCell,
                                 finalsCell
@@ -2139,7 +2190,7 @@ const Hodsons: React.FC = () => {
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-primary/10">
-                                                        {mockStudents
+                                                        {allHodsonsStudents
                                                             .filter(s => s.category === selectedCategoryStats.name)
                                                             .filter(s => {
                                                                 const res = results.find(r => r.studentId === s.id);
@@ -2176,7 +2227,7 @@ const Hodsons: React.FC = () => {
                                                                 }
 
                                                                 if (listSortField === 'house') return factor * a.house.localeCompare(b.house);
-                                                                if (listSortField === 'class') return factor * (((studentClasses as Record<string, string>)[a.id] || '—').localeCompare((studentClasses as Record<string, string>)[b.id] || '—'));
+                                                                if (listSortField === 'class') return factor * ((allHodsonsClasses[a.id] || '—').localeCompare(allHodsonsClasses[b.id] || '—'));
                                                                 if (listSortField === 'name') return factor * a.name.localeCompare(b.name);
                                                                 return factor * a.id.localeCompare(b.id);
                                                             })
@@ -2203,7 +2254,7 @@ const Hodsons: React.FC = () => {
                                                                         </td>
                                                                         <td className="royal-col-secondary">
                                                                             <span className="inline-flex items-center rounded-full border border-white/8 bg-white/[0.035] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-200">
-                                                                                {(studentClasses as Record<string, string>)[stu.id] || '—'}
+                                                                                {allHodsonsClasses[stu.id] || '—'}
                                                                             </span>
                                                                         </td>
                                                                         <td>
@@ -3054,7 +3105,7 @@ const Hodsons: React.FC = () => {
                                                     <button
                                                         onClick={() => {
                                                             if (!editCategory) return;
-                                                            const studentsInCat = mockStudents
+                                                            const studentsInCat = allHodsonsStudents
                                                                 .filter(s => s.category === editCategory)
                                                                 .filter(s => filterHouse === 'All' || s.house === filterHouse);
                                                             setResults(prev => {
@@ -3078,7 +3129,7 @@ const Hodsons: React.FC = () => {
                                                     <button
                                                         onClick={() => {
                                                             if (!editCategory) return;
-                                                            const studentsInCat = mockStudents
+                                                            const studentsInCat = allHodsonsStudents
                                                                 .filter(s => s.category === editCategory)
                                                                 .filter(s => filterHouse === 'All' || s.house === filterHouse);
                                                             const skipsQualifying = skipQualifyingCategories.includes(editCategory);
@@ -3164,7 +3215,7 @@ const Hodsons: React.FC = () => {
                                                 // Actually, let's just create a temporary ranking function and update results state
                                                 const cat = editCategory;
                                                 if (!cat) return;
-                                                const studentsInCat = mockStudents.filter(s => s.category === cat);
+                                                const studentsInCat = allHodsonsStudents.filter(s => s.category === cat);
                                                 const qualResults = results.filter(r => {
                                                     const stu = studentsInCat.find(s => s.id === r.studentId);
                                                     const timingField = activePhase === 'qualifying' ? r.qualifyingTiming : r.finalsTiming;
@@ -3238,13 +3289,13 @@ const Hodsons: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {mockStudents
+                                        {allHodsonsStudents
                                             .filter(s => s.category === editCategory)
                                             .filter(s => filterHouse === 'All' || s.house === filterHouse)
                                             .sort((a, b) => {
                                                 const factor = listSortOrder === 'asc' ? 1 : -1;
                                                 if (listSortField === 'house') return factor * a.house.localeCompare(b.house);
-                                                if (listSortField === 'class') return factor * (((studentClasses as Record<string, string>)[a.id] || '—').localeCompare((studentClasses as Record<string, string>)[b.id] || '—'));
+                                                if (listSortField === 'class') return factor * ((allHodsonsClasses[a.id] || '—').localeCompare(allHodsonsClasses[b.id] || '—'));
                                                 if (listSortField === 'name') return factor * a.name.localeCompare(b.name);
                                                 if (listSortField === 'status') {
                                                     const resA = results.find(r => r.studentId === a.id);
@@ -3284,7 +3335,7 @@ const Hodsons: React.FC = () => {
                                                         </td>
                                                         <td className="royal-col-secondary">
                                                             <span className="inline-flex items-center rounded-full border border-white/8 bg-white/[0.035] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-200">
-                                                                {(studentClasses as Record<string, string>)[stu.id] || '—'}
+                                                                {allHodsonsClasses[stu.id] || '—'}
                                                             </span>
                                                         </td>
                                                         <td className="royal-col-secondary">
@@ -3444,6 +3495,76 @@ const Hodsons: React.FC = () => {
                                             })}
                                     </tbody>
                                 </table>
+                            </div>
+
+                            {/* Add New Student Form */}
+                            <div className="mt-8 pt-8 border-t border-white/10">
+                                <div className="glass-panel p-6 rounded-2xl bg-white/[0.02]">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                            <Icon name="person_add" size="18" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-white font-bold text-sm">Add New Competitor</h4>
+                                            <p className="text-[10px] text-slate-500 uppercase tracking-widest leading-tight">Officially add a student to {editCategory}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Comp. No</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. 1234"
+                                                value={newStudentData.id}
+                                                onChange={e => setNewStudentData(prev => ({ ...prev, id: e.target.value }))}
+                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-primary transition-colors"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. John Doe"
+                                                value={newStudentData.name}
+                                                onChange={e => setNewStudentData(prev => ({ ...prev, name: e.target.value }))}
+                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-primary transition-colors"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">House</label>
+                                            <select
+                                                value={newStudentData.house}
+                                                onChange={e => setNewStudentData(prev => ({ ...prev, house: e.target.value as any }))}
+                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary transition-colors"
+                                            >
+                                                {['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'].map(h => (
+                                                    <option key={h} value={h}>{h}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Class</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. 10B"
+                                                value={newStudentData.class}
+                                                onChange={e => setNewStudentData(prev => ({ ...prev, class: e.target.value }))}
+                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-primary transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mt-6 flex justify-end">
+                                        <button
+                                            onClick={handleAddExtraStudent}
+                                            className="px-6 py-2.5 bg-primary text-[#091423] rounded-xl text-xs font-black uppercase tracking-[0.1em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                                        >
+                                            <Icon name="add_circle" size="18" />
+                                            Add Student to {editCategory}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
