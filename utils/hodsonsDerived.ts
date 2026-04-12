@@ -31,8 +31,10 @@ const createCategoryStats = (): CategoryStatsSummary => ({
   dnfCount: 0,
   preQualMedExcused: 0,
   preQualOnLeave: 0,
+  qualMedExcused: 0,
   preFinalsMedExcused: 0,
   preFinalsOnLeave: 0,
+  finalsMedExcused: 0,
   totalPoints: 0,
   qualifyingPoints: 0,
   finalsPoints: 0
@@ -219,6 +221,7 @@ export const buildDerivedHodsonsData = (
         totalPoints -= 1;
       } else if (result.qualifyingType === 'medically_excused') {
         house.medExcused += 1;
+        category.stats.qualMedExcused += 1;
       } else if (result.preQualifyingType === 'on_leave') {
         house.onLeaveQual += 1;
       } else {
@@ -309,6 +312,7 @@ export const buildDerivedHodsonsData = (
         totalPoints -= 1;
       } else if (result.finalsType === 'medically_excused') {
         house.medExcusedFinals += 1;
+        category.stats.finalsMedExcused += 1;
       } else if (result.preFinalsType === 'on_leave') {
         house.onLeaveFinals += 1;
       }

@@ -56,8 +56,10 @@ export interface CategoryStatsSummary {
   dnfCount: number;
   preQualMedExcused: number;
   preQualOnLeave: number;
+  qualMedExcused: number;
   preFinalsMedExcused: number;
   preFinalsOnLeave: number;
+  finalsMedExcused: number;
   totalPoints: number;
   qualifyingPoints: number;
   finalsPoints: number;

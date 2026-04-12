@@ -434,7 +434,7 @@ export const ALL_STUDENTS = [
     {
         "id": "06003",
         "name": "ADITI NEGI",
-        "category": "GD Under 14",
+        "category": "GD Under 13",
         "house": "Himalaya"
     },
     {
@@ -3548,7 +3548,7 @@ export const ALL_STUDENTS = [
     {
         "id": "05595",
         "name": "SHREEVAS KHAREL",
-        "category": "PDB Under 12",
+        "category": "PDB Under 11",
         "house": "Siwalik"
     },
     {
