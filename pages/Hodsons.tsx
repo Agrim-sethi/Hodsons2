@@ -314,42 +314,61 @@ const Hodsons: React.FC = () => {
     };
 
     const handleSaveResult = (cat: string) => {
-        // Validation rules:
-        // - Qualifying: timing required for Qualified
-        // - Finals: position + timing required for Qualifier + Position
         const studentsInCat = allHodsonsStudents.filter(s => s.category === cat);
         const getRes = (stuId: string) => results.find(r => r.studentId === stuId) || { studentId: stuId, preQualifyingType: 'pending' as const, preFinalsType: 'pending' as const, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
 
-        const missingQualPosition: string[] = [];
-        const missingFinalsPosition: string[] = [];
+        // Auto-rank qualified students by timing (fastest = rank 1)
+        // Qualifying phase: rank students with qualifyingType === 'qualified' who have a timing
+        const qualifiedWithTiming = studentsInCat
+            .map(stu => ({ stu, res: getRes(stu.id) }))
+            .filter(({ res }) => res.qualifyingType === 'qualified' && res.qualifyingTiming)
+            .sort((a, b) => timingToSeconds(a.res.qualifyingTiming) - timingToSeconds(b.res.qualifyingTiming));
 
-        studentsInCat.forEach(stu => {
-            const r: any = getRes(stu.id);
-            if (r.qualifyingType === 'qualified' && !r.qualifyingPosition) {
-                missingQualPosition.push(`${stu.id} ${stu.name}`);
-            }
-            if (r.finalsType === 'qualified_pos' && !r.finalsPosition) {
-                missingFinalsPosition.push(`${stu.id} ${stu.name}`);
+        // Finals phase: rank students with finalsType === 'qualified_pos' who have a timing
+        const finalistsWithTiming = studentsInCat
+            .map(stu => ({ stu, res: getRes(stu.id) }))
+            .filter(({ res }) => res.finalsType === 'qualified_pos' && res.finalsTiming)
+            .sort((a, b) => timingToSeconds(a.res.finalsTiming) - timingToSeconds(b.res.finalsTiming));
+
+        // Apply auto-ranks to results
+        const updatedResults = [...results];
+        
+        // Assign qualifying positions
+        qualifiedWithTiming.forEach(({ stu }, idx) => {
+            const rIdx = updatedResults.findIndex(r => r.studentId === stu.id);
+            if (rIdx >= 0) {
+                updatedResults[rIdx] = { ...updatedResults[rIdx], qualifyingPosition: idx + 1 };
             }
         });
 
-        if (missingQualPosition.length || missingFinalsPosition.length) {
-            const lines = [
-                `Cannot save ${cat}. Fix these first:`,
-                missingQualPosition.length ? `- Qualifying position missing (Qualified): ${missingQualPosition.length}` : null,
-                missingFinalsPosition.length ? `- Finals position missing (Qualified + Position): ${missingFinalsPosition.length}` : null
-            ].filter(Boolean) as string[];
-            window.alert(lines.join('\n'));
-            return;
-        }
+        // Assign finals positions
+        finalistsWithTiming.forEach(({ stu }, idx) => {
+            const rIdx = updatedResults.findIndex(r => r.studentId === stu.id);
+            if (rIdx >= 0) {
+                updatedResults[rIdx] = { ...updatedResults[rIdx], finalsPosition: idx + 1 };
+            }
+        });
 
-        // Sequential ranking is now manual - auto-ranking removed.
-        saveHodsonsResults(results);
+        // Clear positions for non-qualified students (cleanup)
+        studentsInCat.forEach(stu => {
+            const rIdx = updatedResults.findIndex(r => r.studentId === stu.id);
+            if (rIdx < 0) return;
+            const r = updatedResults[rIdx];
+            if (r.qualifyingType !== 'qualified') {
+                updatedResults[rIdx] = { ...updatedResults[rIdx], qualifyingPosition: undefined };
+            }
+            if (r.finalsType !== 'qualified_pos') {
+                updatedResults[rIdx] = { ...updatedResults[rIdx], finalsPosition: undefined };
+            }
+        });
+
+        setResults(updatedResults);
+        saveHodsonsResults(updatedResults);
         loadData();
         setEditCategory(null);
         showToast({
             title: 'Results Saved',
-            description: `Results for ${cat} saved successfully!`
+            description: `Results for ${cat} saved. ${qualifiedWithTiming.length} qualifying + ${finalistsWithTiming.length} finals positions auto-ranked by timing.`
         });
         setLastSavedMeta({
             category: cat,
