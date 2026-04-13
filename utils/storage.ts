@@ -1,3 +1,5 @@
+import { db } from './firebase';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 export interface Event {
     id: string;
@@ -69,6 +71,16 @@ const ATTENDANCE_KEY = 'sanawar_attendance';
 const INJURIES_KEY = 'sanawar_injuries';
 const PROFILE_KEY = 'sanawar_profile';
 
+const FIRESTORE_COLLECTION = 'sanawar_general_v1';
+const FIRESTORE_DOC_PATH = 'data';
+
+// --- Sync Helper ---
+const syncToFirebase = async (data: Record<string, any>) => {
+    try {
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), data, { merge: true });
+    } catch(e) { console.error('Firebase save error:', e); }
+};
+
 export const getEvents = (): Event[] => {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : [];
@@ -80,6 +92,7 @@ export const updateEvent = (updatedEvent: Event) => {
     if (index !== -1) {
         events[index] = updatedEvent;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+        syncToFirebase({ events });
     }
 };
 
@@ -87,16 +100,19 @@ export const deleteEvent = (id: string) => {
     const events = getEvents();
     const filtered = events.filter(e => e.id !== id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    syncToFirebase({ events: filtered });
 };
 
 export const saveEvent = (event: Event) => {
     const events = getEvents();
     events.push(event);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+    syncToFirebase({ events });
 };
 
 export const clearEvents = () => {
     localStorage.removeItem(STORAGE_KEY);
+    syncToFirebase({ events: [] });
 };
 
 // Session Helpers
@@ -109,12 +125,14 @@ export const saveSession = (session: Session) => {
     const sessions = getSessions();
     sessions.push(session);
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+    syncToFirebase({ sessions });
 };
 
 export const deleteSession = (id: string) => {
     const sessions = getSessions();
     const filtered = sessions.filter(s => s.id !== id);
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(filtered));
+    syncToFirebase({ sessions: filtered });
 };
 
 // Attendance Helpers
@@ -127,6 +145,7 @@ export const saveAttendance = (record: AttendanceRecord) => {
     const records = getAttendance();
     records.push(record);
     localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(records));
+    syncToFirebase({ attendance: records });
 };
 
 // Injury Helpers
@@ -139,12 +158,14 @@ export const saveInjury = (record: InjuryRecord) => {
     const records = getInjuries();
     records.push(record);
     localStorage.setItem(INJURIES_KEY, JSON.stringify(records));
+    syncToFirebase({ injuries: records });
 };
 
 export const deleteInjury = (id: string) => {
     const records = getInjuries();
     const filtered = records.filter(r => r.id !== id);
     localStorage.setItem(INJURIES_KEY, JSON.stringify(filtered));
+    syncToFirebase({ injuries: filtered });
 };
 
 // Profile Helpers
@@ -155,4 +176,22 @@ export const getUserProfile = (): UserProfile | null => {
 
 export const saveUserProfile = (profile: UserProfile) => {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    syncToFirebase({ profile });
+};
+
+// Real-time synchronization
+export const subscribeToGeneralData = (callback: (data: any) => void) => {
+    return onSnapshot(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), (snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (data.events) localStorage.setItem(STORAGE_KEY, JSON.stringify(data.events));
+            if (data.sessions) localStorage.setItem(SESSIONS_KEY, JSON.stringify(data.sessions));
+            if (data.attendance) localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(data.attendance));
+            if (data.injuries) localStorage.setItem(INJURIES_KEY, JSON.stringify(data.injuries));
+            if (data.profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(data.profile));
+            callback(data);
+        }
+    }, (error) => {
+        console.error('Snapshot listener error:', error);
+    });
 };

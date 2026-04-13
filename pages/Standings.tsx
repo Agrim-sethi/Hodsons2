@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '../components/Icon';
 import { useToast } from '../components/ui/ToastProvider';
 import { HOUSE_COLORS } from '../constants';
-import { getEvents } from '../utils/storage';
+import { getEvents, subscribeToGeneralData } from '../utils/storage';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const standingsTooltipStyle = {
@@ -56,81 +56,90 @@ const Standings: React.FC = () => {
   const [categoryBreakdown, setCategoryBreakdown] = React.useState<any[]>([]);
 
   React.useEffect(() => {
-    const events = getEvents();
-    const stats: any = {
-      Vindhya: 0,
-      Himalaya: 0,
-      Nilgiri: 0,
-      Siwalik: 0,
-    };
+    const loadStats = () => {
+      const events = getEvents();
+      const stats: any = {
+        Vindhya: 0,
+        Himalaya: 0,
+        Nilgiri: 0,
+        Siwalik: 0,
+      };
 
-    const sports: any = {};
+      const sports: any = {};
 
-    events.forEach(event => {
-      if (event.completed && event.resultDetails && event.resultDetails.points) {
-        const points = parseInt(event.resultDetails.points) || 0;
-        const winner = event.resultDetails.winner.trim();
+      events.forEach(event => {
+        if (event.completed && event.resultDetails && event.resultDetails.points) {
+          const points = parseInt(event.resultDetails.points) || 0;
+          const winner = event.resultDetails.winner.trim();
 
-        // Match winner to house
-        let houseName = '';
-        if (winner.toLowerCase().includes('vindhya') || winner === 'V') houseName = 'Vindhya';
-        else if (winner.toLowerCase().includes('himalaya') || winner === 'H') houseName = 'Himalaya';
-        else if (winner.toLowerCase().includes('nilgiri') || winner === 'N') houseName = 'Nilgiri';
-        else if (winner.toLowerCase().includes('siwalik') || winner === 'S') houseName = 'Siwalik';
+          // Match winner to house
+          let houseName = '';
+          if (winner.toLowerCase().includes('vindhya') || winner === 'V') houseName = 'Vindhya';
+          else if (winner.toLowerCase().includes('himalaya') || winner === 'H') houseName = 'Himalaya';
+          else if (winner.toLowerCase().includes('nilgiri') || winner === 'N') houseName = 'Nilgiri';
+          else if (winner.toLowerCase().includes('siwalik') || winner === 'S') houseName = 'Siwalik';
 
-        if (houseName) {
-          stats[houseName] += points;
+          if (houseName) {
+            stats[houseName] += points;
 
-          // Category breakdown
-          const sport = event.sport || 'Other';
-          if (!sports[sport]) {
-            sports[sport] = {
-              Vindhya: 0,
-              Himalaya: 0,
-              Nilgiri: 0,
-              Siwalik: 0,
-              total: 0
-            };
+            // Category breakdown
+            const sport = event.sport || 'Other';
+            if (!sports[sport]) {
+              sports[sport] = {
+                Vindhya: 0,
+                Himalaya: 0,
+                Nilgiri: 0,
+                Siwalik: 0,
+                total: 0
+              };
+            }
+            sports[sport][houseName] += points;
+            sports[sport].total += points;
           }
-          sports[sport][houseName] += points;
-          sports[sport].total += points;
         }
-      }
-    });
-
-    const getForm = (hName: string, hCode: string) => {
-      const houseEvents = events
-        .filter((e: any) => e.completed && e.participation === 'houses' && (e.houses?.includes(hCode) || e.houses?.includes(hName)))
-        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 5);
-
-      const formArr = houseEvents.map((e: any) => {
-        const winner = (e.resultDetails?.winner || '').trim().toLowerCase();
-        if (winner.includes(hName.toLowerCase()) || winner === hCode.toLowerCase()) return 'W';
-        if (winner === 'draw' || winner === 'tie') return 'D';
-        return 'L';
       });
-      return formArr.reverse(); // Newest is appended on the right
+
+      const getForm = (hName: string, hCode: string) => {
+        const houseEvents = events
+          .filter((e: any) => e.completed && e.participation === 'houses' && (e.houses?.includes(hCode) || e.houses?.includes(hName)))
+          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 5);
+
+        const formArr = houseEvents.map((e: any) => {
+          const winner = (e.resultDetails?.winner || '').trim().toLowerCase();
+          if (winner.includes(hName.toLowerCase()) || winner === hCode.toLowerCase()) return 'W';
+          if (winner === 'draw' || winner === 'tie') return 'D';
+          return 'L';
+        });
+        return formArr.reverse(); // Newest is appended on the right
+      };
+
+      setHouseStats({
+        Vindhya: { points: stats.Vindhya, change: stats.Vindhya > 0 ? "+" + stats.Vindhya : "No change", isUp: stats.Vindhya > 0, form: getForm('Vindhya', 'V') },
+        Himalaya: { points: stats.Himalaya, change: stats.Himalaya > 0 ? "+" + stats.Himalaya : "No change", isUp: stats.Himalaya > 0, form: getForm('Himalaya', 'H') },
+        Nilgiri: { points: stats.Nilgiri, change: stats.Nilgiri > 0 ? "+" + stats.Nilgiri : "No change", isUp: stats.Nilgiri > 0, form: getForm('Nilgiri', 'N') },
+        Siwalik: { points: stats.Siwalik, change: stats.Siwalik > 0 ? "+" + stats.Siwalik : "No change", isUp: stats.Siwalik > 0, form: getForm('Siwalik', 'S') },
+      });
+
+      const breakdown = Object.entries(sports).map(([name, data]: [string, any]) => ({
+        name,
+        total: data.total,
+        Vindhya: data.Vindhya,
+        Himalaya: data.Himalaya,
+        Nilgiri: data.Nilgiri,
+        Siwalik: data.Siwalik
+      }));
+
+      setCategoryBreakdown(breakdown);
     };
 
-    setHouseStats({
-      Vindhya: { points: stats.Vindhya, change: stats.Vindhya > 0 ? "+" + stats.Vindhya : "No change", isUp: stats.Vindhya > 0, form: getForm('Vindhya', 'V') },
-      Himalaya: { points: stats.Himalaya, change: stats.Himalaya > 0 ? "+" + stats.Himalaya : "No change", isUp: stats.Himalaya > 0, form: getForm('Himalaya', 'H') },
-      Nilgiri: { points: stats.Nilgiri, change: stats.Nilgiri > 0 ? "+" + stats.Nilgiri : "No change", isUp: stats.Nilgiri > 0, form: getForm('Nilgiri', 'N') },
-      Siwalik: { points: stats.Siwalik, change: stats.Siwalik > 0 ? "+" + stats.Siwalik : "No change", isUp: stats.Siwalik > 0, form: getForm('Siwalik', 'S') },
+    const unsubscribe = subscribeToGeneralData(() => {
+      loadStats();
     });
 
-    const breakdown = Object.entries(sports).map(([name, data]: [string, any]) => ({
-      name,
-      total: data.total,
-      Vindhya: data.Vindhya,
-      Himalaya: data.Himalaya,
-      Nilgiri: data.Nilgiri,
-      Siwalik: data.Siwalik
-    }));
+    loadStats();
 
-    setCategoryBreakdown(breakdown);
-
+    return () => unsubscribe();
   }, []);
 
   const sortedHouses = Object.entries(houseStats)

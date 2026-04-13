@@ -33,6 +33,8 @@ export const CATEGORIES_LIST: HodsonsCategory[] = [ // Ordered list
 ];
 
 import { ALL_STUDENTS } from './studentsData';
+import { db } from './firebase';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 export const mockStudents: HodsonsStudent[] = ALL_STUDENTS as unknown as HodsonsStudent[];
 
@@ -40,6 +42,9 @@ const STORAGE_KEY = 'sanawar_hodsons_results';
 const SKIP_QUALIFYING_KEY = 'sanawar_hodsons_skip_qualifying_categories';
 const EXTRA_STUDENTS_KEY = 'sanawar_hodsons_extra_students';
 const EXTRA_CLASSES_KEY = 'sanawar_hodsons_extra_classes';
+
+const FIRESTORE_DOC_PATH = 'data';
+const FIRESTORE_COLLECTION = 'hodsons_production_v1';
 
 export const getHodsonsResults = (): HodsonsResult[] => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -56,8 +61,11 @@ export const getHodsonsResults = (): HodsonsResult[] => {
     }));
 };
 
-export const saveHodsonsResults = (results: HodsonsResult[]) => {
+export const saveHodsonsResults = async (results: HodsonsResult[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
+    try {
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { results }, { merge: true });
+    } catch(e) { console.error('Firebase save error:', e); }
 };
 
 export const getSkipQualifyingCategories = (): HodsonsCategory[] => {
@@ -72,8 +80,11 @@ export const getSkipQualifyingCategories = (): HodsonsCategory[] => {
     }
 };
 
-export const saveSkipQualifyingCategories = (categories: HodsonsCategory[]) => {
+export const saveSkipQualifyingCategories = async (categories: HodsonsCategory[]) => {
     localStorage.setItem(SKIP_QUALIFYING_KEY, JSON.stringify(categories));
+    try {
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { skipQualifyingCategories: categories }, { merge: true });
+    } catch(e) { console.error('Firebase save error:', e); }
 };
 
 export const getExtraStudents = (): HodsonsStudent[] => {
@@ -81,8 +92,11 @@ export const getExtraStudents = (): HodsonsStudent[] => {
     return stored ? JSON.parse(stored) : [];
 };
 
-export const saveExtraStudents = (students: HodsonsStudent[]) => {
+export const saveExtraStudents = async (students: HodsonsStudent[]) => {
     localStorage.setItem(EXTRA_STUDENTS_KEY, JSON.stringify(students));
+    try {
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { extraStudents: students }, { merge: true });
+    } catch(e) { console.error('Firebase save error:', e); }
 };
 
 export const getExtraClasses = (): Record<string, string> => {
@@ -90,6 +104,26 @@ export const getExtraClasses = (): Record<string, string> => {
     return stored ? JSON.parse(stored) : {};
 };
 
-export const saveExtraClasses = (classes: Record<string, string>) => {
+export const saveExtraClasses = async (classes: Record<string, string>) => {
     localStorage.setItem(EXTRA_CLASSES_KEY, JSON.stringify(classes));
+    try {
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { extraClasses: classes }, { merge: true });
+    } catch(e) { console.error('Firebase save error:', e); }
+};
+
+// Real-time synchronization
+export const subscribeToHodsonsData = (callback: (data: any) => void) => {
+    return onSnapshot(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), (snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.data();
+            // Update local storage so it stays perfectly in sync offline
+            if (data.results) localStorage.setItem(STORAGE_KEY, JSON.stringify(data.results));
+            if (data.skipQualifyingCategories) localStorage.setItem(SKIP_QUALIFYING_KEY, JSON.stringify(data.skipQualifyingCategories));
+            if (data.extraStudents) localStorage.setItem(EXTRA_STUDENTS_KEY, JSON.stringify(data.extraStudents));
+            if (data.extraClasses) localStorage.setItem(EXTRA_CLASSES_KEY, JSON.stringify(data.extraClasses));
+            callback(data);
+        }
+    }, (error) => {
+        console.error('Snapshot listener error:', error);
+    });
 };

@@ -5,7 +5,7 @@ import ModalHeader from '../components/ui/ModalHeader';
 import { useToast } from '../components/ui/ToastProvider';
 import { HOUSE_COLORS, IMAGES } from '../constants';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { getEvents, Event, getSessions, saveSession, deleteSession, Session, getAttendance, saveAttendance, AttendanceRecord, InjuryRecord, getInjuries, saveInjury, deleteInjury } from '../utils/storage';
+import { getEvents, Event, getSessions, saveSession, deleteSession, Session, getAttendance, saveAttendance, AttendanceRecord, InjuryRecord, getInjuries, saveInjury, deleteInjury, subscribeToGeneralData } from '../utils/storage';
 
 // Data for the Bar Chart
 const chartData = [
@@ -91,38 +91,48 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    loadSessions();
-    loadAttendance();
-    loadInjuries();
-    const events = getEvents();
-    if (events.length > 0) {
-      // Simplest future filter
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Start of today
+    const loadAll = () => {
+      loadSessions();
+      loadAttendance();
+      loadInjuries();
+      const events = getEvents();
+      if (events.length > 0) {
+        // Simplest future filter
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Start of today
 
-      const upcoming = events
-        .filter(e => !e.completed)
-        .filter(e => {
-          const eventDate = new Date(e.date);
-          return eventDate >= today; // Include today
-        })
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const upcoming = events
+          .filter(e => !e.completed)
+          .filter(e => {
+            const eventDate = new Date(e.date);
+            return eventDate >= today; // Include today
+          })
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      if (upcoming.length > 0) {
-        setUpcomingEvent(upcoming[0]);
+        if (upcoming.length > 0) {
+          setUpcomingEvent(upcoming[0]);
 
-        // Simple countdown based on date only
-        const eventDate = new Date(upcoming[0].date);
-        const diff = eventDate.getTime() - today.getTime();
-        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+          // Simple countdown based on date only
+          const eventDate = new Date(upcoming[0].date);
+          const diff = eventDate.getTime() - today.getTime();
+          const d = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-        setDays(d.toString().padStart(2, '0'));
-        setHrs('00'); // Keep hrs/min 00 for simplicity as time parsing was problematic
-        setMin('00');
-      } else {
-        setUpcomingEvent(null);
+          setDays(d.toString().padStart(2, '0'));
+          setHrs('00'); // Keep hrs/min 00 for simplicity as time parsing was problematic
+          setMin('00');
+        } else {
+          setUpcomingEvent(null);
+        }
       }
-    }
+    };
+
+    const unsubscribe = subscribeToGeneralData(() => {
+      loadAll();
+    });
+
+    loadAll();
+
+    return () => unsubscribe();
   }, []);
 
   const handleAddSession = () => {

@@ -47,9 +47,9 @@ const createRaceInfo = (
 });
 
 export const HODSONS_RACE_INFO: Record<HodsonsCategory, HodsonsRaceInfo> = {
-  'PDG Under 11': createRaceInfo('PDG Under 11', 'PD Girls', 'U-11', 0.9, 'Bank-Short Back-Arch', '04:15', '03:10:20', '1982', 'Naina Dhillon (H)'),
+  'PDG Under 11': createRaceInfo('PDG Under 11', 'PD Girls', 'U-11', 0.9, 'Bank-Short Back-Arch', '05:00', '03:10:20', '1982', 'Naina Dhillon (H)'),
   'PDG Under 12': createRaceInfo('PDG Under 12', 'PD Girls', 'U-12', 1.2, 'HSB-Short Back-Arch', '05:30', '04:51:23', '2025', 'Japneet Kaur Gill-S'),
-  'PDB Under 11': createRaceInfo('PDB Under 11', 'PD Boys', 'U-11', 1.2, 'HSB-Short Back-Arch', '05:00', '03:59:00', '1954', 'Jaspal Singh Mann (S)'),
+  'PDB Under 11': createRaceInfo('PDB Under 11', 'PD Boys', 'U-11', 1.2, 'HSB-Short Back-Arch', '05:30', '03:59:00', '1954', 'Jaspal Singh Mann (S)'),
   'PDB Under 12': createRaceInfo('PDB Under 12', 'PD Boys', 'U-12', 1.5, 'Ropes-Short Back-Arch', '07:00', '05:54:58', '2024', 'Ashwary Kumar (S)'),
   'GD Under 13': createRaceInfo('GD Under 13', 'Girls', 'U-13', 1.5, 'Ropes-Short Back-Arch', '08:30', '06:30:32', '2018', 'Ustat Kaur Jatana (V)'),
   'GD Under 14': createRaceInfo('GD Under 14', 'Girls', 'U-14', 1.5, 'Ropes-Short Back-Arch', '07:50', '06:16:47', '2005', 'Himani Rana (H)'),

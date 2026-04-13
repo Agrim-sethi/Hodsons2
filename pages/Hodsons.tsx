@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from '../components/Icon';
 import { HOUSE_COLORS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, PieChart, Pie, Legend } from 'recharts';
-import { mockStudents, getHodsonsResults, saveHodsonsResults, HodsonsResult, CATEGORIES_LIST, getSkipQualifyingCategories, saveSkipQualifyingCategories, HodsonsCategory, HodsonsStudent, getExtraStudents, saveExtraStudents, getExtraClasses, saveExtraClasses } from '../utils/hodsonsStorage';
+import { mockStudents, getHodsonsResults, saveHodsonsResults, HodsonsResult, CATEGORIES_LIST, getSkipQualifyingCategories, saveSkipQualifyingCategories, HodsonsCategory, HodsonsStudent, getExtraStudents, saveExtraStudents, getExtraClasses, saveExtraClasses, subscribeToHodsonsData } from '../utils/hodsonsStorage';
 import { ACCESS_OPTIONS, ACCESS_SCOPE_CONFIG, RESULTS_DEPARTMENTS } from '../components/hodsons/config';
 import { PodiumStep, StandingsChart } from '../components/hodsons/shared';
 import { buildDerivedHodsonsData } from '../utils/hodsonsDerived';
@@ -89,7 +89,7 @@ const getCategoryRecordAlert = (categoryData?: CategoryData | null): CategoryRec
 
 const prettifyExportStatus = (status?: string) => {
     if (!status) return 'Pending';
-    if (status === 'medically_excused') return 'Medical Leave';
+    if (status === 'medically_excused') return 'Medically Excused';
     if (status === 'on_leave') return 'On Leave';
     return status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 };
@@ -104,7 +104,7 @@ const getStageExportStatus = (
     }
 
     if (stage === 'qualifying') {
-        if (result.preQualifyingType === 'medically_excused') return 'Medical Leave';
+        if (result.preQualifyingType === 'medically_excused') return 'Medically Excused';
         if (result.preQualifyingType === 'on_leave') return 'On Leave';
         if (result.qualifyingType === 'absent') return 'Absent';
         return prettifyExportStatus(result.qualifyingType || 'pending');
@@ -115,7 +115,7 @@ const getStageExportStatus = (
         return prettifyExportStatus(result.preFinalsType || 'pending');
     }
 
-    if (result.preFinalsType === 'medically_excused' || result.finalsType === 'medically_excused') return 'Medical Leave';
+    if (result.preFinalsType === 'medically_excused' || result.finalsType === 'medically_excused') return 'Medically Excused';
     if (result.preFinalsType === 'on_leave') return 'On Leave';
     if (result.finalsType === 'absent') return 'Absent';
     return prettifyExportStatus(result.finalsType || 'pending');
@@ -175,7 +175,12 @@ const Hodsons: React.FC = () => {
     ) as Partial<Record<HodsonsCategory, CategoryRecordAlert>>;
 
     useEffect(() => {
+        const unsubscribe = subscribeToHodsonsData(() => {
+            loadData();
+        });
         loadData();
+        
+        return () => unsubscribe();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -332,7 +337,7 @@ const Hodsons: React.FC = () => {
 
         // Apply auto-ranks to results
         const updatedResults = [...results];
-        
+
         // Assign qualifying positions
         qualifiedWithTiming.forEach(({ stu }, idx) => {
             const rIdx = updatedResults.findIndex(r => r.studentId === stu.id);
@@ -1393,7 +1398,7 @@ const Hodsons: React.FC = () => {
                                                         <div className="flex gap-4">
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
-                                                                <span className="text-[10px] font-black text-slate-300">Medical leave: <span className="text-amber-500">{cat.stats.preQualMedExcused + cat.stats.qualMedExcused}</span></span>
+                                                                <span className="text-[10px] font-black text-slate-300">Medically Excused: <span className="text-amber-500">{cat.stats.preQualMedExcused + cat.stats.qualMedExcused}</span></span>
                                                             </div>
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="size-1.5 rounded-full bg-[#d6bd84]/70 shadow-[0_0_8px_rgba(214,189,132,0.32)]"></div>
@@ -1410,7 +1415,7 @@ const Hodsons: React.FC = () => {
                                                         <div className="flex gap-4">
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="size-1.5 rounded-full bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
-                                                                <span className="text-[10px] font-black text-slate-300">Medical leave: <span className="text-amber-500">{cat.stats.preFinalsMedExcused + cat.stats.finalsMedExcused}</span></span>
+                                                                <span className="text-[10px] font-black text-slate-300">Medically Excused: <span className="text-amber-500">{cat.stats.preFinalsMedExcused + cat.stats.finalsMedExcused}</span></span>
                                                             </div>
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="size-1.5 rounded-full bg-[#d6bd84]/70 shadow-[0_0_8px_rgba(214,189,132,0.32)]"></div>
@@ -1571,7 +1576,7 @@ const Hodsons: React.FC = () => {
                                             <div className="bg-white/[0.04] rounded-xl p-4 border border-slate-400/10 hover:border-slate-300/20 transition-colors">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <div className="size-7 rounded-lg bg-white/10 flex items-center justify-center"><Icon name="medical_services" size="14" className="text-slate-300" /></div>
-                                                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Medical leave</span>
+                                                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Medically Excused</span>
                                                 </div>
                                                 <span className="text-slate-300 text-2xl font-black">
                                                     {Object.values(selectedCategoryStats.houseStats).reduce((acc: number, h: any) => acc + h.medExcused + h.preQualMedExcused + (h.medExcusedFinals || 0) + (h.preFinalsMedExcused || 0), 0)}
@@ -1644,7 +1649,7 @@ const Hodsons: React.FC = () => {
                                                             <span className="text-primary font-black">{h.finishedQual}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-[10px] italic border-t border-white/5 pt-3">
-                                                            <span className="text-slate-500">Medical leave: <span className="text-slate-300 font-bold">{h.preQualMedExcused + h.medExcused}</span></span>
+                                                            <span className="text-slate-500">Medically Excused: <span className="text-slate-300 font-bold">{h.preQualMedExcused + h.medExcused}</span></span>
                                                             <span className="text-slate-500">Pre-Q Leave: <span className="text-slate-300 font-bold">{h.preQualOnLeave}</span></span>
                                                         </div>
                                                         <div className="flex justify-between items-center border-t border-white/10 pt-4">
@@ -1736,7 +1741,7 @@ const Hodsons: React.FC = () => {
                                                         const statusData = [
                                                             { name: 'Participated', value: totalParticipated, color: '#3a7f5d' },
                                                             { name: 'Absent', value: totalAbsent, color: '#ef4444' },
-                                                            { name: 'Medical leave', value: totalMedExcused, color: '#8f9aae' },
+                                                            { name: 'Medically Excused', value: totalMedExcused, color: '#8f9aae' },
                                                             { name: 'On Leave', value: totalOnLeave, color: '#c9a34a' },
                                                             { name: 'Pending', value: totalPending > 0 ? totalPending : 0, color: '#415065' }
                                                         ].filter(d => d.value > 0);
@@ -1844,7 +1849,7 @@ const Hodsons: React.FC = () => {
                                             <div className="bg-white/[0.04] rounded-xl p-4 border border-slate-400/10 hover:border-slate-300/20 transition-colors">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <div className="size-7 rounded-lg bg-white/10 flex items-center justify-center"><Icon name="medical_services" size="14" className="text-slate-300" /></div>
-                                                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Medical leave</span>
+                                                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Medically Excused</span>
                                                 </div>
                                                 <span className="text-slate-300 text-2xl font-black">
                                                     {Object.values(selectedCategoryStats.houseStats).reduce((acc: number, h: any) => acc + h.medExcusedFinals + h.preFinalsMedExcused, 0)}
@@ -1925,7 +1930,7 @@ const Hodsons: React.FC = () => {
                                                             <span className="text-slate-500 font-black shrink-0">{h.dnfFinals}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-[10px] italic border-t border-white/5 pt-3 gap-2">
-                                                            <span className="text-slate-500 truncate">Medical leave: <span className="text-slate-300 font-bold">{h.preFinalsMedExcused + h.medExcusedFinals}</span></span>
+                                                            <span className="text-slate-500 truncate">Medically Excused: <span className="text-slate-300 font-bold">{h.preFinalsMedExcused + h.medExcusedFinals}</span></span>
                                                             <span className="text-slate-500 truncate">Pre-F Leave: <span className="text-slate-300 font-bold">{h.preFinalsOnLeave}</span></span>
                                                         </div>
                                                         <div className="flex flex-col gap-1 border-t border-white/10 pt-4">
@@ -3124,7 +3129,7 @@ const Hodsons: React.FC = () => {
                                                 </div>
                                                 <div className="flex gap-4 shrink-0 items-center border-l border-white/10 pl-5 ml-1">
                                                     <div className="flex items-center gap-2 whitespace-nowrap">
-                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Medical leave:</span>
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Medically Excused:</span>
                                                         <span className="text-sm font-black text-amber-500 tabular-nums">{isPreQual ? catData.stats.preQualMedExcused : catData.stats.preFinalsMedExcused}</span>
                                                     </div>
                                                     <div className="flex items-center gap-2 whitespace-nowrap">
