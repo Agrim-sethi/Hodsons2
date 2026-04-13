@@ -370,7 +370,6 @@ const Hodsons: React.FC = () => {
         setResults(updatedResults);
         saveHodsonsResults(updatedResults);
         loadData();
-        setEditCategory(null);
         showToast({
             title: 'Results Saved',
             description: `Results for ${cat} saved. ${qualifiedWithTiming.length} qualifying + ${finalistsWithTiming.length} finals positions auto-ranked by timing.`

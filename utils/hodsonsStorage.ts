@@ -46,9 +46,22 @@ const EXTRA_CLASSES_KEY = 'sanawar_hodsons_extra_classes';
 const FIRESTORE_DOC_PATH = 'data';
 const FIRESTORE_COLLECTION = 'hodsons_production_v1';
 
-// Firebase doesn't accept "undefined" values, so we strip them out
 const sanitizeForFirebase = (obj: any): any => {
-    return JSON.parse(JSON.stringify(obj));
+    if (obj === undefined) return null;
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) {
+        return obj.map(v => sanitizeForFirebase(v)).filter(v => v !== undefined);
+    }
+    const result: any = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const val = obj[key];
+            if (val !== undefined) {
+                result[key] = sanitizeForFirebase(val);
+            }
+        }
+    }
+    return result;
 };
 
 export const getHodsonsResults = (): HodsonsResult[] => {

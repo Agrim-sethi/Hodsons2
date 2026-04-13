@@ -74,10 +74,28 @@ const PROFILE_KEY = 'sanawar_profile';
 const FIRESTORE_COLLECTION = 'sanawar_general_v1';
 const FIRESTORE_DOC_PATH = 'data';
 
+const sanitizeForFirebase = (obj: any): any => {
+    if (obj === undefined) return null;
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) {
+        return obj.map(v => sanitizeForFirebase(v)).filter(v => v !== undefined);
+    }
+    const result: any = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const val = obj[key];
+            if (val !== undefined) {
+                result[key] = sanitizeForFirebase(val);
+            }
+        }
+    }
+    return result;
+};
+
 // --- Sync Helper ---
 const syncToFirebase = async (data: Record<string, any>) => {
     try {
-        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), data, { merge: true });
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), sanitizeForFirebase(data), { merge: true });
     } catch(e) { console.error('Firebase save error:', e); }
 };
 
