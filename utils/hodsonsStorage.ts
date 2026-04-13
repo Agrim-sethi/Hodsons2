@@ -65,6 +65,7 @@ export const saveHodsonsResults = async (results: HodsonsResult[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
     try {
         await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { results }, { merge: true });
+        console.log('Firebase Sync: successfully pushed results to cloud');
     } catch(e) { console.error('Firebase save error:', e); }
 };
 
@@ -113,8 +114,10 @@ export const saveExtraClasses = async (classes: Record<string, string>) => {
 
 // Real-time synchronization
 export const subscribeToHodsonsData = (callback: (data: any) => void) => {
+    console.log('Firebase Sync: Connecting listener to cloud...');
     return onSnapshot(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), (snapshot) => {
         if (snapshot.exists()) {
+            console.log('Firebase Sync: Data changed in cloud, updating local device!');
             const data = snapshot.data();
             // Update local storage so it stays perfectly in sync offline
             if (data.results) localStorage.setItem(STORAGE_KEY, JSON.stringify(data.results));
@@ -122,6 +125,8 @@ export const subscribeToHodsonsData = (callback: (data: any) => void) => {
             if (data.extraStudents) localStorage.setItem(EXTRA_STUDENTS_KEY, JSON.stringify(data.extraStudents));
             if (data.extraClasses) localStorage.setItem(EXTRA_CLASSES_KEY, JSON.stringify(data.extraClasses));
             callback(data);
+        } else {
+            console.log('Firebase Sync: Database is currently empty.');
         }
     }, (error) => {
         console.error('Snapshot listener error:', error);
