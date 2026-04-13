@@ -46,6 +46,11 @@ const EXTRA_CLASSES_KEY = 'sanawar_hodsons_extra_classes';
 const FIRESTORE_DOC_PATH = 'data';
 const FIRESTORE_COLLECTION = 'hodsons_production_v1';
 
+// Firebase doesn't accept "undefined" values, so we strip them out
+const sanitizeForFirebase = (obj: any): any => {
+    return JSON.parse(JSON.stringify(obj));
+};
+
 export const getHodsonsResults = (): HodsonsResult[] => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -64,7 +69,7 @@ export const getHodsonsResults = (): HodsonsResult[] => {
 export const saveHodsonsResults = async (results: HodsonsResult[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
     try {
-        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { results }, { merge: true });
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { results: sanitizeForFirebase(results) }, { merge: true });
         console.log('Firebase Sync: successfully pushed results to cloud');
     } catch(e) { console.error('Firebase save error:', e); }
 };
@@ -84,7 +89,7 @@ export const getSkipQualifyingCategories = (): HodsonsCategory[] => {
 export const saveSkipQualifyingCategories = async (categories: HodsonsCategory[]) => {
     localStorage.setItem(SKIP_QUALIFYING_KEY, JSON.stringify(categories));
     try {
-        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { skipQualifyingCategories: categories }, { merge: true });
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { skipQualifyingCategories: sanitizeForFirebase(categories) }, { merge: true });
     } catch(e) { console.error('Firebase save error:', e); }
 };
 
@@ -96,7 +101,7 @@ export const getExtraStudents = (): HodsonsStudent[] => {
 export const saveExtraStudents = async (students: HodsonsStudent[]) => {
     localStorage.setItem(EXTRA_STUDENTS_KEY, JSON.stringify(students));
     try {
-        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { extraStudents: students }, { merge: true });
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { extraStudents: sanitizeForFirebase(students) }, { merge: true });
     } catch(e) { console.error('Firebase save error:', e); }
 };
 
@@ -108,7 +113,7 @@ export const getExtraClasses = (): Record<string, string> => {
 export const saveExtraClasses = async (classes: Record<string, string>) => {
     localStorage.setItem(EXTRA_CLASSES_KEY, JSON.stringify(classes));
     try {
-        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { extraClasses: classes }, { merge: true });
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH), { extraClasses: sanitizeForFirebase(classes) }, { merge: true });
     } catch(e) { console.error('Firebase save error:', e); }
 };
 
