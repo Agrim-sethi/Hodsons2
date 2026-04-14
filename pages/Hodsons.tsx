@@ -167,7 +167,7 @@ const Hodsons: React.FC = () => {
     const [editorAccessScope, setEditorAccessScope] = useState<HouseAccessScope | null>(null);
     const [passcodeInput, setPasscodeInput] = useState('');
     const [passcodeError, setPasscodeError] = useState(false);
-    const [mainSectionTab, setMainSectionTab] = useState<'standings' | 'results' | 'summary'>('standings');
+    const [mainSectionTab, setMainSectionTab] = useState<'standings' | 'results' | 'points' | 'summary'>('standings');
     const [lastSavedMeta, setLastSavedMeta] = useState<{ category: string; savedAt: string } | null>(null);
     const [isAutoSavingIndicator, setIsAutoSavingIndicator] = useState(false);
     
@@ -1202,13 +1202,14 @@ const Hodsons: React.FC = () => {
                         {[
                             { key: 'standings', label: 'Standings', icon: 'leaderboard' },
                             { key: 'results', label: 'Age Category Results', icon: 'category' },
+                            { key: 'points', label: 'Points Metrics', icon: 'calculate' },
                             { key: 'summary', label: 'Summary', icon: 'history_edu' }
                         ].map((tab) => {
                             const isActive = mainSectionTab === tab.key;
                             return (
                                 <button
                                     key={tab.key}
-                                    onClick={() => setMainSectionTab(tab.key as 'standings' | 'results' | 'summary')}
+                                    onClick={() => setMainSectionTab(tab.key as 'standings' | 'results' | 'points' | 'summary')}
                                     className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] transition-all ${isActive ? 'bg-primary text-[#091423] shadow-[0_10px_24px_rgba(201,163,74,0.28)]' : 'text-slate-300 hover:bg-white/6 hover:text-white'}`}
                                 >
                                     <Icon name={tab.icon} size="16" />
@@ -1490,6 +1491,109 @@ const Hodsons: React.FC = () => {
                         );
                     })()}
                 </>
+            )}
+            {mainSectionTab === 'points' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner border border-amber-500/10">
+                            <Icon name="calculate" size="24" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Points Permutations</h2>
+                            <p className="text-sm text-slate-400">Detailed breakdown of how house points are calculated and awarded</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Qualifying Phase Rules */}
+                        <div className="glass-panel p-8 rounded-[32px] border border-white/10 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                                <Icon name="timer" size="120" />
+                            </div>
+                            <div className="relative z-10">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest mb-4">
+                                    Phase 1
+                                </div>
+                                <h3 className="text-2xl font-black text-white mb-2">Qualifying Phase</h3>
+                                <p className="text-slate-400 text-sm mb-8">Baseline points earned during department heats and trials.</p>
+
+                                <div className="space-y-4">
+                                    {[
+                                        { label: 'Finished (Not Qualified)', points: '+1 pt', desc: 'Awarded to students who finish but don\'t progress to the finals.' },
+                                        { label: 'Qual / Bonus (Not Participating)', points: '+1 pt', desc: 'Fallback point awarded if a qualifier opts out of running the finals.' },
+                                        { label: 'Qualified for Finals', points: 'Progress', desc: 'Acts as a ticket to Finals; points are replaced by Finals performance.' },
+                                        { label: 'Absent / DNF', points: '-1 pt', desc: 'Penalty for failing to complete or missing the mandatory heat.' },
+                                        { label: 'Medically Excused / Leave', points: '0 pts', desc: 'No points added or removed for valid student exemptions.' }
+                                    ].map((rule, i) => (
+                                        <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors">
+                                            <div className="flex-1">
+                                                <div className="text-white font-bold text-sm tracking-tight">{rule.label}</div>
+                                                <div className="text-[11px] text-slate-500 mt-0.5">{rule.desc}</div>
+                                            </div>
+                                            <div className={`text-sm font-black px-3 py-1 rounded-lg ${rule.points.startsWith('+') ? 'text-green-400 bg-green-400/10' : rule.points.startsWith('-') ? 'text-red-400 bg-red-400/10' : 'text-slate-400 bg-white/5'}`}>
+                                                {rule.points}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Finals Phase Rules */}
+                        <div className="glass-panel p-8 rounded-[32px] border border-white/10 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                                <Icon name="military_tech" size="120" />
+                            </div>
+                            <div className="relative z-10">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-widest mb-4">
+                                    Phase 2
+                                </div>
+                                <h3 className="text-2xl font-black text-white mb-2">Finals Phase</h3>
+                                <p className="text-slate-400 text-sm mb-8">High-stakes scaling points based on ranking and track records.</p>
+
+                                <div className="space-y-4">
+                                    <div className="p-4 rounded-2xl bg-amber-500/[0.04] border border-amber-500/10">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <div className="text-amber-500 font-black text-sm uppercase tracking-wider">Positional Scoring</div>
+                                            <div className="text-[10px] text-amber-200/50 font-bold tracking-widest uppercase">Formula: 5 + (16 - Rank)</div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[
+                                                { rank: '1st', pts: '+20' }, { rank: '2nd', pts: '+19' }, { rank: '3rd', pts: '+18' },
+                                                { rank: '4th', pts: '+17' }, { rank: '...', pts: '...' }, { rank: '15th', pts: '+6' }
+                                            ].map((r, i) => (
+                                                <div key={i} className="bg-black/20 rounded-xl p-2 text-center border border-white/5">
+                                                    <div className="text-[10px] text-slate-500 font-bold mb-0.5">{r.rank}</div>
+                                                    <div className="text-white font-black">{r.pts}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="mt-3 text-[11px] text-slate-500 italic text-center">Rank 16 and below receive a base of +5 points.</div>
+                                    </div>
+
+                                    {[
+                                        { label: 'Track Record Breaker', points: '+3 pts', desc: 'Bonus for breaking the existing all-time category record (Any Phase).', icon: 'workspace_premium' },
+                                        { label: 'Finisher Only', points: '+1 pt', desc: 'Students who completed the course but didnt have a positional rank.', icon: 'directions_run' },
+                                        { label: 'Absent / DNF Penalty', points: '-1 pt', desc: 'House penalty for qualifying but failing to run/finish the final heat.', icon: 'warning' }
+                                    ].map((rule, i) => (
+                                        <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors">
+                                            <div className="size-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-amber-400/80 transition-colors">
+                                                <Icon name={rule.icon} size="18" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="text-white font-bold text-sm tracking-tight">{rule.label}</div>
+                                                <div className="text-[11px] text-slate-500 mt-0.5">{rule.desc}</div>
+                                            </div>
+                                            <div className={`text-sm font-black px-3 py-1 rounded-lg ${rule.points.startsWith('+') ? 'text-amber-400 bg-amber-400/10' : 'text-red-400 bg-red-400/10'}`}>
+                                                {rule.points}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
             {mainSectionTab === 'summary' && (
                 <div className="glass-panel rounded-[32px] border border-white/10 overflow-hidden">
@@ -2541,20 +2645,16 @@ const Hodsons: React.FC = () => {
                                         </h5>
                                         <ul className="text-[11px] text-slate-400 space-y-2.5">
                                             <li className="flex justify-between items-center bg-white/[0.03] p-2 rounded border border-white/5">
-                                                <span>Finisher (Not Qualified)</span>
+                                                <span>Finisher / Qualifier Dropout</span>
                                                 <span className="text-green-400 font-bold">+1 pt</span>
                                             </li>
                                             <li className="flex justify-between items-center bg-white/[0.03] p-2 rounded border border-white/5">
                                                 <span>Absent / DNF</span>
                                                 <span className="text-red-400 font-bold">-1 pt</span>
                                             </li>
-                                            <li className="flex justify-between items-center bg-white/[0.03] p-2 rounded border border-white/5 opacity-60">
-                                                <span>Qualified for Finals</span>
-                                                <span className="text-slate-500 italic">0 pts</span>
-                                            </li>
-                                            <li className="flex justify-between items-center bg-white/[0.03] p-2 rounded border border-white/5">
-                                                <span>Bonus Qualifier</span>
-                                                <span className="text-sky-300 font-bold">0 pts / Finals access</span>
+                                            <li className="flex justify-between items-center bg-[linear-gradient(135deg,rgba(201,163,74,0.1),rgba(255,255,255,0.02))] p-2 rounded border border-primary/20">
+                                                <span>Finals Participant</span>
+                                                <span className="text-sky-300 font-bold">0 pts / Rep. Score</span>
                                             </li>
                                         </ul>
                                     </div>
