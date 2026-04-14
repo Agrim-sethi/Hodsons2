@@ -170,7 +170,7 @@ const Hodsons: React.FC = () => {
     const [mainSectionTab, setMainSectionTab] = useState<'standings' | 'results' | 'points' | 'summary'>('standings');
     const [lastSavedMeta, setLastSavedMeta] = useState<{ category: string; savedAt: string } | null>(null);
     const [isAutoSavingIndicator, setIsAutoSavingIndicator] = useState(false);
-    
+
     const resultsRef = useRef(results);
     useEffect(() => { resultsRef.current = results; }, [results]);
 
@@ -179,7 +179,7 @@ const Hodsons: React.FC = () => {
         const interval = setInterval(() => {
             const studentsInCat = allHodsonsStudents.filter(s => s.category === editCategory);
             const getRes = (stuId: string) => resultsRef.current.find(r => r.studentId === stuId) || { studentId: stuId, preQualifyingType: 'pending' as const, preFinalsType: 'pending' as const, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
-            
+
             const qualifiedWithTiming = studentsInCat
                 .map(stu => ({ stu, res: getRes(stu.id) }))
                 .filter(({ res }) => res.qualifyingType === 'qualified' && res.qualifyingTiming)
@@ -232,7 +232,7 @@ const Hodsons: React.FC = () => {
             loadData();
         });
         loadData();
-        
+
         return () => unsubscribe();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -1519,9 +1519,9 @@ const Hodsons: React.FC = () => {
 
                                 <div className="space-y-4">
                                     {[
-                                        { label: 'Finished (Not Qualified)', points: '+1 pt', desc: 'Awarded to students who finish but don\'t progress to the finals.' },
-                                        { label: 'Qual / Bonus (Not Participating)', points: '+1 pt', desc: 'Fallback point awarded if a qualifier opts out of running the finals.' },
-                                        { label: 'Qualified for Finals', points: 'Progress', desc: 'Acts as a ticket to Finals; points are replaced by Finals performance.' },
+                                        { label: 'Finished (Not Progressing To Finals)', points: '+1 pt', desc: 'Awarded to students who finish but don\'t progress to the finals.' },
+                                        { label: 'Qual / Bonus (Not Progressing To Finals)', points: '+1 pt', desc: 'Fallback point awarded if a qualifier opts out of running the finals.' },
+                                        { label: 'Qualified for Finals', points: 'Progress (0 pts)', desc: 'Acts as a ticket to Finals; points are replaced by Finals performance.' },
                                         { label: 'Absent / DNF', points: '-1 pt', desc: 'Penalty for failing to complete or missing the mandatory heat.' },
                                         { label: 'Medically Excused / Leave', points: '0 pts', desc: 'No points added or removed for valid student exemptions.' }
                                     ].map((rule, i) => (
