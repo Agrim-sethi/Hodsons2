@@ -231,19 +231,26 @@ export const buildDerivedHodsonsData = (
           totalPoints -= 1;
           category.stats.dnfCount += 1;
         }
+        const participatesInFinal = result.preFinalsType === 'participating' || ['qualified_pos', 'finisher', 'dnf', 'absent'].includes((result.finalsType || '') as string);
+        
         if (result.qualifyingType === 'finished') {
           house.finishedQual += 1;
-          const participatesInFinal = result.preFinalsType === 'participating' || ['qualified_pos', 'finisher', 'dnf', 'absent'].includes((result.finalsType || '') as string);
           if (!participatesInFinal) {
             totalPoints += 1;
           }
         }
         if (result.qualifyingType === 'qualified') {
           house.qual += 1;
+          if (!participatesInFinal) {
+            totalPoints += 1;
+          }
         }
         if (result.qualifyingType === 'bonus') {
           house.bonusQual += 1;
           category.stats.bonusQualified += 1;
+          if (!participatesInFinal) {
+            totalPoints += 1;
+          }
         }
       }
 

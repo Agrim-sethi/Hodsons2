@@ -1956,7 +1956,7 @@ const Hodsons: React.FC = () => {
                                                             <span className="text-white font-black shrink-0">{h.qualFinals}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm gap-2">
-                                                            <span className="text-slate-400 truncate">Qualified IN FINALS</span>
+                                                            <span className="text-slate-400 truncate">Total Qualified</span>
                                                             <span className="text-white font-black shrink-0">{h.qualPosFinals}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm gap-2">
