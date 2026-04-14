@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../components/Icon';
 import { HOUSE_COLORS } from '../constants';
@@ -35,7 +35,7 @@ const chartTooltipStyle = {
 };
 
 const qualifiesForFinals = (qualifyingType?: string, skipsQualifying?: boolean) =>
-    Boolean(skipsQualifying || qualifyingType === 'qualified' || qualifyingType === 'bonus');
+    Boolean(skipsQualifying || qualifyingType === 'qualified' || qualifyingType === 'bonus' || qualifyingType === 'finished');
 
 const formatRaceInfoLabel = (timing?: string) => timing ? `${timing} min` : '—';
 
@@ -90,6 +90,7 @@ const getCategoryRecordAlert = (categoryData?: CategoryData | null): CategoryRec
 const prettifyExportStatus = (status?: string) => {
     if (!status) return 'Pending';
     if (status === 'medically_excused') return 'Medically Excused';
+    if (status === 'not_participating') return 'Not Participating';
     if (status === 'on_leave') return 'On Leave';
     return status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 };
@@ -105,6 +106,7 @@ const getStageExportStatus = (
 
     if (stage === 'qualifying') {
         if (result.preQualifyingType === 'medically_excused') return 'Medically Excused';
+        if (result.preQualifyingType === 'not_participating') return 'Not Participating';
         if (result.preQualifyingType === 'on_leave') return 'On Leave';
         if (result.qualifyingType === 'absent') return 'Absent';
         return prettifyExportStatus(result.qualifyingType || 'pending');
@@ -116,6 +118,7 @@ const getStageExportStatus = (
     }
 
     if (result.preFinalsType === 'medically_excused' || result.finalsType === 'medically_excused') return 'Medically Excused';
+    if (result.preFinalsType === 'not_participating') return 'Not Participating';
     if (result.preFinalsType === 'on_leave') return 'On Leave';
     if (result.finalsType === 'absent') return 'Absent';
     return prettifyExportStatus(result.finalsType || 'pending');
@@ -166,6 +169,56 @@ const Hodsons: React.FC = () => {
     const [passcodeError, setPasscodeError] = useState(false);
     const [mainSectionTab, setMainSectionTab] = useState<'standings' | 'results' | 'summary'>('standings');
     const [lastSavedMeta, setLastSavedMeta] = useState<{ category: string; savedAt: string } | null>(null);
+    const [isAutoSavingIndicator, setIsAutoSavingIndicator] = useState(false);
+    
+    const resultsRef = useRef(results);
+    useEffect(() => { resultsRef.current = results; }, [results]);
+
+    useEffect(() => {
+        if (!editCategory) return;
+        const interval = setInterval(() => {
+            const studentsInCat = allHodsonsStudents.filter(s => s.category === editCategory);
+            const getRes = (stuId: string) => resultsRef.current.find(r => r.studentId === stuId) || { studentId: stuId, preQualifyingType: 'pending' as const, preFinalsType: 'pending' as const, qualifyingType: 'pending' as const, finalsType: 'pending' as const };
+            
+            const qualifiedWithTiming = studentsInCat
+                .map(stu => ({ stu, res: getRes(stu.id) }))
+                .filter(({ res }) => res.qualifyingType === 'qualified' && res.qualifyingTiming)
+                .sort((a, b) => timingToSeconds(a.res.qualifyingTiming) - timingToSeconds(b.res.qualifyingTiming));
+
+            const finalistsWithTiming = studentsInCat
+                .map(stu => ({ stu, res: getRes(stu.id) }))
+                .filter(({ res }) => res.finalsType === 'qualified_pos' && res.finalsTiming)
+                .sort((a, b) => timingToSeconds(a.res.finalsTiming) - timingToSeconds(b.res.finalsTiming));
+
+            const updatedResults = [...resultsRef.current];
+
+            qualifiedWithTiming.forEach(({ stu }, idx) => {
+                const rIdx = updatedResults.findIndex(r => r.studentId === stu.id);
+                if (rIdx >= 0) updatedResults[rIdx] = { ...updatedResults[rIdx], qualifyingPosition: idx + 1 };
+            });
+
+            finalistsWithTiming.forEach(({ stu }, idx) => {
+                const rIdx = updatedResults.findIndex(r => r.studentId === stu.id);
+                if (rIdx >= 0) updatedResults[rIdx] = { ...updatedResults[rIdx], finalsPosition: idx + 1 };
+            });
+
+            studentsInCat.forEach(stu => {
+                const rIdx = updatedResults.findIndex(r => r.studentId === stu.id);
+                if (rIdx < 0) return;
+                const r = updatedResults[rIdx];
+                if (r.qualifyingType !== 'qualified') updatedResults[rIdx] = { ...updatedResults[rIdx], qualifyingPosition: undefined };
+                if (r.finalsType !== 'qualified_pos') updatedResults[rIdx] = { ...updatedResults[rIdx], finalsPosition: undefined };
+            });
+
+            setResults(updatedResults);
+            saveHodsonsResults(updatedResults);
+            loadData();
+            setIsAutoSavingIndicator(true);
+            setTimeout(() => setIsAutoSavingIndicator(false), 2000);
+        }, 10000);
+        return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editCategory]);
 
     const categoryRecordAlerts = categoriesData
         .map((category) => getCategoryRecordAlert(category))
@@ -297,7 +350,7 @@ const Hodsons: React.FC = () => {
                 migrated.finalsTiming = undefined;
             }
 
-            if (['pending', 'medically_excused', 'on_leave'].includes(migrated.preFinalsType as string)) {
+            if (['pending', 'not_participating', 'medically_excused', 'on_leave'].includes(migrated.preFinalsType as string)) {
                 migrated.finalsType = 'pending';
                 migrated.finalsPosition = undefined;
                 migrated.finalsTiming = undefined;
@@ -590,7 +643,7 @@ const Hodsons: React.FC = () => {
                 nextFinalTiming = undefined;
             }
 
-            if (['pending', 'medically_excused', 'on_leave', 'left_school'].includes(nextPreFinalsType as string)) {
+            if (['pending', 'not_participating', 'medically_excused', 'on_leave', 'left_school'].includes(nextPreFinalsType as string)) {
                 nextFinalType = nextPreFinalsType === 'left_school' ? 'left_school' : 'pending';
                 nextFinalPos = undefined;
                 nextFinalTiming = undefined;
@@ -1109,7 +1162,13 @@ const Hodsons: React.FC = () => {
     };
 
     return (
-        <div className="max-w-[1440px] mx-auto w-full pb-20 px-4">
+        <div className="max-w-[1440px] mx-auto w-full pb-20 px-4 relative">
+            {isAutoSavingIndicator && (
+                <div className="fixed top-6 right-6 z-[9999] bg-green-500/20 text-green-400 border border-green-500/30 px-5 py-3 rounded-lg flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-300 shadow-xl backdrop-blur-md">
+                    <Icon name="cloud_done" className="text-xl" />
+                    <span className="font-bold text-sm tracking-wide uppercase">Auto-saved</span>
+                </div>
+            )}
             {/* Hero Section */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 pt-10">
                 <div className="flex flex-col gap-2">
@@ -1892,29 +1951,13 @@ const Hodsons: React.FC = () => {
                                                         <h4 className={`font-bold ${cfg.text} text-lg uppercase tracking-tight`}>{hName}</h4>
                                                     </div>
                                                     <div className="space-y-4">
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <span className="text-slate-400">Progressed To Finals</span>
-                                                            <span className="text-white font-black">{h.qual + h.bonusQual}</span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <span className="text-slate-400">Total Qualified</span>
-                                                            <span className="text-white font-black">{h.qualFinals}</span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <span className="text-slate-400">Total Finishers</span>
-                                                            <span className="text-white font-black">{h.finishedFinals}</span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <span className="text-slate-400">Finals Absentees</span>
-                                                            <span className="text-slate-500 font-black">{h.absentFinals}</span>
-                                                        </div>
                                                         <div className="flex justify-between items-center text-sm gap-2">
                                                             <span className="text-slate-400 truncate">Progressed To Finals</span>
-                                                            <span className="text-white font-black shrink-0">{h.qual + h.bonusQual}</span>
+                                                            <span className="text-white font-black shrink-0">{h.qualFinals}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm gap-2">
-                                                            <span className="text-slate-400 truncate">Total Qualified</span>
-                                                            <span className="text-white font-black shrink-0">{h.qualFinals}</span>
+                                                            <span className="text-slate-400 truncate">Qualified IN FINALS</span>
+                                                            <span className="text-white font-black shrink-0">{h.qualPosFinals}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm gap-2">
                                                             <span className="text-slate-400 truncate">Total Finishers</span>
@@ -3477,6 +3520,7 @@ const Hodsons: React.FC = () => {
                                                                 >
                                                                     <option value="pending">Pending</option>
                                                                     <option value="participating">Participating</option>
+                                                                    <option value="not_participating">Not Participating</option>
                                                                     <option value="on_leave">On Leave</option>
                                                                     <option value="medically_excused">Medically Excused</option>
                                                                     <option value="left_school">Left School / Invalid</option>
@@ -3489,6 +3533,7 @@ const Hodsons: React.FC = () => {
                                                                 >
                                                                     <option value="pending">Pending</option>
                                                                     <option value="participating">Participating</option>
+                                                                    <option value="not_participating">Not Participating</option>
                                                                     <option value="on_leave">On Leave</option>
                                                                     <option value="medically_excused">Medically Excused</option>
                                                                     <option value="left_school">Left School / Invalid</option>

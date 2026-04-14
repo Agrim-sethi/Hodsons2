@@ -34,6 +34,7 @@ export interface CategoryHouseStats {
   onLeaveQual: number;
   partFinals: number;
   qualFinals: number;
+  qualPosFinals: number;
   finishedFinals: number;
   dnfFinals: number;
   absentFinals: number;

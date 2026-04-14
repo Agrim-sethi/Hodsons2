@@ -10,7 +10,7 @@ export interface HodsonsStudent {
     category: HodsonsCategory;
 }
 
-export type HodsonsPrePhaseType = 'pending' | 'participating' | 'on_leave' | 'medically_excused' | 'left_school';
+export type HodsonsPrePhaseType = 'pending' | 'participating' | 'not_participating' | 'on_leave' | 'medically_excused' | 'left_school';
 export type HodsonsQualifyingType = 'pending' | 'qualified' | 'bonus' | 'finished' | 'dnf' | 'absent' | 'medically_excused' | 'left_school';
 export type HodsonsFinalsType = 'pending' | 'qualified_pos' | 'finisher' | 'dnf' | 'absent' | 'medically_excused' | 'left_school';
 
