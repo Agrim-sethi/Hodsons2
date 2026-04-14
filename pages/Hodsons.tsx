@@ -16,6 +16,16 @@ import studentClasses from '../utils/studentClasses.json';
 import { classifyQualifyingTiming, HODSONS_RACE_INFO, timingToSeconds } from '../utils/hodsonsRaceInfo';
 import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 
+const sortStudentsHouseWiseAlphabetical = (students: HodsonsStudent[]) => {
+    return [...students].sort((a, b) => {
+        if (a.house !== b.house) {
+            return a.house.localeCompare(b.house);
+        }
+        return a.name.trim().localeCompare(b.name.trim());
+    });
+};
+
+
 const houseConfig = (house: string) => {
     const key = house.toLowerCase() as keyof typeof HOUSE_COLORS;
     return HOUSE_COLORS[key] ?? HOUSE_COLORS.nilgiri;
@@ -843,9 +853,9 @@ const Hodsons: React.FC = () => {
             const timestamp = new Date().toISOString().slice(0, 10);
 
             CATEGORIES_LIST.forEach(cat => {
-                const competitorRows = allHodsonsStudents
-                    .filter(s => s.category === cat)
-                    .map((stu, idx) => ({
+                const studentsInCat = allHodsonsStudents.filter(s => s.category === cat);
+                const sortedStudents = sortStudentsHouseWiseAlphabetical(studentsInCat);
+                const competitorRows = sortedStudents.map((stu, idx) => ({
                         'SN': idx + 1,
                         'Comp No': stu.id,
                         'Name': stu.name,
@@ -877,6 +887,7 @@ const Hodsons: React.FC = () => {
 
             const sections = CATEGORIES_LIST.map(cat => {
                 const students = allHodsonsStudents.filter(s => s.category === cat);
+                const sortedStudents = sortStudentsHouseWiseAlphabetical(students);
                 const table = new Table({
                     width: { size: 100, type: WidthType.PERCENTAGE },
                     rows: [
@@ -886,7 +897,7 @@ const Hodsons: React.FC = () => {
                                 shading: { fill: 'EEEEEE', type: ShadingType.CLEAR }
                             }))
                         }),
-                        ...students.map((s, idx) => new TableRow({
+                        ...sortedStudents.map((s, idx) => new TableRow({
                             children: [String(idx + 1), s.id, s.name, allHodsonsClasses[s.id] || '—', s.house].map(v => new TableCell({
                                 children: [new Paragraph(String(v))]
                             }))
@@ -934,10 +945,13 @@ const Hodsons: React.FC = () => {
             const timestamp = new Date().toISOString().slice(0, 10);
             const fileBase = `Hodsons ${safeCat} ${stageLabel} List ${timestamp}`;
 
-            const rows = allHodsonsStudents
+            const filteredStudents = allHodsonsStudents
                 .filter(s => s.category === category)
-                .filter(s => filterHouse === 'All' || s.house === filterHouse)
-                .map((stu, idx) => {
+                .filter(s => filterHouse === 'All' || s.house === filterHouse);
+            
+            const sortedStudents = sortStudentsHouseWiseAlphabetical(filteredStudents);
+
+            const rows = sortedStudents.map((stu, idx) => {
                     const res = results.find(r => r.studentId === stu.id) || { studentId: stu.id, preQualifyingType: 'pending', preFinalsType: 'pending', qualifyingType: 'pending', finalsType: 'pending', position: undefined, timing: undefined };
 
                     const preQualOk = res.preQualifyingType === 'participating';
@@ -1059,9 +1073,10 @@ const Hodsons: React.FC = () => {
             const qualifyingPositions = getCategoryStagePositions(category, 'qualifying');
             const finalsPositions = getCategoryStagePositions(category, 'finals');
 
-            const rows = allHodsonsStudents
-                .filter(s => s.category === category)
-                .map((stu, idx) => {
+            const studentsInCat = allHodsonsStudents.filter(s => s.category === category);
+            const sortedStudents = sortStudentsHouseWiseAlphabetical(studentsInCat);
+
+            const rows = sortedStudents.map((stu, idx) => {
                     const r = results.find(res => res.studentId === stu.id) || {
                         studentId: stu.id,
                         preQualifyingType: 'pending',
@@ -1108,6 +1123,7 @@ const Hodsons: React.FC = () => {
             const finalsPositions = getCategoryStagePositions(category, 'finals');
 
             const students = allHodsonsStudents.filter(s => s.category === category);
+            const sortedStudents = sortStudentsHouseWiseAlphabetical(students);
             const table = new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 rows: [
@@ -1117,7 +1133,7 @@ const Hodsons: React.FC = () => {
                             shading: { fill: 'EEEEEE', type: ShadingType.CLEAR }
                         }))
                     }),
-                    ...students.map((stu, idx) => {
+                    ...sortedStudents.map((stu, idx) => {
                         const r = results.find(res => res.studentId === stu.id) || { studentId: stu.id, qualifyingType: 'pending', finalsType: 'pending' };
                         const qualPos = qualifyingPositions.get(stu.id) ?? r.qualifyingPosition;
                         const finalsPos = finalsPositions.get(stu.id) ?? r.finalsPosition;
