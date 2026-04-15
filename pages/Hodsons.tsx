@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../components/Icon';
 import { HOUSE_COLORS } from '../constants';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, PieChart, Pie, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, PieChart, Pie, Legend, ComposedChart, Line } from 'recharts';
 import { mockStudents, getHodsonsResults, saveHodsonsResults, HodsonsResult, CATEGORIES_LIST, getSkipQualifyingCategories, saveSkipQualifyingCategories, HodsonsCategory, HodsonsStudent, getExtraStudents, saveExtraStudents, getExtraClasses, saveExtraClasses, subscribeToHodsonsData } from '../utils/hodsonsStorage';
 import { ACCESS_OPTIONS, ACCESS_SCOPE_CONFIG, RESULTS_DEPARTMENTS } from '../components/hodsons/config';
 import { PodiumStep, StandingsChart } from '../components/hodsons/shared';
@@ -439,7 +439,7 @@ const Hodsons: React.FC = () => {
             Finishers: finishers,
             DNF: dnf,
             Efficiency: qualParticipants ? Number((points / qualParticipants).toFixed(2)) : 0,
-            Conversion: finalParticipants ? Math.round((qualParticipants / finalParticipants) * 100) : 0,
+            Conversion: qualParticipants ? Math.round((finalParticipants / qualParticipants) * 100) : 0,
             Resilience: Math.max(0, 100 - Math.round(((dnf + absent) / Math.max(rows.length, 1)) * 100)),
             Depth: filteredCategoryData.reduce((sum, category) => {
                 const houseStats = category.houseStats[house];
@@ -1893,7 +1893,7 @@ const Hodsons: React.FC = () => {
                             <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
                                 <span className="font-bold text-white">What this shows:</span> The left chart compares each house on raw output: points, qualifiers, and finishers. The right chart turns that into easy profile metrics with the house names shown clearly on the left, so you can directly compare efficiency, conversion, and resilience without guessing which bar belongs to which house.
                                 <div className="mt-2 text-[12px] text-slate-400">
-                                    Formula used: <span className="text-slate-200">Efficiency = House points / qualifying participants</span>. <span className="text-slate-200">Conversion = (qualifying participants / finals participants) x 100</span>. <span className="text-slate-200">Resilience = 100 - ((DNF + Absent) / runners in scope) x 100</span>.
+                                    Formula used: <span className="text-slate-200">Efficiency = House points / qualifying participants</span>. <span className="text-slate-200">Conversion = (finals participants / qualifying participants) x 100</span>. <span className="text-slate-200">Resilience = 100 - ((DNF + Absent) / runners in scope) x 100</span>.
                                 </div>
                             </div>
                         </div>
@@ -1965,8 +1965,7 @@ const Hodsons: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-8">
-                        <div className="glass-panel royal-chart-panel p-6 rounded-[28px]">
+                    <div className="glass-panel royal-chart-panel p-6 rounded-[28px]">
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="size-10 rounded-xl bg-white/10 flex items-center justify-center text-white"><Icon name="insights" size="20" /></div>
                                 <div>
@@ -1974,28 +1973,30 @@ const Hodsons: React.FC = () => {
                                     <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Contender density, finals field size, and winner-to-third spread</p>
                                 </div>
                             </div>
-                            <div className="w-full h-[340px]">
+                            <div className="w-full h-[360px]">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={competitiveDepthData} margin={{ top: 10, right: 10, left: 0, bottom: 64 }}>
+                                    <ComposedChart data={competitiveDepthData} margin={{ top: 10, right: 18, left: 8, bottom: 72 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
-                                        <XAxis dataKey="name" tickFormatter={formatAnalyticsAxisLabel} interval={0} angle={-20} textAnchor="end" height={80} tickMargin={10} tick={chartTickStyle} axisLine={false} tickLine={false} />
-                                        <YAxis tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                        <XAxis dataKey="name" tickFormatter={formatAnalyticsAxisLabel} interval={0} angle={-18} textAnchor="end" height={84} tickMargin={12} tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                        <YAxis yAxisId="counts" tick={chartTickStyle} axisLine={false} tickLine={false} allowDecimals={false} />
+                                        <YAxis yAxisId="spread" orientation="right" tick={chartTickStyle} axisLine={false} tickLine={false} width={56} />
                                         <Tooltip contentStyle={chartTooltipStyle} />
                                         <Legend wrapperStyle={{ fontSize: '11px' }} formatter={chartLegendFormatter} />
-                                        <Bar dataKey="Contenders" fill="#c9a34a" radius={[8, 8, 0, 0]} />
-                                        <Bar dataKey="FinalsField" fill="#7dd3fc" radius={[8, 8, 0, 0]} />
-                                    </BarChart>
+                                        <Bar yAxisId="counts" dataKey="Contenders" fill="#c9a34a" radius={[8, 8, 0, 0]} maxBarSize={34} />
+                                        <Bar yAxisId="counts" dataKey="FinalsField" fill="#8e7cc3" radius={[8, 8, 0, 0]} maxBarSize={34} />
+                                        <Line yAxisId="spread" type="monotone" dataKey="WinnerToThird" stroke="#f3e4bd" strokeWidth={3} dot={{ r: 4, fill: '#f3e4bd', stroke: '#091423', strokeWidth: 2 }} activeDot={{ r: 6, fill: '#fff4d4', stroke: '#091423', strokeWidth: 2 }} />
+                                    </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
                             <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
                                 <span className="font-bold text-white">What this shows:</span> This section is about how deep each category was, not just who won it. A category with many contenders and a healthy finals field was genuinely competitive, while a small finals field or a very large winner-to-third spread usually means the top runner was much stronger than the rest.
                                 <div className="mt-2 text-[12px] text-slate-400">
-                                    Formula used: <span className="text-slate-200">Contenders = Qualified + Bonus + Finished</span>. <span className="text-slate-200">Finals Field = runners marked as finals rankers or finishers</span>. <span className="text-slate-200">Winner-to-Third Spread = third-fastest time - fastest time</span>.
+                                    Formula used: <span className="text-slate-200">Contenders = Qualified + Bonus + Finished</span>. <span className="text-slate-200">Finals Field = runners marked as finals rankers or finishers</span>. <span className="text-slate-200">Winner-to-Third Spread = third-fastest time - fastest time</span>. The bars show runner counts and the line shows the spread in seconds.
                                 </div>
                             </div>
-                        </div>
+                    </div>
 
-                        <div className="glass-panel p-6 rounded-[28px] border border-white/10">
+                    <div className="glass-panel p-6 rounded-[28px] border border-white/10">
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Icon name="psychology" size="20" /></div>
                                 <div>
@@ -2039,11 +2040,10 @@ const Hodsons: React.FC = () => {
                             <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
                                 <span className="font-bold text-white">What this shows:</span> This table compresses each house into a few easy performance ideas. It helps you separate a house that won mostly through elite top-end performance from one that performed steadily across many runners and categories.
                                 <div className="mt-2 text-[12px] text-slate-400">
-                                    Formula used: <span className="text-slate-200">Efficiency = points / qualifying participants</span>. <span className="text-slate-200">Conversion % = (qualifying participants / finals participants) x 100</span>. <span className="text-slate-200">Resilience % = 100 - ((DNF + Absent) / runners in scope) x 100</span>. <span className="text-slate-200">Depth Score = qualifiers + bonus qualifiers + ranked finals runners</span>.
+                                    Formula used: <span className="text-slate-200">Efficiency = points / qualifying participants</span>. <span className="text-slate-200">Conversion % = (finals participants / qualifying participants) x 100</span>. <span className="text-slate-200">Resilience % = 100 - ((DNF + Absent) / runners in scope) x 100</span>. <span className="text-slate-200">Depth Score = qualifiers + bonus qualifiers + ranked finals runners</span>.
                                 </div>
                             </div>
                         </div>
-                    </div>
                 </div>
             )}
             {mainSectionTab === 'points' && (
