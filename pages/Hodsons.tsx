@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../components/Icon';
 import { HOUSE_COLORS } from '../constants';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, PieChart, Pie, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, PieChart, Pie, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ScatterChart, Scatter } from 'recharts';
 import { mockStudents, getHodsonsResults, saveHodsonsResults, HodsonsResult, CATEGORIES_LIST, getSkipQualifyingCategories, saveSkipQualifyingCategories, HodsonsCategory, HodsonsStudent, getExtraStudents, saveExtraStudents, getExtraClasses, saveExtraClasses, subscribeToHodsonsData } from '../utils/hodsonsStorage';
 import { ACCESS_OPTIONS, ACCESS_SCOPE_CONFIG, RESULTS_DEPARTMENTS } from '../components/hodsons/config';
 import { PodiumStep, StandingsChart } from '../components/hodsons/shared';
 import { buildDerivedHodsonsData } from '../utils/hodsonsDerived';
-import { CategoryData, DepartmentStandingsData, DerivedHodsonsData, EditorPhase, HouseAccessScope, HouseStandingsDatum, ResultsDepartmentKey, StandingsScopeKey } from '../components/hodsons/types';
+import { CategoryData, DepartmentStandingsData, DerivedHodsonsData, EditorPhase, HouseAccessScope, HouseName, HouseStandingsDatum, ResultsDepartmentKey, StandingsScopeKey } from '../components/hodsons/types';
 import ModalHeader from '../components/ui/ModalHeader';
 import { useToast } from '../components/ui/ToastProvider';
 import * as XLSX from 'xlsx';
@@ -58,6 +58,33 @@ type CategoryRecordAlert = {
     recordHolder: string;
     recordYear: string;
     marginLabel: string;
+};
+
+type AnalyticsPhaseFilter = 'all' | 'qualifying' | 'finals';
+type AnalyticsDepartmentFilter = 'All' | ResultsDepartmentKey;
+
+type AnalyticsRow = {
+    id: string;
+    name: string;
+    className: string;
+    house: HouseName;
+    category: HodsonsCategory;
+    department: ResultsDepartmentKey;
+    skippedQualifying: boolean;
+    qualifyingType: string;
+    finalsType: string;
+    qualifyingTiming?: string;
+    finalsTiming?: string;
+    bestTiming?: string;
+    bestTimingSeconds: number;
+    progressedToFinals: boolean;
+    qualifiedCountable: boolean;
+    bonusCountable: boolean;
+    finishedCountable: boolean;
+    dnfCountable: boolean;
+    absentCountable: boolean;
+    medCountable: boolean;
+    leaveCountable: boolean;
 };
 
 const parseExtendedTimingToSeconds = (timing?: string): number => {
@@ -134,6 +161,77 @@ const getStageExportStatus = (
     return prettifyExportStatus(result.finalsType || 'pending');
 };
 
+const getDepartmentKey = (category: string): ResultsDepartmentKey => {
+    if (category.startsWith('GD')) return 'GD';
+    if (category.startsWith('PD')) return 'PD';
+    return 'BD';
+};
+
+const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+
+const formatSecondsClock = (seconds?: number) => {
+    if (seconds === undefined || !Number.isFinite(seconds)) return '—';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+};
+
+const buildAnalyticsRows = (
+    students: HodsonsStudent[],
+    classesMap: Record<string, string>,
+    storedResults: HodsonsResult[],
+    skippedCategories: HodsonsCategory[]
+): AnalyticsRow[] => {
+    return students.map((student) => {
+        const result = storedResults.find((entry) => entry.studentId === student.id) || {
+            studentId: student.id,
+            preQualifyingType: 'pending' as const,
+            preFinalsType: 'pending' as const,
+            qualifyingType: 'pending' as const,
+            finalsType: 'pending' as const
+        };
+        const skippedQualifying = skippedCategories.includes(student.category);
+        const qualifyingSeconds = timingToSeconds(result.qualifyingTiming);
+        const finalsSeconds = timingToSeconds(result.finalsTiming);
+        const bestTimingSeconds = Math.min(qualifyingSeconds, finalsSeconds);
+        const bestTiming = Number.isFinite(bestTimingSeconds)
+            ? (qualifyingSeconds <= finalsSeconds ? result.qualifyingTiming : result.finalsTiming)
+            : undefined;
+
+        const qualifiedCountable = result.qualifyingType === 'qualified' || result.finalsType === 'qualified_pos';
+        const bonusCountable = result.qualifyingType === 'bonus';
+        const finishedCountable = result.qualifyingType === 'finished' || result.finalsType === 'finisher' || result.finalsType === 'qualified_pos';
+        const dnfCountable = result.qualifyingType === 'dnf' || result.finalsType === 'dnf';
+        const absentCountable = result.qualifyingType === 'absent' || result.finalsType === 'absent';
+        const medCountable = result.preQualifyingType === 'medically_excused' || result.preFinalsType === 'medically_excused' || result.qualifyingType === 'medically_excused' || result.finalsType === 'medically_excused';
+        const leaveCountable = result.preQualifyingType === 'on_leave' || result.preFinalsType === 'on_leave';
+
+        return {
+            id: student.id,
+            name: student.name,
+            className: classesMap[student.id] || '—',
+            house: student.house,
+            category: student.category,
+            department: getDepartmentKey(student.category),
+            skippedQualifying,
+            qualifyingType: result.qualifyingType,
+            finalsType: result.finalsType,
+            qualifyingTiming: result.qualifyingTiming,
+            finalsTiming: result.finalsTiming,
+            bestTiming,
+            bestTimingSeconds,
+            progressedToFinals: qualifiesForFinals(result.qualifyingType, skippedQualifying),
+            qualifiedCountable,
+            bonusCountable,
+            finishedCountable,
+            dnfCountable,
+            absentCountable,
+            medCountable,
+            leaveCountable
+        };
+    });
+};
+
 const Hodsons: React.FC = () => {
     const { showToast } = useToast();
     const { isLoggedIn } = useStaffAuth();
@@ -177,9 +275,14 @@ const Hodsons: React.FC = () => {
     const [editorAccessScope, setEditorAccessScope] = useState<HouseAccessScope | null>(null);
     const [passcodeInput, setPasscodeInput] = useState('');
     const [passcodeError, setPasscodeError] = useState(false);
-    const [mainSectionTab, setMainSectionTab] = useState<'standings' | 'results' | 'points' | 'summary'>('standings');
+    const [mainSectionTab, setMainSectionTab] = useState<'standings' | 'results' | 'analytics' | 'points' | 'summary'>('standings');
     const [lastSavedMeta, setLastSavedMeta] = useState<{ category: string; savedAt: string } | null>(null);
     const [isAutoSavingIndicator, setIsAutoSavingIndicator] = useState(false);
+    const [analyticsDepartment, setAnalyticsDepartment] = useState<AnalyticsDepartmentFilter>('All');
+    const [analyticsHouse, setAnalyticsHouse] = useState<'All' | HouseName>('All');
+    const [analyticsCategory, setAnalyticsCategory] = useState<'All' | HodsonsCategory>('All');
+    const [analyticsPhase, setAnalyticsPhase] = useState<AnalyticsPhaseFilter>('all');
+    const [analyticsRecordsOnly, setAnalyticsRecordsOnly] = useState(false);
 
     const resultsRef = useRef(results);
     useEffect(() => { resultsRef.current = results; }, [results]);
@@ -236,6 +339,132 @@ const Hodsons: React.FC = () => {
     const categoryRecordAlertMap = Object.fromEntries(
         categoryRecordAlerts.map((alert) => [alert.category, alert])
     ) as Partial<Record<HodsonsCategory, CategoryRecordAlert>>;
+
+    const analyticsRows = buildAnalyticsRows(allHodsonsStudents, allHodsonsClasses, results, skipQualifyingCategories);
+    const analyticsVisibleCategories = CATEGORIES_LIST.filter((category) => {
+        if (analyticsDepartment !== 'All' && getDepartmentKey(category) !== analyticsDepartment) return false;
+        if (analyticsRecordsOnly && !categoryRecordAlertMap[category]) return false;
+        return true;
+    });
+    const filteredAnalyticsRows = analyticsRows.filter((row) => {
+        if (analyticsDepartment !== 'All' && row.department !== analyticsDepartment) return false;
+        if (analyticsHouse !== 'All' && row.house !== analyticsHouse) return false;
+        if (analyticsCategory !== 'All' && row.category !== analyticsCategory) return false;
+        if (analyticsRecordsOnly && !categoryRecordAlertMap[row.category]) return false;
+        if (analyticsPhase === 'qualifying' && !(row.qualifyingTiming || ['qualified', 'bonus', 'finished', 'dnf', 'absent'].includes(row.qualifyingType))) return false;
+        if (analyticsPhase === 'finals' && !(row.finalsTiming || ['qualified_pos', 'finisher', 'dnf', 'absent'].includes(row.finalsType))) return false;
+        return true;
+    });
+    const filteredCategoryData = categoriesData.filter((category) => {
+        if (analyticsDepartment !== 'All' && getDepartmentKey(category.name) !== analyticsDepartment) return false;
+        if (analyticsHouse !== 'All') {
+            const houseStats = category.houseStats[analyticsHouse];
+            if (!houseStats || houseStats.total === 0) return false;
+        }
+        if (analyticsCategory !== 'All' && category.name !== analyticsCategory) return false;
+        if (analyticsRecordsOnly && !categoryRecordAlertMap[category.name]) return false;
+        return true;
+    });
+    const analyticsCategoryPerformanceData = filteredCategoryData.map((category) => {
+        const rows = filteredAnalyticsRows.filter((row) => row.category === category.name);
+        const relevantRows = analyticsPhase === 'finals'
+            ? rows.filter((row) => row.finalsType !== 'pending' || row.progressedToFinals)
+            : analyticsPhase === 'qualifying'
+                ? rows.filter((row) => row.qualifyingType !== 'pending' || row.skippedQualifying)
+                : rows;
+        const denominator = Math.max(relevantRows.length, 1);
+        const bestSeconds = average(relevantRows.map((row) => row.bestTimingSeconds).filter(Number.isFinite));
+        const winnerSeconds = Math.min(...relevantRows.map((row) => row.bestTimingSeconds).filter(Number.isFinite), Number.POSITIVE_INFINITY);
+        const raceInfo = HODSONS_RACE_INFO[category.name];
+        return {
+            name: category.name,
+            qualificationRate: Math.round(((relevantRows.filter((row) => row.qualifiedCountable).length) / denominator) * 100),
+            dnfRate: Math.round(((relevantRows.filter((row) => row.dnfCountable).length) / denominator) * 100),
+            avgTimingSeconds: bestSeconds,
+            winnerCutoffGap: Number.isFinite(winnerSeconds) ? Math.max(0, timingToSeconds(raceInfo.qualifyingTiming) - winnerSeconds) : 0,
+            recordGap: Number.isFinite(winnerSeconds) ? Math.max(0, winnerSeconds - parseExtendedTimingToSeconds(raceInfo.recordTiming)) : 0,
+            qualifiers: relevantRows.filter((row) => row.qualifiedCountable).length,
+            bonus: relevantRows.filter((row) => row.bonusCountable).length,
+            finished: relevantRows.filter((row) => row.finishedCountable).length
+        };
+    });
+    const analyticsHouseData = (['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as HouseName[]).map((house) => {
+        const rows = filteredAnalyticsRows.filter((row) => row.house === house);
+        const points = filteredCategoryData.reduce((sum, category) => {
+            const stats = category.houseStats[house];
+            return sum + (stats?.points || 0);
+        }, 0);
+        const participants = rows.filter((row) => row.qualifiedCountable || row.bonusCountable || row.finishedCountable || row.dnfCountable).length;
+        const finalists = rows.filter((row) => row.progressedToFinals).length;
+        const finishers = rows.filter((row) => row.finishedCountable).length;
+        const qualified = rows.filter((row) => row.qualifiedCountable).length;
+        const dnf = rows.filter((row) => row.dnfCountable).length;
+        const absent = rows.filter((row) => row.absentCountable).length;
+        return {
+            name: house,
+            Points: points,
+            Qualified: qualified,
+            Finishers: finishers,
+            DNF: dnf,
+            Efficiency: participants ? Number((points / participants).toFixed(2)) : 0,
+            Conversion: finalists ? Math.round((finishers / finalists) * 100) : 0,
+            Resilience: Math.max(0, 100 - Math.round(((dnf + absent) / Math.max(rows.length, 1)) * 100)),
+            Depth: filteredCategoryData.reduce((sum, category) => {
+                const houseStats = category.houseStats[house];
+                return sum + (houseStats?.qual || 0) + (houseStats?.bonusQual || 0) + (houseStats?.qualPosFinals || 0);
+            }, 0)
+        };
+    });
+    const analyticsDepartmentData = (['BD', 'GD', 'PD'] as ResultsDepartmentKey[]).map((dept) => {
+        const rows = filteredAnalyticsRows.filter((row) => row.department === dept);
+        return {
+            name: dept,
+            Qualified: rows.filter((row) => row.qualifiedCountable).length,
+            Bonus: rows.filter((row) => row.bonusCountable).length,
+            Finishers: rows.filter((row) => row.finishedCountable).length,
+            DNF: rows.filter((row) => row.dnfCountable).length,
+            Absent: rows.filter((row) => row.absentCountable).length,
+            AvgTiming: average(rows.map((row) => row.bestTimingSeconds).filter(Number.isFinite))
+        };
+    });
+    const timingScatterData = filteredAnalyticsRows
+        .filter((row) => Number.isFinite(row.bestTimingSeconds))
+        .sort((a, b) => a.bestTimingSeconds - b.bestTimingSeconds)
+        .slice(0, 40)
+        .map((row, index) => ({
+            x: index + 1,
+            y: Math.round(row.bestTimingSeconds),
+            z: row.progressedToFinals ? 180 : 110,
+            name: row.name,
+            category: row.category,
+            house: row.house
+        }));
+    const competitiveDepthData = analyticsCategoryPerformanceData.map((category) => {
+        const categoryRows = filteredAnalyticsRows.filter((row) => row.category === category.name);
+        const sortedTimings = categoryRows.map((row) => row.bestTimingSeconds).filter(Number.isFinite).sort((a, b) => a - b);
+        return {
+            name: category.name,
+            Contenders: category.qualifiers + category.bonus + category.finished,
+            WinnerToThird: sortedTimings.length >= 3 ? Number((sortedTimings[2] - sortedTimings[0]).toFixed(2)) : 0,
+            FinalsField: categoryRows.filter((row) => row.finalsType === 'qualified_pos' || row.finalsType === 'finisher').length
+        };
+    });
+    const recordHistoryRows = filteredCategoryData
+        .map((category) => {
+            const raceInfo = HODSONS_RACE_INFO[category.name];
+            const bestSeconds = parseExtendedTimingToSeconds(category.bestTiming?.timing);
+            const recordSeconds = parseExtendedTimingToSeconds(raceInfo.recordTiming);
+            return {
+                name: category.name,
+                current: category.bestTiming?.timing || '—',
+                holder: category.bestTiming?.name || '—',
+                previousRecord: raceInfo.recordTiming,
+                previousHolder: raceInfo.recordHolder,
+                delta: Number.isFinite(bestSeconds) ? Number((bestSeconds - recordSeconds).toFixed(2)) : Number.POSITIVE_INFINITY,
+                broken: Boolean(categoryRecordAlertMap[category.name])
+            };
+        })
+        .sort((a, b) => a.delta - b.delta);
 
     useEffect(() => {
         const unsubscribe = subscribeToHodsonsData(() => {
@@ -1218,6 +1447,7 @@ const Hodsons: React.FC = () => {
                         {[
                             { key: 'standings', label: 'Standings', icon: 'leaderboard' },
                             { key: 'results', label: 'Age Category Results', icon: 'category' },
+                            { key: 'analytics', label: 'Analytics', icon: 'query_stats' },
                             { key: 'points', label: 'Points Metrics', icon: 'calculate' },
                             { key: 'summary', label: 'Summary', icon: 'history_edu' }
                         ].map((tab) => {
@@ -1225,7 +1455,7 @@ const Hodsons: React.FC = () => {
                             return (
                                 <button
                                     key={tab.key}
-                                    onClick={() => setMainSectionTab(tab.key as 'standings' | 'results' | 'points' | 'summary')}
+                                    onClick={() => setMainSectionTab(tab.key as 'standings' | 'results' | 'analytics' | 'points' | 'summary')}
                                     className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] transition-all ${isActive ? 'bg-primary text-[#091423] shadow-[0_10px_24px_rgba(201,163,74,0.28)]' : 'text-slate-300 hover:bg-white/6 hover:text-white'}`}
                                 >
                                     <Icon name={tab.icon} size="16" />
@@ -1507,6 +1737,291 @@ const Hodsons: React.FC = () => {
                         );
                     })()}
                 </>
+            )}
+            {mainSectionTab === 'analytics' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner border border-primary/10">
+                            <Icon name="query_stats" size="24" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Run Analytics</h2>
+                            <p className="text-sm text-slate-400">Detailed statistical analysis across categories, houses, departments, timings, records, and smart performance metrics.</p>
+                        </div>
+                    </div>
+
+                    <div className="glass-panel section-plaque rounded-[30px] border border-primary/15 p-5 sm:p-6">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <select value={analyticsDepartment} onChange={(e) => { setAnalyticsDepartment(e.target.value as AnalyticsDepartmentFilter); setAnalyticsCategory('All'); }} className="royal-input rounded-xl px-3 py-2 text-sm font-bold min-w-[10rem]">
+                                <option value="All">All Departments</option>
+                                <option value="BD">BD Only</option>
+                                <option value="GD">GD Only</option>
+                                <option value="PD">PD Only</option>
+                            </select>
+                            <select value={analyticsHouse} onChange={(e) => setAnalyticsHouse(e.target.value as 'All' | HouseName)} className="royal-input rounded-xl px-3 py-2 text-sm font-bold min-w-[10rem]">
+                                <option value="All">All Houses</option>
+                                <option value="Vindhya">Vindhya</option>
+                                <option value="Himalaya">Himalaya</option>
+                                <option value="Nilgiri">Nilgiri</option>
+                                <option value="Siwalik">Siwalik</option>
+                            </select>
+                            <select value={analyticsCategory} onChange={(e) => setAnalyticsCategory(e.target.value as 'All' | HodsonsCategory)} className="royal-input rounded-xl px-3 py-2 text-sm font-bold min-w-[12rem]">
+                                <option value="All">All Categories</option>
+                                {analyticsVisibleCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                            </select>
+                            <select value={analyticsPhase} onChange={(e) => setAnalyticsPhase(e.target.value as AnalyticsPhaseFilter)} className="royal-input rounded-xl px-3 py-2 text-sm font-bold min-w-[10rem]">
+                                <option value="all">All Phases</option>
+                                <option value="qualifying">Qualifying Focus</option>
+                                <option value="finals">Finals Focus</option>
+                            </select>
+                            <button
+                                onClick={() => setAnalyticsRecordsOnly((value) => !value)}
+                                className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-[0.2em] transition-all border ${analyticsRecordsOnly ? 'bg-amber-400/15 border-amber-300/25 text-amber-200' : 'bg-white/[0.03] border-white/10 text-slate-300 hover:text-white'}`}
+                            >
+                                {analyticsRecordsOnly ? 'Record Categories Only' : 'Show All Categories'}
+                            </button>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            {[
+                                { label: 'Visible Runners', value: filteredAnalyticsRows.length, tone: 'text-white' },
+                                { label: 'Categories In Scope', value: filteredCategoryData.length, tone: 'text-primary' },
+                                { label: 'Live Record Alerts', value: filteredCategoryData.filter((category) => categoryRecordAlertMap[category.name]).length, tone: 'text-amber-300' },
+                                { label: 'Average Best Timing', value: formatSecondsClock(average(filteredAnalyticsRows.map((row) => row.bestTimingSeconds).filter(Number.isFinite))), tone: 'text-sky-300' }
+                            ].map((card) => (
+                                <div key={card.label} className="rounded-2xl border border-white/8 bg-black/15 px-4 py-3">
+                                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{card.label}</div>
+                                    <div className={`mt-1 text-2xl font-black ${card.tone}`}>{card.value}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                        <div className="glass-panel royal-chart-panel p-6 rounded-[28px]">
+                            <div className="flex items-center gap-3 mb-5">
+                                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Icon name="analytics" size="20" /></div>
+                                <div>
+                                    <h3 className="text-white font-black text-lg">Category Performance Analysis</h3>
+                                    <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Qualification and DNF pressure across age groups</p>
+                                </div>
+                            </div>
+                            <div className="w-full h-[360px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={analyticsCategoryPerformanceData} margin={{ top: 10, right: 18, left: 0, bottom: 56 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                                        <XAxis dataKey="name" angle={-25} textAnchor="end" height={72} tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                        <YAxis tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                        <Tooltip contentStyle={chartTooltipStyle} formatter={(value: number) => [`${value}%`, 'Rate']} />
+                                        <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} formatter={chartLegendFormatter} />
+                                        <Bar dataKey="qualificationRate" name="Qualification %" fill="#c9a34a" radius={[8, 8, 0, 0]} />
+                                        <Bar dataKey="dnfRate" name="DNF %" fill="#9c7a47" radius={[8, 8, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="glass-panel royal-chart-panel p-6 rounded-[28px]">
+                            <div className="flex items-center gap-3 mb-5">
+                                <div className="size-10 rounded-xl bg-white/10 flex items-center justify-center text-white"><Icon name="groups_3" size="20" /></div>
+                                <div>
+                                    <h3 className="text-white font-black text-lg">House Analytics</h3>
+                                    <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Points, depth, conversion, and resilience by house</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
+                                <div className="h-[320px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={analyticsHouseData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                                            <XAxis dataKey="name" tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                            <YAxis tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                            <Tooltip contentStyle={chartTooltipStyle} />
+                                            <Legend wrapperStyle={{ fontSize: '11px' }} formatter={chartLegendFormatter} />
+                                            <Bar dataKey="Points" fill="#c9a34a" radius={[8, 8, 0, 0]} />
+                                            <Bar dataKey="Qualified" fill="#7dd3fc" radius={[8, 8, 0, 0]} />
+                                            <Bar dataKey="Finishers" fill="#3a7f5d" radius={[8, 8, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="h-[320px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <RadarChart data={analyticsHouseData}>
+                                            <PolarGrid stroke="rgba(255,255,255,0.08)" />
+                                            <PolarAngleAxis dataKey="name" tick={{ fill: '#f5e6bf', fontSize: 11, fontWeight: 700 }} />
+                                            <PolarRadiusAxis tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                                            <Radar name="Efficiency" dataKey="Efficiency" stroke="#c9a34a" fill="#c9a34a" fillOpacity={0.18} />
+                                            <Radar name="Conversion" dataKey="Conversion" stroke="#7dd3fc" fill="#7dd3fc" fillOpacity={0.12} />
+                                            <Radar name="Resilience" dataKey="Resilience" stroke="#3a7f5d" fill="#3a7f5d" fillOpacity={0.1} />
+                                            <Tooltip contentStyle={chartTooltipStyle} />
+                                            <Legend wrapperStyle={{ fontSize: '11px' }} formatter={chartLegendFormatter} />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                        <div className="glass-panel royal-chart-panel p-6 rounded-[28px]">
+                            <div className="flex items-center gap-3 mb-5">
+                                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Icon name="account_tree" size="20" /></div>
+                                <div>
+                                    <h3 className="text-white font-black text-lg">Department Analytics</h3>
+                                    <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Qualification, finish, DNF, and absence trends by department</p>
+                                </div>
+                            </div>
+                            <div className="w-full h-[340px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={analyticsDepartmentData} margin={{ top: 10, right: 10, left: 0, bottom: 26 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                                        <XAxis dataKey="name" tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                        <YAxis tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                        <Tooltip contentStyle={chartTooltipStyle} />
+                                        <Legend wrapperStyle={{ fontSize: '11px' }} formatter={chartLegendFormatter} />
+                                        <Bar dataKey="Qualified" fill="#c9a34a" radius={[8, 8, 0, 0]} />
+                                        <Bar dataKey="Bonus" fill="#7dd3fc" radius={[8, 8, 0, 0]} />
+                                        <Bar dataKey="Finishers" fill="#3a7f5d" radius={[8, 8, 0, 0]} />
+                                        <Bar dataKey="DNF" fill="#9c7a47" radius={[8, 8, 0, 0]} />
+                                        <Bar dataKey="Absent" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="glass-panel royal-chart-panel p-6 rounded-[28px]">
+                            <div className="flex items-center gap-3 mb-5">
+                                <div className="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400"><Icon name="speed" size="20" /></div>
+                                <div>
+                                    <h3 className="text-white font-black text-lg">Timing Intelligence</h3>
+                                    <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Fastest runners in scope, winner pressure, and record gaps</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-[1fr_0.95fr] gap-4">
+                                <div className="h-[320px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ScatterChart margin={{ top: 10, right: 12, left: 0, bottom: 30 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+                                            <XAxis type="number" dataKey="x" name="Rank" tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                            <YAxis type="number" dataKey="y" name="Seconds" tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                            <Tooltip contentStyle={chartTooltipStyle} formatter={(value: number, key: string) => key === 'Seconds' ? [formatSecondsClock(value), key] : [value, key]} labelFormatter={() => ''} />
+                                            <Scatter name="Best Timings" data={timingScatterData} fill="#c9a34a" />
+                                        </ScatterChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="space-y-3">
+                                    {analyticsCategoryPerformanceData
+                                        .slice()
+                                        .sort((a, b) => a.recordGap - b.recordGap)
+                                        .slice(0, 5)
+                                        .map((item) => (
+                                            <div key={item.name} className="rounded-2xl border border-white/8 bg-black/15 px-4 py-3">
+                                                <div className="text-white font-black">{item.name}</div>
+                                                <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                                                    <div><div className="text-slate-500 uppercase tracking-[0.16em] font-black">Avg</div><div className="text-sky-300 font-bold">{formatSecondsClock(item.avgTimingSeconds)}</div></div>
+                                                    <div><div className="text-slate-500 uppercase tracking-[0.16em] font-black">Cutoff Gap</div><div className="text-primary font-bold">{item.winnerCutoffGap.toFixed(1)}s</div></div>
+                                                    <div><div className="text-slate-500 uppercase tracking-[0.16em] font-black">Record Gap</div><div className={`font-bold ${item.recordGap <= 0 ? 'text-amber-300' : 'text-slate-300'}`}>{item.recordGap <= 0 ? `${Math.abs(item.recordGap).toFixed(2)}s under` : `${item.recordGap.toFixed(2)}s over`}</div></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                        <div className="glass-panel royal-chart-panel p-6 rounded-[28px]">
+                            <div className="flex items-center gap-3 mb-5">
+                                <div className="size-10 rounded-xl bg-white/10 flex items-center justify-center text-white"><Icon name="insights" size="20" /></div>
+                                <div>
+                                    <h3 className="text-white font-black text-lg">Competitive Depth</h3>
+                                    <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Contender density, finals field size, and winner-to-third spread</p>
+                                </div>
+                            </div>
+                            <div className="w-full h-[340px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={competitiveDepthData} margin={{ top: 10, right: 10, left: 0, bottom: 56 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                                        <XAxis dataKey="name" angle={-25} textAnchor="end" height={72} tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                        <YAxis tick={chartTickStyle} axisLine={false} tickLine={false} />
+                                        <Tooltip contentStyle={chartTooltipStyle} />
+                                        <Legend wrapperStyle={{ fontSize: '11px' }} formatter={chartLegendFormatter} />
+                                        <Bar dataKey="Contenders" fill="#c9a34a" radius={[8, 8, 0, 0]} />
+                                        <Bar dataKey="FinalsField" fill="#7dd3fc" radius={[8, 8, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="glass-panel p-6 rounded-[28px] border border-amber-500/15 bg-amber-500/[0.03]">
+                            <div className="flex items-center gap-3 mb-5">
+                                <div className="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-300"><Icon name="workspace_premium" size="20" /></div>
+                                <div>
+                                    <h3 className="text-white font-black text-lg">Record and History Zone</h3>
+                                    <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Broken records and closest historical attempts</p>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                {recordHistoryRows.slice(0, 8).map((record) => (
+                                    <div key={record.name} className={`rounded-2xl border px-4 py-3 ${record.broken ? 'border-amber-300/30 bg-amber-400/10' : 'border-white/8 bg-black/15'}`}>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-white font-black">{record.name}</div>
+                                                <div className="text-[11px] text-slate-400 mt-1">Current: {record.current} by {record.holder}</div>
+                                                <div className="text-[11px] text-slate-500">Record: {record.previousRecord} by {record.previousHolder}</div>
+                                            </div>
+                                            <div className={`text-sm font-black ${record.broken ? 'text-amber-200' : 'text-slate-300'}`}>
+                                                {record.broken ? 'Broken' : `${record.delta.toFixed(2)}s away`}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="glass-panel p-6 rounded-[28px] border border-white/10">
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Icon name="psychology" size="20" /></div>
+                            <div>
+                                <h3 className="text-white font-black text-lg">Smart Derived Metrics</h3>
+                                <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Efficiency, conversion, resilience, and depth in one analysis table</p>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto custom-scrollbar">
+                            <table className="royal-data-table min-w-[56rem]">
+                                <thead>
+                                    <tr>
+                                        <th>House</th>
+                                        <th>Points</th>
+                                        <th>Efficiency</th>
+                                        <th>Conversion %</th>
+                                        <th>Resilience %</th>
+                                        <th>Depth Score</th>
+                                        <th>Finishers</th>
+                                        <th>DNF</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {analyticsHouseData
+                                        .slice()
+                                        .sort((a, b) => b.Points - a.Points)
+                                        .map((house) => (
+                                            <tr key={house.name}>
+                                                <td className="font-black text-white">{house.name}</td>
+                                                <td className="text-primary font-black">{house.Points}</td>
+                                                <td>{house.Efficiency.toFixed(2)}</td>
+                                                <td>{house.Conversion}%</td>
+                                                <td>{house.Resilience}%</td>
+                                                <td>{house.Depth}</td>
+                                                <td>{house.Finishers}</td>
+                                                <td>{house.DNF}</td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             )}
             {mainSectionTab === 'points' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
