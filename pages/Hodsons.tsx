@@ -1786,7 +1786,7 @@ const Hodsons: React.FC = () => {
                                 { label: 'Visible Runners', value: filteredAnalyticsRows.length, tone: 'text-white' },
                                 { label: 'Categories In Scope', value: filteredCategoryData.length, tone: 'text-primary' },
                                 { label: 'Live Record Alerts', value: filteredCategoryData.filter((category) => categoryRecordAlertMap[category.name]).length, tone: 'text-amber-300' },
-                                { label: 'Average Best Timing', value: formatSecondsClock(average(filteredAnalyticsRows.map((row) => row.bestTimingSeconds).filter(Number.isFinite))), tone: 'text-sky-300' }
+                                { label: 'Average Qualification Rate', value: `${Math.round(average(analyticsCategoryPerformanceData.map((item) => item.qualificationRate)))}%`, tone: 'text-sky-300' }
                             ].map((card) => (
                                 <div key={card.label} className="rounded-2xl border border-white/8 bg-black/15 px-4 py-3">
                                     <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{card.label}</div>
@@ -1817,6 +1817,12 @@ const Hodsons: React.FC = () => {
                                         <Bar dataKey="dnfRate" name="DNF %" fill="#9c7a47" radius={[8, 8, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
+                            </div>
+                            <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
+                                <span className="font-bold text-white">What this shows:</span> This compares each age category on two simple ideas: how many runners successfully qualified and how many dropped out as DNF. A higher qualification bar usually means that category handled the run better overall, while a higher DNF bar suggests the category struggled more with the route or pace.
+                                <div className="mt-2 text-[12px] text-slate-400">
+                                    Formula used: <span className="text-slate-200">Qualification Rate = (Qualified runners / runners in scope) x 100</span>. <span className="text-slate-200">DNF Rate = (DNF runners / runners in scope) x 100</span>.
+                                </div>
                             </div>
                         </div>
 
@@ -1858,6 +1864,12 @@ const Hodsons: React.FC = () => {
                                     </ResponsiveContainer>
                                 </div>
                             </div>
+                            <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
+                                <span className="font-bold text-white">What this shows:</span> The left chart compares each house on raw output: points, qualifiers, and finishers. The radar chart then translates that into profile-style strengths: efficiency means how many points a house earns per active runner, conversion means how well a house turns finalists into finishers, and resilience shows how well it avoids collapses like DNF or absence.
+                                <div className="mt-2 text-[12px] text-slate-400">
+                                    Formula used: <span className="text-slate-200">Efficiency = House points / participating runners</span>. <span className="text-slate-200">Conversion = (Finishers / runners who reached finals) x 100</span>. <span className="text-slate-200">Resilience = 100 - ((DNF + Absent) / runners in scope) x 100</span>.
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1886,43 +1898,10 @@ const Hodsons: React.FC = () => {
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
-                        </div>
-
-                        <div className="glass-panel royal-chart-panel p-6 rounded-[28px]">
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400"><Icon name="speed" size="20" /></div>
-                                <div>
-                                    <h3 className="text-white font-black text-lg">Timing Intelligence</h3>
-                                    <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Fastest runners in scope, winner pressure, and record gaps</p>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 lg:grid-cols-[1fr_0.95fr] gap-4">
-                                <div className="h-[320px]">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <ScatterChart margin={{ top: 10, right: 12, left: 0, bottom: 30 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
-                                            <XAxis type="number" dataKey="x" name="Rank" tick={chartTickStyle} axisLine={false} tickLine={false} />
-                                            <YAxis type="number" dataKey="y" name="Seconds" tick={chartTickStyle} axisLine={false} tickLine={false} />
-                                            <Tooltip contentStyle={chartTooltipStyle} formatter={(value: number, key: string) => key === 'Seconds' ? [formatSecondsClock(value), key] : [value, key]} labelFormatter={() => ''} />
-                                            <Scatter name="Best Timings" data={timingScatterData} fill="#c9a34a" />
-                                        </ScatterChart>
-                                    </ResponsiveContainer>
-                                </div>
-                                <div className="space-y-3">
-                                    {analyticsCategoryPerformanceData
-                                        .slice()
-                                        .sort((a, b) => a.recordGap - b.recordGap)
-                                        .slice(0, 5)
-                                        .map((item) => (
-                                            <div key={item.name} className="rounded-2xl border border-white/8 bg-black/15 px-4 py-3">
-                                                <div className="text-white font-black">{item.name}</div>
-                                                <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
-                                                    <div><div className="text-slate-500 uppercase tracking-[0.16em] font-black">Avg</div><div className="text-sky-300 font-bold">{formatSecondsClock(item.avgTimingSeconds)}</div></div>
-                                                    <div><div className="text-slate-500 uppercase tracking-[0.16em] font-black">Cutoff Gap</div><div className="text-primary font-bold">{item.winnerCutoffGap.toFixed(1)}s</div></div>
-                                                    <div><div className="text-slate-500 uppercase tracking-[0.16em] font-black">Record Gap</div><div className={`font-bold ${item.recordGap <= 0 ? 'text-amber-300' : 'text-slate-300'}`}>{item.recordGap <= 0 ? `${Math.abs(item.recordGap).toFixed(2)}s under` : `${item.recordGap.toFixed(2)}s over`}</div></div>
-                                                </div>
-                                            </div>
-                                        ))}
+                            <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
+                                <span className="font-bold text-white">What this shows:</span> This compares the three broad sections of the run, `BD`, `GD`, and `PD`, on who qualified, who picked up bonus qualification, who finished strongly, and where breakdowns happened. It helps answer whether one department was more competitive, more consistent, or more fragile than another.
+                                <div className="mt-2 text-[12px] text-slate-400">
+                                    Formula used: these are direct counts from the filtered runners in each department, grouped into <span className="text-slate-200">Qualified</span>, <span className="text-slate-200">Bonus</span>, <span className="text-slate-200">Finishers</span>, <span className="text-slate-200">DNF</span>, and <span className="text-slate-200">Absent</span>.
                                 </div>
                             </div>
                         </div>
@@ -1950,6 +1929,12 @@ const Hodsons: React.FC = () => {
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
+                            <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
+                                <span className="font-bold text-white">What this shows:</span> This section is about how deep each category was, not just who won it. A category with many contenders and a healthy finals field was genuinely competitive, while a small finals field or a very large winner-to-third spread usually means the top runner was much stronger than the rest.
+                                <div className="mt-2 text-[12px] text-slate-400">
+                                    Formula used: <span className="text-slate-200">Contenders = Qualified + Bonus + Finished</span>. <span className="text-slate-200">Finals Field = runners marked as finals rankers or finishers</span>. <span className="text-slate-200">Winner-to-Third Spread = third-fastest time - fastest time</span>.
+                                </div>
+                            </div>
                         </div>
 
                         <div className="glass-panel p-6 rounded-[28px] border border-amber-500/15 bg-amber-500/[0.03]">
@@ -1975,6 +1960,12 @@ const Hodsons: React.FC = () => {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                            <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
+                                <span className="font-bold text-white">What this shows:</span> This is the historical lens. It tells you which categories actually broke their records and which ones came closest. A category marked as broken produced a new best-ever performance; the others show how many seconds still separated the current best from the historical benchmark.
+                                <div className="mt-2 text-[12px] text-slate-400">
+                                    Formula used: <span className="text-slate-200">Record Gap = current best time - official record time</span>. A negative or zero gap means the record was broken or matched.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2019,6 +2010,12 @@ const Hodsons: React.FC = () => {
                                         ))}
                                 </tbody>
                             </table>
+                        </div>
+                        <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
+                            <span className="font-bold text-white">What this shows:</span> This table compresses each house into a few easy performance ideas. It helps you separate a house that won mostly through elite top-end performance from one that performed steadily across many runners and categories.
+                            <div className="mt-2 text-[12px] text-slate-400">
+                                Formula used: <span className="text-slate-200">Efficiency = points / participating runners</span>. <span className="text-slate-200">Conversion % = (finishers / runners who reached finals) x 100</span>. <span className="text-slate-200">Resilience % = 100 - ((DNF + Absent) / runners in scope) x 100</span>. <span className="text-slate-200">Depth Score = qualifiers + bonus qualifiers + ranked finals runners</span>.
+                            </div>
                         </div>
                     </div>
                 </div>
