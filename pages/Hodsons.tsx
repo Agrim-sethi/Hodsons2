@@ -443,6 +443,11 @@ const Hodsons: React.FC = () => {
             Resilience: Math.max(0, 100 - Math.round(((dnf + absent) / Math.max(rows.length, 1)) * 100)),
             Depth: filteredCategoryData.reduce((sum, category) => {
                 const houseStats = category.houseStats[house];
+                if (analyticsPhase === 'finals') {
+                    return sum + (houseStats?.qualPosFinals || 0) + (houseStats?.finishedFinals || 0);
+                } else if (analyticsPhase === 'qualifying') {
+                    return sum + (houseStats?.qual || 0) + (houseStats?.bonusQual || 0);
+                }
                 return sum + (houseStats?.qual || 0) + (houseStats?.bonusQual || 0) + (houseStats?.qualPosFinals || 0);
             }, 0),
             QualParticipants: qualParticipants,
@@ -2040,7 +2045,7 @@ const Hodsons: React.FC = () => {
                             <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
                                 <span className="font-bold text-white">What this shows:</span> This table compresses each house into a few easy performance ideas. It helps you separate a house that won mostly through elite top-end performance from one that performed steadily across many runners and categories.
                                 <div className="mt-2 text-[12px] text-slate-400">
-                                    Formula used: <span className="text-slate-200">Efficiency = points / qualifying participants</span>. <span className="text-slate-200">Conversion % = (finals participants / qualifying participants) x 100</span>. <span className="text-slate-200">Resilience % = 100 - ((DNF + Absent) / runners in scope) x 100</span>. <span className="text-slate-200">Depth Score = qualifiers + bonus qualifiers + ranked finals runners</span>.
+                                    Formula used: <span className="text-slate-200">Efficiency = points / qualifying participants</span>. <span className="text-slate-200">Conversion % = (finals participants / qualifying participants) x 100</span>. <span className="text-slate-200">Resilience % = 100 - ((DNF + Absent) / runners in scope) x 100</span>. <span className="text-slate-200">Depth Score = (Phase Aware) Qualifiers + Bonus (Qualifying) or Scored + Finished (Finals)</span>.
                                 </div>
                             </div>
                         </div>
