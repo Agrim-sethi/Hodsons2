@@ -1882,7 +1882,14 @@ const Hodsons: React.FC = () => {
                                 </div>
                                 <div className="h-[320px]">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={analyticsHouseData} layout="vertical" margin={{ top: 6, right: 12, left: 30, bottom: 6 }}>
+                                        <BarChart 
+                                            data={analyticsHouse !== 'All' 
+                                                ? analyticsHouseData.filter(h => h.name === analyticsHouse) 
+                                                : analyticsHouseData
+                                            } 
+                                            layout="vertical" 
+                                            margin={{ top: 6, right: 12, left: 30, bottom: 6 }}
+                                        >
                                             <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
                                             <XAxis type="number" tick={chartTickStyle} axisLine={false} tickLine={false} />
                                             <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#f5e6bf', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
@@ -2001,54 +2008,7 @@ const Hodsons: React.FC = () => {
                             </div>
                     </div>
 
-                    <div className="glass-panel p-6 rounded-[28px] border border-white/10">
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Icon name="psychology" size="20" /></div>
-                                <div>
-                                    <h3 className="text-white font-black text-lg">Smart Derived Metrics</h3>
-                                    <p className="text-xs royal-subtitle uppercase tracking-[0.18em]">Efficiency, conversion, resilience, and depth in one analysis table</p>
-                                </div>
-                            </div>
-                            <div className="overflow-x-auto custom-scrollbar">
-                                <table className="royal-data-table min-w-[56rem]">
-                                    <thead>
-                                        <tr>
-                                            <th>House</th>
-                                            <th>Points</th>
-                                            <th>Quali Participants</th>
-                                            <th>Finals Participants</th>
-                                            <th>Efficiency</th>
-                                            <th>Conversion %</th>
-                                            <th>Resilience %</th>
-                                            <th>Depth Score</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {analyticsHouseData
-                                            .slice()
-                                            .sort((a, b) => b.Points - a.Points)
-                                            .map((house) => (
-                                                <tr key={house.name}>
-                                                    <td className="font-black text-white">{house.name}</td>
-                                                    <td className="text-primary font-black">{house.Points}</td>
-                                                    <td>{house.QualParticipants}</td>
-                                                    <td>{house.FinalParticipants}</td>
-                                                    <td>{house.Efficiency.toFixed(2)}</td>
-                                                    <td>{house.Conversion}%</td>
-                                                    <td>{house.Resilience}%</td>
-                                                    <td>{house.Depth}</td>
-                                                </tr>
-                                            ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div className="mt-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3 text-sm text-slate-300 leading-relaxed">
-                                <span className="font-bold text-white">What this shows:</span> This table compresses each house into a few easy performance ideas. It helps you separate a house that won mostly through elite top-end performance from one that performed steadily across many runners and categories.
-                                <div className="mt-2 text-[12px] text-slate-400">
-                                    Formula used: <span className="text-slate-200">Efficiency = points / qualifying participants</span>. <span className="text-slate-200">Conversion % = (finals participants / qualifying participants) x 100</span>. <span className="text-slate-200">Resilience % = 100 - ((DNF + Absent) / runners in scope) x 100</span>. <span className="text-slate-200">Depth Score = (Phase Aware) Qualifiers + Bonus (Qualifying) or Scored + Finished (Finals)</span>.
-                                </div>
-                            </div>
-                        </div>
+
                 </div>
             )}
             {mainSectionTab === 'points' && (
