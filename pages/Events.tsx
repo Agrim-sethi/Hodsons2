@@ -154,7 +154,7 @@ const Events: React.FC = () => {
                     <div className="col-span-full py-20 text-center glass-panel section-plaque rounded-2xl border-2 border-dashed border-primary/10">
                         <Icon name="event_busy" className="text-5xl text-slate-700 mb-4" />
                         <h3 className="text-xl font-bold text-white mb-2">No Events Found</h3>
-                        <p className="text-slate-400">Scheduled events will appear here once they are created from the profile.</p>
+                        <p className="text-slate-400">Scheduled events will appear here once they are created through the staff-managed controls.</p>
                     </div>
                 ) : (
                     userEvents.map((event) => (

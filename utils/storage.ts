@@ -39,10 +39,13 @@ export interface Session {
 
 export interface AttendanceRecord {
     id: string;
+    studentId: string;
+    studentName: string;
     date: string;
     activity: string;
     house: string;
-    players: string[];
+    attended: boolean;
+    className?: string;
 }
 
 export interface InjuryRecord {
@@ -154,14 +157,70 @@ export const deleteSession = (id: string) => {
 };
 
 // Attendance Helpers
+const normalizeAttendanceRecord = (record: any): AttendanceRecord[] => {
+    if (!record || typeof record !== 'object') return [];
+
+    if (Array.isArray(record.players)) {
+        return record.players.map((studentId: string, index: number) => ({
+            id: `${record.id || `${record.date || 'legacy'}-${record.activity || 'session'}-${record.house || 'house'}`}-${studentId}-${index}`,
+            studentId,
+            studentName: '',
+            date: record.date || '',
+            activity: record.activity || '',
+            house: record.house || '',
+            attended: true,
+            className: ''
+        }));
+    }
+
+    if (typeof record.studentId === 'string') {
+        return [{
+            id: record.id || `${record.date || 'attendance'}-${record.activity || 'session'}-${record.studentId}`,
+            studentId: record.studentId,
+            studentName: record.studentName || '',
+            date: record.date || '',
+            activity: record.activity || '',
+            house: record.house || '',
+            attended: Boolean(record.attended),
+            className: record.className || ''
+        }];
+    }
+
+    return [];
+};
+
 export const getAttendance = (): AttendanceRecord[] => {
     const stored = localStorage.getItem(ATTENDANCE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    if (!stored) return [];
+
+    try {
+        const parsed = JSON.parse(stored);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.flatMap(normalizeAttendanceRecord);
+    } catch {
+        return [];
+    }
 };
 
 export const saveAttendance = (record: AttendanceRecord) => {
     const records = getAttendance();
-    records.push(record);
+    const index = records.findIndex(existing =>
+        existing.studentId === record.studentId &&
+        existing.date === record.date &&
+        existing.activity === record.activity
+    );
+
+    if (index !== -1) {
+        records[index] = record;
+    } else {
+        records.push(record);
+    }
+
+    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(records));
+    syncToFirebase({ attendance: records });
+};
+
+export const replaceAttendance = (records: AttendanceRecord[]) => {
     localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(records));
     syncToFirebase({ attendance: records });
 };

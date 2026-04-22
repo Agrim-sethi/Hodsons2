@@ -5,7 +5,9 @@ import ModalHeader from '../components/ui/ModalHeader';
 import { useToast } from '../components/ui/ToastProvider';
 import { HOUSE_COLORS, IMAGES } from '../constants';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { getEvents, Event, getSessions, saveSession, deleteSession, Session, getAttendance, saveAttendance, AttendanceRecord, InjuryRecord, getInjuries, saveInjury, deleteInjury, subscribeToGeneralData } from '../utils/storage';
+import { getEvents, Event, getSessions, saveSession, deleteSession, Session, getAttendance, saveAttendance, replaceAttendance, AttendanceRecord, InjuryRecord, getInjuries, saveInjury, deleteInjury, subscribeToGeneralData } from '../utils/storage';
+import studentClasses from '../utils/studentClasses.json';
+import { getAllHodsonsClasses, getAllHodsonsStudents } from '../utils/hodsonsStorage';
 
 // Data for the Bar Chart
 const chartData = [
@@ -73,6 +75,47 @@ const Dashboard: React.FC = () => {
     setAttendanceRecords(getAttendance());
   };
 
+  const migrateLegacyAttendanceIfNeeded = async () => {
+    if (getAttendance().length > 0) return;
+
+    try {
+      const res = await fetch('/Attendance.csv?t=' + Date.now());
+      if (!res.ok) return;
+
+      const text = await res.text();
+      const rows = text
+        .trim()
+        .split('\n')
+        .slice(1)
+        .filter(row => row.trim() !== '')
+        .map((row, index) => {
+          const [computerNumber, name, house, classStr, date, attended] = row.split(',');
+          const studentId = computerNumber?.trim() || '';
+
+          if (!studentId || !date?.trim()) return null;
+
+          return {
+            id: `${date.trim()}-legacy-${studentId}-${index}`,
+            studentId,
+            studentName: name?.trim() || '',
+            date: date.trim(),
+            activity: 'Legacy Attendance',
+            house: house?.trim() || '',
+            attended: attended?.trim() === 'Yes',
+            className: classStr?.trim() || ''
+          } as AttendanceRecord;
+        })
+        .filter((record): record is AttendanceRecord => Boolean(record));
+
+      if (rows.length > 0) {
+        replaceAttendance(rows);
+        setAttendanceRecords(rows);
+      }
+    } catch (error) {
+      console.error('Legacy attendance migration failed:', error);
+    }
+  };
+
   // Injury State
   const [injuries, setInjuries] = useState<InjuryRecord[]>([]);
   const [showInjuryModal, setShowInjuryModal] = useState(false);
@@ -130,6 +173,7 @@ const Dashboard: React.FC = () => {
       loadAll();
     });
 
+    migrateLegacyAttendanceIfNeeded();
     loadAll();
 
     return () => unsubscribe();
@@ -159,44 +203,56 @@ const Dashboard: React.FC = () => {
   };
 
   const handleSubmitAttendance = async () => {
-    if (!attendanceForm.compNumber.trim()) {
+    const compNumber = attendanceForm.compNumber.trim();
+    if (!compNumber) {
       alert('Enter a valid Computer Number');
       return;
     }
 
-    try {
-      const res = await fetch('/api/mark-attendance', {
-        method: 'POST',
-        body: JSON.stringify({
-          compNumber: attendanceForm.compNumber,
-          date: attendanceForm.date
-        })
-      });
+    const allStudents = getAllHodsonsStudents();
+    const student = allStudents.find((entry) => entry.id === compNumber);
 
-      if (res.ok) {
-        setShowAttendanceModal(false);
-        setAttendanceForm({
-          date: new Date().toISOString().split('T')[0],
-          activity: 'Football',
-          compNumber: ''
-        });
-        showToast({
-          title: 'Attendance Updated',
-          description: 'The attendance register was toggled successfully.'
-        });
-      } else {
-        const data = await res.json();
-        alert(`Error: ${data.error}`);
-        setAttendanceForm({ ...attendanceForm, compNumber: '' }); // prompt clear the wrong number
-      }
-    } catch (e: any) {
-      alert('Failed to send request: ' + e.message);
+    if (!student) {
+      alert(`Computer Number ${compNumber} not found in the Hodsons student list.`);
+      setAttendanceForm({ ...attendanceForm, compNumber: '' });
+      return;
     }
+
+    const allClasses = getAllHodsonsClasses(studentClasses as Record<string, string>);
+    const existingRecord = attendanceRecords.find((record) =>
+      record.studentId === compNumber &&
+      record.date === attendanceForm.date &&
+      record.activity === attendanceForm.activity
+    );
+
+    const updatedRecord: AttendanceRecord = {
+      id: existingRecord?.id || `${attendanceForm.date}-${attendanceForm.activity}-${compNumber}`,
+      studentId: compNumber,
+      studentName: student.name,
+      date: attendanceForm.date,
+      activity: attendanceForm.activity,
+      house: student.house,
+      attended: existingRecord ? !existingRecord.attended : true,
+      className: allClasses[compNumber] || ''
+    };
+
+    saveAttendance(updatedRecord);
+    loadAttendance();
+    setShowAttendanceModal(false);
+    setAttendanceForm({
+      date: new Date().toISOString().split('T')[0],
+      activity: 'Football',
+      compNumber: ''
+    });
+    showToast({
+      title: 'Attendance Updated',
+      description: `${student.name} is now marked as ${updatedRecord.attended ? 'present' : 'absent'} for ${attendanceForm.activity}.`
+    });
   };
 
   const totalStudentsToday = attendanceRecords
-    .filter(r => r.date === new Date().toISOString().split('T')[0])
-    .reduce((acc, r) => acc + r.players.length, 0);
+    .filter(r => r.date === new Date().toISOString().split('T')[0] && r.attended)
+    .length;
 
   const handleSubmitInjury = (e: React.FormEvent) => {
     e.preventDefault();

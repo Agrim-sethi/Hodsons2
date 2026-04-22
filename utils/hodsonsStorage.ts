@@ -111,6 +111,10 @@ export const getExtraStudents = (): HodsonsStudent[] => {
     return stored ? JSON.parse(stored) : [];
 };
 
+export const getAllHodsonsStudents = (): HodsonsStudent[] => {
+    return [...mockStudents, ...getExtraStudents()];
+};
+
 export const saveExtraStudents = async (students: HodsonsStudent[]) => {
     localStorage.setItem(EXTRA_STUDENTS_KEY, JSON.stringify(students));
     try {
@@ -121,6 +125,10 @@ export const saveExtraStudents = async (students: HodsonsStudent[]) => {
 export const getExtraClasses = (): Record<string, string> => {
     const stored = localStorage.getItem(EXTRA_CLASSES_KEY);
     return stored ? JSON.parse(stored) : {};
+};
+
+export const getAllHodsonsClasses = (baseClasses: Record<string, string> = {}): Record<string, string> => {
+    return { ...baseClasses, ...getExtraClasses() };
 };
 
 export const saveExtraClasses = async (classes: Record<string, string>) => {

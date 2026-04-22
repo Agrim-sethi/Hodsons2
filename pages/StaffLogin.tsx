@@ -47,7 +47,7 @@ const StaffLogin: React.FC = () => {
           <div className="royal-kicker mb-3">Protected Access</div>
           <h1 className="text-3xl font-black text-white tracking-tight">Staff Login</h1>
           <p className="text-sm text-slate-400 mt-2 max-w-xl">
-            Use the staff credentials to unlock the Hodsons results management controls on this public website.
+            Use the staff credentials to unlock the staff-managed controls for Hodsons results and event administration on this public website.
           </p>
         </div>
 
@@ -61,7 +61,7 @@ const StaffLogin: React.FC = () => {
                   </div>
                   <div>
                     <div className="text-white font-black text-lg">Staff session active</div>
-                    <div className="text-sm text-slate-400">The Hodsons page now shows the `Manage Results` button.</div>
+                    <div className="text-sm text-slate-400">Staff-only management controls are now available where applicable.</div>
                   </div>
                 </div>
               </div>

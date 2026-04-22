@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Icon } from './Icon';
-import { IMAGES } from '../constants';
 
 const SidebarItem = ({ to, icon, label }: { to: string; icon: string; label: string }) => (
   <NavLink
@@ -50,7 +49,6 @@ const Layout: React.FC = () => {
       case '/standings': return { title: 'House Standings', subtitle: 'Live Annual Championship Tracking' };
       case '/events': return { title: 'Upcoming Fixtures', subtitle: 'Match schedules and reminders' };
       case '/archive': return { title: 'Event Archive', subtitle: 'Historical records and results' };
-      case '/profile': return { title: 'User Profile', subtitle: 'Account details and preferences' };
       case '/attendance': return { title: 'Sports Attendance', subtitle: 'Individual participation tracking' };
       case '/teams': return { title: 'School Teams', subtitle: 'Competitive squads across all age groups' };
       case '/hodsons': return { title: 'Hodson\'s Run 2026', subtitle: 'Annual Cross Country Championship' };
@@ -106,7 +104,6 @@ const Layout: React.FC = () => {
           <SidebarItem to="/standings" icon="emoji_events" label="Standings" />
           <SidebarItem to="/events" icon="calendar_month" label="Events" />
           <SidebarItem to="/archive" icon="history" label="Archive" />
-          <SidebarItem to="/profile" icon="person" label="Profile" />
           <SidebarItem to="/attendance" icon="fact_check" label="Attendance" />
           <SidebarItem to="/teams" icon="groups" label="School Teams" />
           <SidebarItem to="/hodsons" icon="directions_run" label="Hodsons 2026" />
@@ -136,7 +133,7 @@ const Layout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Mobile Avatar (Hidden as Profile is removed) */}
+            {/* Right-side header actions can be added here when needed */}
           </div>
         </header>
 

@@ -4,6 +4,9 @@ import { useToast } from '../components/ui/ToastProvider';
 import { HOUSE_COLORS } from '../constants';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import studentClasses from '../utils/studentClasses.json';
+import { AttendanceRecord, getAttendance, replaceAttendance, subscribeToGeneralData } from '../utils/storage';
+import { getAllHodsonsClasses, getAllHodsonsStudents, HodsonsStudent, subscribeToHodsonsData } from '../utils/hodsonsStorage';
 
 const HOUSES = [
     { name: 'Himalaya', code: 'H', config: HOUSE_COLORS.himalaya },
@@ -12,49 +15,139 @@ const HOUSES = [
     { name: 'Vindhya', code: 'V', config: HOUSE_COLORS.vindhya },
 ];
 
+type AttendanceHistoryRow = {
+    computerNumber: string;
+    name: string;
+    house: string;
+    classStr: string;
+    date: string;
+    activity: string;
+    attended: boolean;
+};
+
+type AttendanceDirectoryStudent = HodsonsStudent & {
+    computerNumber: string;
+    classStr: string;
+};
+
 const Attendance: React.FC = () => {
     const { showToast } = useToast();
-    const [csvData, setCsvData] = useState('');
     const [searchCompNum, setSearchCompNum] = useState('');
     const [hasSearched, setHasSearched] = useState(false);
+    const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+    const [hodsonsStudents, setHodsonsStudents] = useState<HodsonsStudent[]>(getAllHodsonsStudents());
+    const [hodsonsClasses, setHodsonsClasses] = useState<Record<string, string>>(getAllHodsonsClasses(studentClasses as Record<string, string>));
 
     useEffect(() => {
-        const fetchCsv = async () => {
+        const migrateLegacyAttendanceIfNeeded = async () => {
+            if (getAttendance().length > 0) return;
+
             try {
                 const res = await fetch('/Attendance.csv?t=' + Date.now());
-                if (res.ok) {
-                    const text = await res.text();
-                    setCsvData(text);
+                if (!res.ok) return;
+
+                const text = await res.text();
+                const rows = text
+                    .trim()
+                    .split('\n')
+                    .slice(1)
+                    .filter(row => row.trim() !== '')
+                    .map((row, index) => {
+                        const [computerNumber, name, house, classStr, date, attended] = row.split(',');
+                        const studentId = computerNumber?.trim() || '';
+
+                        if (!studentId || !date?.trim()) return null;
+
+                        return {
+                            id: `${date.trim()}-legacy-${studentId}-${index}`,
+                            studentId,
+                            studentName: name?.trim() || '',
+                            date: date.trim(),
+                            activity: 'Legacy Attendance',
+                            house: house?.trim() || '',
+                            attended: attended?.trim() === 'Yes',
+                            className: classStr?.trim() || ''
+                        } as AttendanceRecord;
+                    })
+                    .filter((record): record is AttendanceRecord => Boolean(record));
+
+                if (rows.length > 0) {
+                    replaceAttendance(rows);
+                    setAttendanceRecords(rows);
                 }
-            } catch (e) {
-                console.error(e);
+            } catch (error) {
+                console.error('Legacy attendance migration failed:', error);
             }
         };
-        fetchCsv();
-        const intervalId = setInterval(fetchCsv, 2000);
-        return () => clearInterval(intervalId);
+
+        migrateLegacyAttendanceIfNeeded();
+        setAttendanceRecords(getAttendance());
+        const unsubscribeGeneral = subscribeToGeneralData(() => {
+            setAttendanceRecords(getAttendance());
+        });
+
+        const unsubscribeHodsons = subscribeToHodsonsData(() => {
+            setHodsonsStudents(getAllHodsonsStudents());
+            setHodsonsClasses(getAllHodsonsClasses(studentClasses as Record<string, string>));
+        });
+
+        return () => {
+            unsubscribeGeneral();
+            unsubscribeHodsons();
+        };
     }, []);
 
-    const parsedCsvData = React.useMemo(() => {
-        if (!csvData) return [];
-        return csvData.trim().split('\n').slice(1).filter(row => row.trim() !== '').map(row => {
-            const [computerNumber, name, house, classStr, date, attended] = row.split(',');
-            return {
-                computerNumber: computerNumber?.trim() || '',
-                name: name?.trim() || '',
-                house: house?.trim() || '',
-                classStr: classStr?.trim() || '',
-                date: date?.trim() || '',
-                attended: attended?.trim() === 'Yes'
-            };
+    const parsedCsvData = React.useMemo<AttendanceHistoryRow[]>(() => {
+        return attendanceRecords.map((record) => ({
+            computerNumber: record.studentId,
+            name: record.studentName,
+            house: record.house,
+            classStr: record.className || '',
+            date: record.date,
+            activity: record.activity,
+            attended: record.attended
+        }));
+    }, [attendanceRecords]);
+
+    const studentDirectory = React.useMemo<AttendanceDirectoryStudent[]>(() => {
+        return hodsonsStudents.map((student) => ({
+            ...student,
+            computerNumber: student.id,
+            classStr: hodsonsClasses[student.id] || 'N/A'
+        }));
+    }, [hodsonsStudents, hodsonsClasses]);
+
+    const studentDirectoryMap = React.useMemo(() => {
+        return new Map(studentDirectory.map((student) => [student.computerNumber, student]));
+    }, [studentDirectory]);
+
+    const attendanceHistoryMap = React.useMemo(() => {
+        const map = new Map<string, AttendanceHistoryRow[]>();
+        parsedCsvData.forEach((row) => {
+            const existing = map.get(row.computerNumber) || [];
+            existing.push({
+                ...row,
+                name: studentDirectoryMap.get(row.computerNumber)?.name || row.name,
+                house: studentDirectoryMap.get(row.computerNumber)?.house || row.house,
+                classStr: studentDirectoryMap.get(row.computerNumber)?.classStr || row.classStr || 'N/A'
+            });
+            map.set(row.computerNumber, existing);
         });
-    }, [csvData]);
+        return map;
+    }, [parsedCsvData, studentDirectoryMap]);
 
     const absentees = React.useMemo(() => {
-        const abs = parsedCsvData.filter(row => !row.attended);
+        const abs = parsedCsvData
+            .filter(row => !row.attended)
+            .map((row) => ({
+                ...row,
+                name: studentDirectoryMap.get(row.computerNumber)?.name || row.name,
+                house: studentDirectoryMap.get(row.computerNumber)?.house || row.house,
+                classStr: studentDirectoryMap.get(row.computerNumber)?.classStr || row.classStr || 'N/A'
+            }));
         // unique absentees based on latest date or just list them all
         return abs;
-    }, [parsedCsvData]);
+    }, [parsedCsvData, studentDirectoryMap]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -100,14 +193,19 @@ const Attendance: React.FC = () => {
         });
     };
 
-    const studentRecords = React.useMemo(() => {
+    const selectedStudent = React.useMemo(() => {
         if (!searchCompNum.trim() || !hasSearched) return null;
-        return parsedCsvData.filter(row => row.computerNumber === searchCompNum.trim());
-    }, [parsedCsvData, searchCompNum, hasSearched]);
+        return studentDirectoryMap.get(searchCompNum.trim()) || null;
+    }, [studentDirectoryMap, searchCompNum, hasSearched]);
+
+    const studentRecords = React.useMemo<AttendanceHistoryRow[]>(() => {
+        if (!selectedStudent) return [];
+        return attendanceHistoryMap.get(selectedStudent.computerNumber) || [];
+    }, [attendanceHistoryMap, selectedStudent]);
 
     const searchResultStatus = () => {
         if (!hasSearched || !searchCompNum.trim()) return 'empty';
-        if (studentRecords && studentRecords.length > 0) return 'found';
+        if (selectedStudent) return 'found';
         return 'not_found';
     };
 
@@ -213,22 +311,22 @@ const Attendance: React.FC = () => {
                         </div>
                     )}
 
-                    {searchResultStatus() === 'found' && studentRecords && (
+                    {searchResultStatus() === 'found' && selectedStudent && (
                         <div className="space-y-6 animate-in fade-in zoom-in slide-in-from-bottom-4 duration-500">
                             {/* Student Identity Card */}
                             <div className="glass-panel p-6 md:p-8 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col md:flex-row items-center gap-8 shadow-2xl">
-                                <div className={`absolute top-0 right-0 w-32 h-32 blur-[80px] rounded-full opacity-50 ${HOUSES.find(h => h.name === studentRecords[0].house)?.config.bg.replace('bg-', 'bg-')}`}></div>
+                                <div className={`absolute top-0 right-0 w-32 h-32 blur-[80px] rounded-full opacity-50 ${HOUSES.find(h => h.name === selectedStudent.house)?.config.bg.replace('bg-', 'bg-')}`}></div>
 
                                 <div className="size-24 md:size-32 rounded-3xl bg-background-dark border-4 border-white/5 flex items-center justify-center shadow-inner shrink-0 text-white/20">
                                     <Icon name="person" size="64" />
                                 </div>
                                 <div className="text-center md:text-left flex-1 z-10">
                                     <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-                                        <span className="text-xs font-bold text-primary bg-primary/20 px-3 py-1 rounded-full uppercase tracking-widest">#{studentRecords[0].computerNumber}</span>
-                                        <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-white/10 ${HOUSES.find(h => h.name === studentRecords[0].house)?.config.bg || ''} bg-opacity-20 text-white`}>{studentRecords[0].house}</span>
+                                        <span className="text-xs font-bold text-primary bg-primary/20 px-3 py-1 rounded-full uppercase tracking-widest">#{selectedStudent.computerNumber}</span>
+                                        <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-white/10 ${HOUSES.find(h => h.name === selectedStudent.house)?.config.bg || ''} bg-opacity-20 text-white`}>{selectedStudent.house}</span>
                                     </div>
-                                    <h2 className="text-3xl md:text-4xl font-black text-white mb-2 tracking-tight">{studentRecords[0].name}</h2>
-                                    <p className="text-slate-400 font-medium">Class {studentRecords[0].classStr}</p>
+                                    <h2 className="text-3xl md:text-4xl font-black text-white mb-2 tracking-tight">{selectedStudent.name}</h2>
+                                    <p className="text-slate-400 font-medium">Class {selectedStudent.classStr}</p>
                                 </div>
                                 <div className="flex flex-col items-center justify-center glass-panel px-6 py-4 rounded-xl border border-white/5 shrink-0 z-10">
                                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">Total Attendance</span>
@@ -247,25 +345,37 @@ const Attendance: React.FC = () => {
                                     </div>
                                     <h3 className="text-lg font-bold text-white">Session History</h3>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {studentRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((session, idx) => (
-                                        <div key={idx} className={`p-4 rounded-xl border flex flex-col gap-2 transition-all ${session.attended ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-xs font-bold text-slate-400 font-mono">{session.date}</span>
+                                {studentRecords.length > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {[...studentRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((session, idx) => (
+                                            <div key={idx} className={`p-4 rounded-xl border flex flex-col gap-2 transition-all ${session.attended ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs font-bold text-slate-400 font-mono">{session.date}</span>
                                                 {session.attended ? (
                                                     <span className="flex items-center gap-1 text-[10px] font-black uppercase text-green-500 bg-green-500/20 px-2 py-0.5 rounded">
                                                         <Icon name="check" size="14" /> Present
                                                     </span>
-                                                ) : (
-                                                    <span className="flex items-center gap-1 text-[10px] font-black uppercase text-red-500 bg-red-500/20 px-2 py-0.5 rounded">
-                                                        <Icon name="close" size="14" /> Absent
-                                                    </span>
-                                                )}
+                                                    ) : (
+                                                        <span className="flex items-center gap-1 text-[10px] font-black uppercase text-red-500 bg-red-500/20 px-2 py-0.5 rounded">
+                                                            <Icon name="close" size="14" /> Absent
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <span className="text-sm font-medium text-white">{session.activity || 'Sports Session'}</span>
                                             </div>
-                                            <span className="text-sm font-medium text-white">Daily Sports Session</span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-8 text-center">
+                                        <div className="size-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+                                            <Icon name="fact_check" size="28" />
                                         </div>
-                                    ))}
-                                </div>
+                                        <h4 className="text-white font-bold text-lg mb-2">Student Found In Hodsons Roster</h4>
+                                        <p className="text-slate-400 text-sm max-w-md mx-auto">
+                                            This student is present in the Hodsons 2026 master list, but no attendance sessions have been logged yet.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
