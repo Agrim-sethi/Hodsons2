@@ -129,7 +129,7 @@ const EventCard = ({ stats, onOpen }: { stats: AthleticsEventStats; onOpen: () =
       className="glass-panel rounded-2xl border border-primary/15 p-6 hover:border-primary/50 hover:bg-white/[0.04] transition-all duration-300 group cursor-pointer shadow-xl shadow-black/30 hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between"
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none group-hover:bg-primary/10 transition-colors" />
-      
+
       <div>
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -245,8 +245,8 @@ const Athletics: React.FC = () => {
     const toAddIds = filteredStudents.map(s => s.id);
     const existing = snapshot.enrollments.find(entry => entry.eventId === selectedEvent.id)?.studentIds || [];
     const merged = Array.from(new Set([...existing, ...toAddIds]));
-    
-    const nextEnrollments = snapshot.enrollments.map(entry => 
+
+    const nextEnrollments = snapshot.enrollments.map(entry =>
       entry.eventId === selectedEvent.id ? { ...entry, studentIds: merged } : entry
     );
 
@@ -261,7 +261,7 @@ const Athletics: React.FC = () => {
     if (!isLoggedIn || !selectedEvent) return;
     if (!window.confirm(`Are you sure you want to remove ALL enrollments from ${selectedEvent.name}?`)) return;
 
-    const nextEnrollments = snapshot.enrollments.map(entry => 
+    const nextEnrollments = snapshot.enrollments.map(entry =>
       entry.eventId === selectedEvent.id ? { ...entry, studentIds: [] } : entry
     );
     const nextResults = snapshot.results.filter(result => result.eventId !== selectedEvent.id);
@@ -401,7 +401,7 @@ const Athletics: React.FC = () => {
       {/* Top Banner Section */}
       <section className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between border-b border-primary/10 pb-6">
         <div>
-          <div className="royal-kicker mb-2">Track Desk • Prep School</div>
+          <div className="royal-kicker mb-2">Track Desk</div>
           <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight">Athletics 2026</h1>
           <p className="text-slate-400 mt-2 max-w-3xl text-sm sm:text-base leading-relaxed">
             Track & Field Desk for Prep Boys (PDB) and Prep Girls (PDG). Manage event enrollments, record times, auto-calculate ranks, and monitor house standings.
@@ -424,10 +424,10 @@ const Athletics: React.FC = () => {
         <StatTile label="Total Events" value={ATHLETICS_EVENTS.length} accent="text-amber-400 font-mono" icon="sprint" />
         <StatTile label="Total Enrollments" value={derived.eventStats.reduce((sum, event) => sum + event.enrolled, 0)} icon="groups" />
         <StatTile label="Total Finished" value={derived.eventStats.reduce((sum, event) => sum + event.finished, 0)} accent="text-emerald-400" icon="check_circle" />
-        <StatTile 
-          label="Leading House" 
-          value={derived.standings[0]?.name || '--'} 
-          accent={derived.standings[0] ? houseConfig(derived.standings[0].name).text : 'text-slate-400'} 
+        <StatTile
+          label="Leading House"
+          value={derived.standings[0]?.name || '--'}
+          accent={derived.standings[0] ? houseConfig(derived.standings[0].name).text : 'text-slate-400'}
           icon="emoji_events"
         />
       </section>
@@ -451,8 +451,8 @@ const Athletics: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                 <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" tick={{ fill: '#fff', fontSize: 13, fontWeight: 900 }} axisLine={false} tickLine={false} width={90} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(201,163,74,0.3)', borderRadius: 12, color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} 
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(201,163,74,0.3)', borderRadius: 12, color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
                   formatter={(value: any) => [`${value} Points`, 'Total Score']}
                 />
                 <Bar dataKey="points" radius={[0, 8, 8, 0]}>
@@ -469,7 +469,7 @@ const Athletics: React.FC = () => {
             const standingsEntry = derived.standings.find(entry => entry.name === house);
             const points = standingsEntry?.points || 0;
             const rank = derived.standings.findIndex(entry => entry.name === house) + 1;
-            
+
             return (
               <div key={house} className="glass-panel rounded-2xl border border-primary/15 p-5 shadow-xl hover:border-primary/30 transition-all flex flex-col justify-between relative overflow-hidden group">
                 <div className={`absolute top-0 right-0 w-24 h-24 ${config.bg}/10 rounded-full blur-xl pointer-events-none`} />
@@ -524,9 +524,9 @@ const Athletics: React.FC = () => {
       {selectedStats && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
           {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity animate-in fade-in duration-200" 
-            onClick={() => setSelectedEventId(null)} 
+          <div
+            className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
+            onClick={() => setSelectedEventId(null)}
           />
 
           {/* Modal Box */}
@@ -549,11 +549,10 @@ const Athletics: React.FC = () => {
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${
-                        active 
-                          ? 'bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/10' 
+                      className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${active
+                          ? 'bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/10'
                           : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-                      }`}
+                        }`}
                     >
                       <Icon name={icons[tab]} size="16" />
                       {tab}
@@ -563,8 +562,8 @@ const Athletics: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={exportEventRoster} 
+                <button
+                  onClick={exportEventRoster}
                   className="royal-secondary-btn rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2"
                 >
                   <Icon name="download" size="16" />
@@ -660,18 +659,18 @@ const Athletics: React.FC = () => {
                           </button>
                         )}
                       </div>
-                      <select 
-                        value={departmentFilter} 
-                        onChange={event => setDepartmentFilter(event.target.value as 'All' | 'PDB' | 'PDG')} 
+                      <select
+                        value={departmentFilter}
+                        onChange={event => setDepartmentFilter(event.target.value as 'All' | 'PDB' | 'PDG')}
                         className="royal-input rounded-xl px-4 py-2.5 text-sm shrink-0"
                       >
                         <option value="All">All Departments</option>
                         <option value="PDB">Prep Boys (PDB)</option>
                         <option value="PDG">Prep Girls (PDG)</option>
                       </select>
-                      <select 
-                        value={houseFilter} 
-                        onChange={event => setHouseFilter(event.target.value as 'All' | typeof HOUSES[number])} 
+                      <select
+                        value={houseFilter}
+                        onChange={event => setHouseFilter(event.target.value as 'All' | typeof HOUSES[number])}
                         className="royal-input rounded-xl px-4 py-2.5 text-sm shrink-0"
                       >
                         <option value="All">All Houses</option>
@@ -681,14 +680,14 @@ const Athletics: React.FC = () => {
 
                     {isLoggedIn && (
                       <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-white/10">
-                        <button 
+                        <button
                           onClick={enrollAllFiltered}
                           className="royal-secondary-btn rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-1.5"
                         >
                           <Icon name="playlist_add_check" size="16" />
                           Enroll Filtered ({filteredStudents.length})
                         </button>
-                        <button 
+                        <button
                           onClick={clearAllEnrollments}
                           className="rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors"
                         >
@@ -721,11 +720,10 @@ const Athletics: React.FC = () => {
                           key={student.id}
                           disabled={!isLoggedIn}
                           onClick={() => toggleEnrollment(selectedEvent, student.id)}
-                          className={`rounded-xl border p-4 text-left transition-all duration-200 relative overflow-hidden group ${
-                            enrolled 
-                              ? 'border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-yellow-600/5 shadow-lg shadow-amber-500/5' 
+                          className={`rounded-xl border p-4 text-left transition-all duration-200 relative overflow-hidden group ${enrolled
+                              ? 'border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-yellow-600/5 shadow-lg shadow-amber-500/5'
                               : 'border-white/5 bg-white/[0.02] hover:border-amber-500/20 hover:bg-white/[0.04]'
-                          } disabled:cursor-not-allowed disabled:opacity-75`}
+                            } disabled:cursor-not-allowed disabled:opacity-75`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
@@ -736,7 +734,7 @@ const Athletics: React.FC = () => {
                               {student.house}
                             </div>
                           </div>
-                          
+
                           <div className="mt-3 flex items-center justify-between pt-2 border-t border-white/5">
                             <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${enrolled ? 'text-emerald-400' : 'text-slate-500'}`}>
                               <Icon name={enrolled ? 'check_circle' : 'radio_button_unchecked'} size="15" />
@@ -767,8 +765,8 @@ const Athletics: React.FC = () => {
                       <p className="text-xs text-slate-400 mt-0.5">Enter timing formats like `12:45` (seconds:ms) or `01:23:45` (mins:secs:ms).</p>
                     </div>
                     {isLoggedIn && (
-                      <button 
-                        onClick={autoRankEvent} 
+                      <button
+                        onClick={autoRankEvent}
                         className="royal-primary-btn rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg"
                       >
                         <Icon name="sort" className="text-[18px]" />
@@ -821,10 +819,10 @@ const Athletics: React.FC = () => {
                                 </span>
                               </td>
                               <td>
-                                <select 
-                                  disabled={!isLoggedIn} 
-                                  value={result.status} 
-                                  onChange={event => updateResult(student.id, { status: event.target.value as AthleticsResultStatus })} 
+                                <select
+                                  disabled={!isLoggedIn}
+                                  value={result.status}
+                                  onChange={event => updateResult(student.id, { status: event.target.value as AthleticsResultStatus })}
                                   className={`royal-input rounded-xl px-3 py-2 text-xs font-black min-w-[160px] border ${statusBadgeStyle(result.status)} disabled:opacity-60 cursor-pointer`}
                                 >
                                   {RESULT_STATUSES.map(status => (
@@ -835,25 +833,25 @@ const Athletics: React.FC = () => {
                                 </select>
                               </td>
                               <td>
-                                <input 
-                                  disabled={!isLoggedIn} 
-                                  value={result.timing || ''} 
-                                  onChange={event => updateResult(student.id, { timing: event.target.value })} 
-                                  placeholder="e.g. 12:34" 
-                                  className="royal-input rounded-xl px-3 py-2 text-xs font-mono font-bold min-w-[140px] text-amber-300 disabled:opacity-60" 
+                                <input
+                                  disabled={!isLoggedIn}
+                                  value={result.timing || ''}
+                                  onChange={event => updateResult(student.id, { timing: event.target.value })}
+                                  placeholder="e.g. 12:34"
+                                  className="royal-input rounded-xl px-3 py-2 text-xs font-mono font-bold min-w-[140px] text-amber-300 disabled:opacity-60"
                                 />
                               </td>
                               <td>
                                 <div className="flex items-center gap-2">
-                                  <input 
-                                    disabled={!isLoggedIn} 
-                                    type="number" 
-                                    min="1" 
+                                  <input
+                                    disabled={!isLoggedIn}
+                                    type="number"
+                                    min="1"
                                     max="50"
-                                    value={result.position || ''} 
-                                    onChange={event => updateResult(student.id, { position: event.target.value ? Number(event.target.value) : undefined })} 
+                                    value={result.position || ''}
+                                    onChange={event => updateResult(student.id, { position: event.target.value ? Number(event.target.value) : undefined })}
                                     placeholder="Rank"
-                                    className="royal-input rounded-xl px-3 py-2 text-xs font-bold w-20 text-center disabled:opacity-60" 
+                                    className="royal-input rounded-xl px-3 py-2 text-xs font-bold w-20 text-center disabled:opacity-60"
                                   />
                                   {result.position && (
                                     <span className={`text-xs font-black px-2 py-1 rounded-md ${isPodium ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400'}`}>

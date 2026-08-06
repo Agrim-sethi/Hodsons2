@@ -1,6 +1,7 @@
 import { HOUSE_COLORS } from '../constants';
 import {
   ATHLETICS_EVENTS,
+  AthleticsDepartment,
   AthleticsEnrollment,
   AthleticsEvent,
   AthleticsHouse,
@@ -42,7 +43,7 @@ export interface AthleticsEventStats {
 export interface AthleticsDerivedData {
   eventStats: AthleticsEventStats[];
   standings: Array<{ name: AthleticsHouse; points: number; color: string }>;
-  departmentStats: Record<'PDB' | 'PDG', { enrolled: number; finished: number; points: number }>;
+  departmentStats: Record<AthleticsDepartment, { enrolled: number; finished: number; points: number }>;
 }
 
 const HOUSES: AthleticsHouse[] = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'];
@@ -68,16 +69,25 @@ const pointsForPosition = (position?: number) => {
   return 6 - position;
 };
 
+export const matchesDepartmentFilter = (dept: AthleticsDepartment, filter: string) => {
+  if (!filter || filter === 'All') return true;
+  if (filter === 'PD') return dept === 'PDB' || dept === 'PDG';
+  return dept === filter;
+};
+
 export const buildAthleticsDerivedData = (
   enrollments: AthleticsEnrollment[],
   results: AthleticsResult[],
-  students: AthleticsStudent[]
+  students: AthleticsStudent[],
+  departmentFilter: string = 'All'
 ): AthleticsDerivedData => {
   const studentMap = new Map(students.map(student => [student.id, student]));
   const enrollmentMap = new Map(enrollments.map(entry => [entry.eventId, entry.studentIds || []]));
   const resultMap = new Map(results.map(result => [`${result.eventId}:${result.studentId}`, result]));
   const housePoints: Record<AthleticsHouse, number> = { Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
-  const departmentStats = {
+  const departmentStats: Record<AthleticsDepartment, { enrolled: number; finished: number; points: number }> = {
+    BD: { enrolled: 0, finished: 0, points: 0 },
+    GD: { enrolled: 0, finished: 0, points: 0 },
     PDB: { enrolled: 0, finished: 0, points: 0 },
     PDG: { enrolled: 0, finished: 0, points: 0 }
   };
@@ -97,9 +107,13 @@ export const buildAthleticsDerivedData = (
       const student = studentMap.get(studentId);
       if (!student) return;
 
+      if (!matchesDepartmentFilter(student.department, departmentFilter)) return;
+
       const result = resultMap.get(`${event.id}:${studentId}`);
       houseStats[student.house].enrolled += 1;
-      departmentStats[student.department].enrolled += 1;
+      if (departmentStats[student.department]) {
+        departmentStats[student.department].enrolled += 1;
+      }
 
       if (!result || result.status === 'pending') return;
       resulted += 1;
@@ -107,11 +121,15 @@ export const buildAthleticsDerivedData = (
       if (result.status === 'finished') {
         finished += 1;
         houseStats[student.house].finished += 1;
-        departmentStats[student.department].finished += 1;
+        if (departmentStats[student.department]) {
+          departmentStats[student.department].finished += 1;
+        }
         const points = pointsForPosition(result.position);
         houseStats[student.house].points += points;
         housePoints[student.house] += points;
-        departmentStats[student.department].points += points;
+        if (departmentStats[student.department]) {
+          departmentStats[student.department].points += points;
+        }
         podiumCandidates.push({
           id: student.id,
           name: student.name,
@@ -142,6 +160,11 @@ export const buildAthleticsDerivedData = (
       }
     });
 
+    const filteredEnrolledCount = enrolledIds.filter(id => {
+      const s = studentMap.get(id);
+      return s && matchesDepartmentFilter(s.department, departmentFilter);
+    }).length;
+
     const podium = podiumCandidates
       .sort((a, b) => {
         if (a.position !== b.position) return a.position - b.position;
@@ -151,7 +174,7 @@ export const buildAthleticsDerivedData = (
 
     return {
       event,
-      enrolled: enrolledIds.length,
+      enrolled: filteredEnrolledCount,
       resulted,
       finished,
       dnf,

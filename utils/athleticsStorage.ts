@@ -2,7 +2,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { getAllHodsonsClasses, getAllHodsonsStudents, HodsonsStudent } from './hodsonsStorage';
 
-export type AthleticsDepartment = 'PDB' | 'PDG';
+export type AthleticsDepartment = 'PDB' | 'PDG' | 'BD' | 'GD';
 export type AthleticsHouse = HodsonsStudent['house'];
 export type AthleticsResultStatus = 'pending' | 'finished' | 'dnf' | 'absent' | 'medically_excused';
 
@@ -38,13 +38,13 @@ export interface AthleticsSnapshot {
 }
 
 export const ATHLETICS_EVENTS: AthleticsEvent[] = [
-  { id: '100m', name: '100 Metres', distanceMeters: 100, type: 'sprint', departments: ['PDB', 'PDG'] },
-  { id: '200m', name: '200 Metres', distanceMeters: 200, type: 'sprint', departments: ['PDB', 'PDG'] },
-  { id: '400m', name: '400 Metres', distanceMeters: 400, type: 'sprint', departments: ['PDB', 'PDG'] },
-  { id: '800m', name: '800 Metres', distanceMeters: 800, type: 'middle_distance', departments: ['PDB', 'PDG'] },
-  { id: '1500m', name: '1500 Metres', distanceMeters: 1500, type: 'middle_distance', departments: ['PDB', 'PDG'] },
-  { id: '3000m', name: '3000 Metres', distanceMeters: 3000, type: 'distance', departments: ['PDB', 'PDG'] },
-  { id: '4x100m-relay', name: '4 x 100 Metres Relay', distanceMeters: 400, type: 'relay', departments: ['PDB', 'PDG'] }
+  { id: '100m', name: '100 Metres', distanceMeters: 100, type: 'sprint', departments: ['PDB', 'PDG', 'BD', 'GD'] },
+  { id: '200m', name: '200 Metres', distanceMeters: 200, type: 'sprint', departments: ['PDB', 'PDG', 'BD', 'GD'] },
+  { id: '400m', name: '400 Metres', distanceMeters: 400, type: 'sprint', departments: ['PDB', 'PDG', 'BD', 'GD'] },
+  { id: '800m', name: '800 Metres', distanceMeters: 800, type: 'middle_distance', departments: ['PDB', 'PDG', 'BD', 'GD'] },
+  { id: '1500m', name: '1500 Metres', distanceMeters: 1500, type: 'middle_distance', departments: ['PDB', 'PDG', 'BD', 'GD'] },
+  { id: '3000m', name: '3000 Metres', distanceMeters: 3000, type: 'distance', departments: ['PDB', 'PDG', 'BD', 'GD'] },
+  { id: '4x100m-relay', name: '4 x 100 Metres Relay', distanceMeters: 400, type: 'relay', departments: ['PDB', 'PDG', 'BD', 'GD'] }
 ];
 
 const ATHLETICS_STORAGE_KEY = 'sanawar_athletics_2026';
@@ -120,13 +120,21 @@ export const subscribeToAthleticsData = (callback: (snapshot: AthleticsSnapshot)
   });
 };
 
-export const getPrepAthleticsStudents = (baseClasses: Record<string, string> = {}): AthleticsStudent[] => {
-  const classes = getAllHodsonsClasses(baseClasses);
-  return getAllHodsonsStudents()
-    .filter(student => student.category.startsWith('PDB') || student.category.startsWith('PDG'))
-    .map(student => ({
-      ...student,
-      department: student.category.startsWith('PDB') ? 'PDB' : 'PDG',
-      className: classes[student.id] || 'N/A'
-    }));
+export const getAthleticsDepartment = (category: string): AthleticsDepartment => {
+  if (category.startsWith('PDB')) return 'PDB';
+  if (category.startsWith('PDG')) return 'PDG';
+  if (category.startsWith('BD')) return 'BD';
+  if (category.startsWith('GD')) return 'GD';
+  return 'PDB';
 };
+
+export const getAthleticsStudents = (baseClasses: Record<string, string> = {}): AthleticsStudent[] => {
+  const classes = getAllHodsonsClasses(baseClasses);
+  return getAllHodsonsStudents().map(student => ({
+    ...student,
+    department: getAthleticsDepartment(student.category),
+    className: classes[student.id] || 'N/A'
+  }));
+};
+
+export const getPrepAthleticsStudents = getAthleticsStudents;
