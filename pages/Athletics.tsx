@@ -272,20 +272,22 @@ const Athletics: React.FC = () => {
     }
   }));
 
-  const houseChartData = HOUSES.map(house => ({
-    name: house,
-    points: selectedStats.houseStats[house].points,
-    enrolled: selectedStats.houseStats[house].enrolled,
-    finished: selectedStats.houseStats[house].finished,
-    color: houseConfig(house).hex
-  }));
+  const houseChartData = selectedStats
+    ? HOUSES.map(house => ({
+      name: house,
+      points: selectedStats.houseStats[house].points,
+      enrolled: selectedStats.houseStats[house].enrolled,
+      finished: selectedStats.houseStats[house].finished,
+      color: houseConfig(house).hex
+    }))
+    : [];
 
   const statusPieData = [
-    { name: 'Finished', value: selectedStats.finished, color: '#22c55e' },
-    { name: 'DNF', value: selectedStats.dnf, color: '#f97316' },
-    { name: 'Absent', value: selectedStats.absent, color: '#ef4444' },
-    { name: 'Medical', value: selectedStats.med, color: '#94a3b8' },
-    { name: 'Pending', value: Math.max(selectedStats.enrolled - selectedStats.resulted, 0), color: '#475569' }
+    { name: 'Finished', value: selectedStats?.finished || 0, color: '#22c55e' },
+    { name: 'DNF', value: selectedStats?.dnf || 0, color: '#f97316' },
+    { name: 'Absent', value: selectedStats?.absent || 0, color: '#ef4444' },
+    { name: 'Medical', value: selectedStats?.med || 0, color: '#94a3b8' },
+    { name: 'Pending', value: selectedStats ? Math.max(selectedStats.enrolled - selectedStats.resulted, 0) : 0, color: '#475569' }
   ].filter(entry => entry.value > 0);
 
   return (
