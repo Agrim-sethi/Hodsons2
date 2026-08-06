@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as XLSX from 'xlsx';
 import { Icon } from '../components/Icon';
@@ -28,8 +29,26 @@ const houseConfig = (house: string) => {
   return HOUSE_COLORS[key] ?? HOUSE_COLORS.nilgiri;
 };
 
-const statusLabel = (status: AthleticsResultStatus) =>
-  status.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+const statusLabel = (status: AthleticsResultStatus) => {
+  switch (status) {
+    case 'medically_excused': return 'Medical Leave';
+    case 'dnf': return 'DNF';
+    case 'absent': return 'Absent';
+    case 'finished': return 'Finished';
+    case 'pending': return 'Pending';
+    default: return status.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+  }
+};
+
+const statusBadgeStyle = (status: AthleticsResultStatus) => {
+  switch (status) {
+    case 'finished': return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+    case 'dnf': return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+    case 'absent': return 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+    case 'medically_excused': return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+    default: return 'bg-slate-500/15 text-slate-400 border-slate-500/30';
+  }
+};
 
 const downloadWorkbook = (filename: string, rows: Record<string, any>[]) => {
   const workbook = XLSX.utils.book_new();
@@ -38,39 +57,54 @@ const downloadWorkbook = (filename: string, rows: Record<string, any>[]) => {
   XLSX.writeFile(workbook, filename);
 };
 
-const StatTile = ({ label, value, accent = 'text-white' }: { label: string; value: React.ReactNode; accent?: string }) => (
-  <div className="rounded-lg border border-primary/10 bg-white/[0.03] px-4 py-3 min-h-[78px] flex flex-col justify-between">
-    <span className="text-[10px] font-black uppercase text-slate-500 leading-tight">{label}</span>
-    <span className={`text-2xl font-black leading-none ${accent}`}>{value}</span>
+const StatTile = ({ label, value, accent = 'text-white', icon }: { label: string; value: React.ReactNode; accent?: string; icon?: string }) => (
+  <div className="rounded-xl border border-primary/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 flex flex-col justify-between shadow-lg shadow-black/20 relative overflow-hidden group hover:border-primary/20 transition-all">
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{label}</span>
+      {icon && <Icon name={icon} className="text-primary/40 text-[16px] group-hover:text-primary/70 transition-colors" />}
+    </div>
+    <span className={`text-2xl sm:text-3xl font-black leading-none mt-2 tracking-tight ${accent}`}>{value}</span>
   </div>
 );
 
 const AthleticsPodium = ({ stats }: { stats: AthleticsEventStats }) => {
   const steps = [
-    { athlete: stats.podium[1], rank: 2, height: 'h-24' },
-    { athlete: stats.podium[0], rank: 1, height: 'h-32' },
-    { athlete: stats.podium[2], rank: 3, height: 'h-20' }
+    { athlete: stats.podium[1], rank: 2, height: 'h-24 sm:h-28', badgeColor: 'from-slate-400/30 to-slate-600/30 border-slate-300/40 text-slate-200', medal: '🥈', label: '2nd' },
+    { athlete: stats.podium[0], rank: 1, height: 'h-32 sm:h-36', badgeColor: 'from-amber-400/40 to-yellow-600/40 border-amber-300/60 text-amber-200 shadow-[0_0_15px_rgba(201,163,74,0.3)]', medal: '🥇', label: '1st' },
+    { athlete: stats.podium[2], rank: 3, height: 'h-20 sm:h-24', badgeColor: 'from-amber-800/30 to-amber-950/30 border-amber-700/40 text-amber-300', medal: '🥉', label: '3rd' }
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-4 items-end min-h-[230px]">
-      {steps.map(({ athlete, rank, height }) => {
+    <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end min-h-[220px] sm:min-h-[250px] pt-4">
+      {steps.map(({ athlete, rank, height, badgeColor, medal, label }) => {
         const config = athlete ? houseConfig(athlete.house) : HOUSE_COLORS.nilgiri;
         return (
           <div key={rank} className="flex flex-col items-center justify-end min-w-0">
-            <div className="h-[82px] mb-2 flex flex-col items-center justify-end text-center min-w-0">
+            <div className="min-h-[90px] mb-2 flex flex-col items-center justify-end text-center w-full px-1">
               {athlete ? (
                 <>
-                  <span className="text-xs font-black text-white max-w-full truncate" title={athlete.name}>{athlete.name.split(' ')[0]}</span>
-                  <span className={`mt-1 rounded-full border ${config.border}/30 ${config.bg}/20 px-2 py-0.5 text-[9px] font-black uppercase ${config.text}`}>{athlete.house}</span>
-                  <span className="mt-1 text-[10px] font-bold text-slate-400">{athlete.timing || 'No time'}</span>
+                  <div className="text-base mb-0.5">{medal}</div>
+                  <span className="text-xs font-black text-white w-full truncate" title={athlete.name}>
+                    {athlete.name}
+                  </span>
+                  <span className={`mt-1 rounded-full border ${config.border}/40 ${config.bg}/30 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${config.text} shrink-0`}>
+                    {athlete.house}
+                  </span>
+                  <span className="mt-1 text-[10px] font-extrabold text-amber-300/90 font-mono">
+                    {athlete.timing || 'No time'}
+                  </span>
                 </>
               ) : (
-                <span className="text-xs text-slate-600 italic">TBD</span>
+                <div className="flex flex-col items-center opacity-40">
+                  <span className="text-xs font-bold text-slate-500 italic">Unassigned</span>
+                  <span className="text-[10px] text-slate-600">Pending</span>
+                </div>
               )}
             </div>
-            <div className={`w-full ${height} rounded-t-lg border-t-4 ${athlete ? config.border : 'border-white/10'} bg-gradient-to-t ${athlete ? config.gradient : 'from-white/5 to-white/10'} flex items-start justify-center pt-3 shadow-lg shadow-black/30`}>
-              <span className="text-2xl font-black text-white">{rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'}</span>
+            <div className={`w-full ${height} rounded-t-xl border-t-4 ${athlete ? config.border : 'border-white/10'} bg-gradient-to-t ${athlete ? config.gradient : 'from-white/5 to-white/10'} flex flex-col items-center justify-start pt-3 shadow-xl shadow-black/40 relative overflow-hidden`}>
+              <div className={`rounded-full bg-gradient-to-b ${badgeColor} border px-2.5 py-0.5 text-xs font-black tracking-wider uppercase shadow-md`}>
+                {label}
+              </div>
             </div>
           </div>
         );
@@ -79,34 +113,62 @@ const AthleticsPodium = ({ stats }: { stats: AthleticsEventStats }) => {
   );
 };
 
-const EventCard = ({ stats, onOpen }: { stats: AthleticsEventStats; onOpen: () => void }) => (
-  <button
-    onClick={onOpen}
-    className="glass-panel rounded-xl border border-primary/10 p-6 text-left hover:border-primary/40 hover:bg-white/[0.04] transition-all group"
-  >
-    <div className="flex items-start justify-between gap-4">
+const EventCard = ({ stats, onOpen }: { stats: AthleticsEventStats; onOpen: () => void }) => {
+  const typeBadge = {
+    sprint: { label: 'Sprint', bg: 'bg-amber-500/10 text-amber-300 border-amber-500/30', icon: 'sprint' },
+    middle_distance: { label: 'Middle Distance', bg: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30', icon: 'directions_run' },
+    distance: { label: 'Distance', bg: 'bg-blue-500/10 text-blue-300 border-blue-500/30', icon: 'timer' },
+    relay: { label: 'Relay', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/30', icon: 'military_tech' }
+  }[stats.event.type] || { label: stats.event.type, bg: 'bg-slate-500/10 text-slate-300 border-slate-500/30', icon: 'sprint' };
+
+  const totalPoints = HOUSES.reduce((sum, house) => sum + stats.houseStats[house].points, 0);
+
+  return (
+    <div
+      onClick={onOpen}
+      className="glass-panel rounded-2xl border border-primary/15 p-6 hover:border-primary/50 hover:bg-white/[0.04] transition-all duration-300 group cursor-pointer shadow-xl shadow-black/30 hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between"
+    >
+      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none group-hover:bg-primary/10 transition-colors" />
+      
       <div>
-        <div className="royal-kicker mb-2">Athletics 2026</div>
-        <h3 className="text-2xl font-black text-white leading-tight">{stats.event.name}</h3>
-        <p className="text-sm text-slate-400 mt-1 capitalize">{stats.event.type.replace('_', ' ')}</p>
-      </div>
-      <div className="size-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:scale-105 transition-transform">
-        <Icon name="sprint" className="text-[24px]" />
-      </div>
-    </div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="royal-kicker">Athletics 2026</span>
+              <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${typeBadge.bg}`}>
+                {typeBadge.label}
+              </span>
+            </div>
+            <h3 className="text-2xl font-black text-white leading-tight tracking-tight group-hover:text-primary transition-colors">{stats.event.name}</h3>
+          </div>
+          <div className="size-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 text-primary flex items-center justify-center group-hover:scale-110 group-hover:border-primary/40 transition-all shadow-md shrink-0">
+            <Icon name={typeBadge.icon} className="text-[26px]" />
+          </div>
+        </div>
 
-    <div className="mt-5">
-      <AthleticsPodium stats={stats} />
-    </div>
+        <div className="mt-5 border-t border-b border-primary/10 py-4 my-4">
+          <AthleticsPodium stats={stats} />
+        </div>
+      </div>
 
-    <div className="mt-5 grid grid-cols-2 xl:grid-cols-4 gap-3">
-      <StatTile label="Enrolled" value={stats.enrolled} />
-      <StatTile label="Finished" value={stats.finished} accent="text-green-400" />
-      <StatTile label="Best Time" value={stats.bestTiming || '--'} accent="text-primary" />
-      <StatTile label="Points" value={HOUSES.reduce((sum, house) => sum + stats.houseStats[house].points, 0)} accent="text-white" />
+      <div>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <StatTile label="Enrolled" value={stats.enrolled} icon="groups" />
+          <StatTile label="Finished" value={stats.finished} accent="text-emerald-400" icon="check_circle" />
+          <StatTile label="Best Timing" value={stats.bestTiming || '--'} accent="text-amber-300 font-mono text-xl sm:text-2xl" icon="timer" />
+          <StatTile label="House Points" value={totalPoints} accent="text-white" icon="emoji_events" />
+        </div>
+
+        <div className="mt-4 flex items-center justify-between text-xs text-slate-400 pt-2 font-semibold">
+          <span>Click to view detailed rosters & results</span>
+          <span className="text-primary font-black uppercase text-[11px] tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+            Open Event <Icon name="arrow_forward" size="14" />
+          </span>
+        </div>
+      </div>
     </div>
-  </button>
-);
+  );
+};
 
 const Athletics: React.FC = () => {
   const { showToast } = useToast();
@@ -116,6 +178,7 @@ const Athletics: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState<'overview' | 'enrollments' | 'results'>('overview');
   const [studentSearch, setStudentSearch] = React.useState('');
   const [departmentFilter, setDepartmentFilter] = React.useState<'All' | 'PDB' | 'PDG'>('All');
+  const [houseFilter, setHouseFilter] = React.useState<'All' | typeof HOUSES[number]>('All');
 
   const students = React.useMemo(
     () => getPrepAthleticsStudents(studentClasses as Record<string, string>),
@@ -125,6 +188,15 @@ const Athletics: React.FC = () => {
   React.useEffect(() => {
     setSnapshot(getAthleticsSnapshot());
     return subscribeToAthleticsData(setSnapshot);
+  }, []);
+
+  // Close modal on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedEventId(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const derived = React.useMemo(
@@ -164,7 +236,40 @@ const Athletics: React.FC = () => {
     saveNextSnapshot(
       { enrollments: nextEnrollments, results: nextResults },
       'Enrollment Updated',
-      'The Athletics event roster has been saved.'
+      'The Athletics event roster has been updated.'
+    );
+  };
+
+  const enrollAllFiltered = () => {
+    if (!isLoggedIn || !selectedEvent) return;
+    const toAddIds = filteredStudents.map(s => s.id);
+    const existing = snapshot.enrollments.find(entry => entry.eventId === selectedEvent.id)?.studentIds || [];
+    const merged = Array.from(new Set([...existing, ...toAddIds]));
+    
+    const nextEnrollments = snapshot.enrollments.map(entry => 
+      entry.eventId === selectedEvent.id ? { ...entry, studentIds: merged } : entry
+    );
+
+    saveNextSnapshot(
+      { enrollments: nextEnrollments, results: snapshot.results },
+      'Bulk Enrolled',
+      `Enrolled ${toAddIds.length} students into ${selectedEvent.name}.`
+    );
+  };
+
+  const clearAllEnrollments = () => {
+    if (!isLoggedIn || !selectedEvent) return;
+    if (!window.confirm(`Are you sure you want to remove ALL enrollments from ${selectedEvent.name}?`)) return;
+
+    const nextEnrollments = snapshot.enrollments.map(entry => 
+      entry.eventId === selectedEvent.id ? { ...entry, studentIds: [] } : entry
+    );
+    const nextResults = snapshot.results.filter(result => result.eventId !== selectedEvent.id);
+
+    saveNextSnapshot(
+      { enrollments: nextEnrollments, results: nextResults },
+      'Enrollments Cleared',
+      `Cleared all roster entries for ${selectedEvent.name}.`
     );
   };
 
@@ -213,7 +318,7 @@ const Athletics: React.FC = () => {
       return { ...result, position: rankMap.get(result.studentId) };
     });
 
-    saveNextSnapshot({ ...snapshot, results: nextResults }, 'Positions Calculated', 'Finish positions were ranked by timing.');
+    saveNextSnapshot({ ...snapshot, results: nextResults }, 'Positions Calculated', `Ranked ${finishedResults.length} finish timings automatically.`);
   };
 
   const exportAllResults = () => {
@@ -258,9 +363,10 @@ const Athletics: React.FC = () => {
 
   const filteredStudents = students.filter(student => {
     const matchesDepartment = departmentFilter === 'All' || student.department === departmentFilter;
+    const matchesHouse = houseFilter === 'All' || student.house === houseFilter;
     const query = studentSearch.trim().toLowerCase();
     const matchesSearch = !query || [student.id, student.name, student.house, student.className].some(value => value.toLowerCase().includes(query));
-    return matchesDepartment && matchesSearch;
+    return matchesDepartment && matchesHouse && matchesSearch;
   });
 
   const resultRows = enrolledStudents.map(student => ({
@@ -283,57 +389,73 @@ const Athletics: React.FC = () => {
     : [];
 
   const statusPieData = [
-    { name: 'Finished', value: selectedStats?.finished || 0, color: '#22c55e' },
-    { name: 'DNF', value: selectedStats?.dnf || 0, color: '#f97316' },
+    { name: 'Finished', value: selectedStats?.finished || 0, color: '#10b981' },
+    { name: 'DNF', value: selectedStats?.dnf || 0, color: '#f59e0b' },
     { name: 'Absent', value: selectedStats?.absent || 0, color: '#ef4444' },
-    { name: 'Medical', value: selectedStats?.med || 0, color: '#94a3b8' },
+    { name: 'Medical Leave', value: selectedStats?.med || 0, color: '#a855f7' },
     { name: 'Pending', value: selectedStats ? Math.max(selectedStats.enrolled - selectedStats.resulted, 0) : 0, color: '#475569' }
   ].filter(entry => entry.value > 0);
 
   return (
     <div className="max-w-[1500px] mx-auto space-y-8 pb-12">
-      <section className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+      {/* Top Banner Section */}
+      <section className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between border-b border-primary/10 pb-6">
         <div>
-          <div className="royal-kicker mb-2">Track Desk</div>
-          <h1 className="text-4xl font-black text-white tracking-tight">Athletics 2026</h1>
-          <p className="text-slate-400 mt-2 max-w-3xl">Prep boys and girls track events, enrollment, results, house points, and live event analytics.</p>
+          <div className="royal-kicker mb-2">Track Desk • Prep School</div>
+          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight">Athletics 2026</h1>
+          <p className="text-slate-400 mt-2 max-w-3xl text-sm sm:text-base leading-relaxed">
+            Track & Field Desk for Prep Boys (PDB) and Prep Girls (PDG). Manage event enrollments, record times, auto-calculate ranks, and monitor house standings.
+          </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <button onClick={exportAllResults} className="royal-secondary-btn rounded-lg px-4 py-3 text-xs font-black uppercase flex items-center gap-2">
+          <button onClick={exportAllResults} className="royal-secondary-btn rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg">
             <Icon name="download" className="text-[18px]" />
-            Export All
+            Export All Results
           </button>
-          <div className={`rounded-lg border px-4 py-3 text-xs font-black uppercase flex items-center gap-2 ${isLoggedIn ? 'border-green-500/30 bg-green-500/10 text-green-300' : 'border-primary/10 bg-white/[0.03] text-slate-400'}`}>
+          <div className={`rounded-xl border px-5 py-3 text-xs font-black uppercase tracking-wider flex items-center gap-2.5 shadow-lg transition-all ${isLoggedIn ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-primary/20 bg-white/[0.03] text-slate-400'}`}>
             <Icon name={isLoggedIn ? 'verified_user' : 'lock'} className="text-[18px]" />
-            {isLoggedIn ? 'Staff Editing Active' : 'Read Only'}
+            {isLoggedIn ? 'Staff Editing Active' : 'Read Only Mode'}
           </div>
         </div>
       </section>
 
+      {/* Top Summary Stat Grid */}
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatTile label="Total Events" value={ATHLETICS_EVENTS.length} accent="text-primary" />
-        <StatTile label="Total Enrollments" value={derived.eventStats.reduce((sum, event) => sum + event.enrolled, 0)} />
-        <StatTile label="Total Finished" value={derived.eventStats.reduce((sum, event) => sum + event.finished, 0)} accent="text-green-400" />
-        <StatTile label="Leading House" value={derived.standings[0]?.name || '--'} accent={derived.standings[0] ? houseConfig(derived.standings[0].name).text : 'text-slate-400'} />
+        <StatTile label="Total Events" value={ATHLETICS_EVENTS.length} accent="text-amber-400 font-mono" icon="sprint" />
+        <StatTile label="Total Enrollments" value={derived.eventStats.reduce((sum, event) => sum + event.enrolled, 0)} icon="groups" />
+        <StatTile label="Total Finished" value={derived.eventStats.reduce((sum, event) => sum + event.finished, 0)} accent="text-emerald-400" icon="check_circle" />
+        <StatTile 
+          label="Leading House" 
+          value={derived.standings[0]?.name || '--'} 
+          accent={derived.standings[0] ? houseConfig(derived.standings[0].name).text : 'text-slate-400'} 
+          icon="emoji_events"
+        />
       </section>
 
+      {/* House Standings Overview */}
       <section className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <div className="xl:col-span-7 glass-panel rounded-xl border border-primary/10 p-6">
+        <div className="xl:col-span-7 glass-panel rounded-2xl border border-primary/15 p-6 shadow-xl relative overflow-hidden">
           <div className="flex items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-xl font-black text-white">House Standings</h2>
-              <p className="text-xs text-slate-400">Points from top-five event positions</p>
+              <div className="royal-kicker mb-1">Live Leaderboard</div>
+              <h2 className="text-2xl font-black text-white">House Standings</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Points calculated from top-5 finishes across all prep events (1st: 5pts, 2nd: 4pts, 3rd: 3pts, 4th: 2pts, 5th: 1pt)</p>
             </div>
-            <Icon name="leaderboard" className="text-primary text-[28px]" />
+            <div className="size-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+              <Icon name="leaderboard" className="text-[28px]" />
+            </div>
           </div>
-          <div className="h-[300px]">
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={derived.standings} layout="vertical" margin={{ left: 10, right: 24 }}>
+              <BarChart data={derived.standings} layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fill: '#fff', fontSize: 12, fontWeight: 800 }} axisLine={false} tickLine={false} width={90} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(201,163,74,0.2)', borderRadius: 8, color: '#fff' }} />
-                <Bar dataKey="points" radius={[0, 6, 6, 0]}>
+                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fill: '#fff', fontSize: 13, fontWeight: 900 }} axisLine={false} tickLine={false} width={90} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(201,163,74,0.3)', borderRadius: 12, color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} 
+                  formatter={(value: any) => [`${value} Points`, 'Total Score']}
+                />
+                <Bar dataKey="points" radius={[0, 8, 8, 0]}>
                   {derived.standings.map(entry => <Cell key={entry.name} fill={entry.color} />)}
                 </Bar>
               </BarChart>
@@ -344,84 +466,144 @@ const Athletics: React.FC = () => {
         <div className="xl:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {HOUSES.map(house => {
             const config = houseConfig(house);
-            const points = derived.standings.find(entry => entry.name === house)?.points || 0;
+            const standingsEntry = derived.standings.find(entry => entry.name === house);
+            const points = standingsEntry?.points || 0;
+            const rank = derived.standings.findIndex(entry => entry.name === house) + 1;
+            
             return (
-              <div key={house} className="glass-panel rounded-xl border border-primary/10 p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`size-9 rounded-lg ${config.bg}/20 ${config.text} border ${config.border}/30 flex items-center justify-center font-black`}>{house[0]}</div>
-                  <span className={`font-black ${config.text}`}>{house}</span>
+              <div key={house} className="glass-panel rounded-2xl border border-primary/15 p-5 shadow-xl hover:border-primary/30 transition-all flex flex-col justify-between relative overflow-hidden group">
+                <div className={`absolute top-0 right-0 w-24 h-24 ${config.bg}/10 rounded-full blur-xl pointer-events-none`} />
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`size-10 rounded-xl ${config.bg}/20 ${config.text} border ${config.border}/40 flex items-center justify-center font-black text-lg shadow-md`}>
+                      {house[0]}
+                    </div>
+                    <div>
+                      <span className={`font-black text-lg ${config.text}`}>{house}</span>
+                      <div className="text-[10px] text-slate-400 uppercase font-black tracking-wider">House</div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-amber-300 font-mono">
+                    #{rank}
+                  </span>
                 </div>
-                <div className="text-4xl font-black text-white">{points}</div>
-                <div className="text-[10px] uppercase font-black text-slate-500 mt-1">Athletics Points</div>
+                <div>
+                  <div className="text-4xl font-black text-white tracking-tight">{points}</div>
+                  <div className="text-[10px] uppercase font-black tracking-wider text-slate-500 mt-1">Total Athletics Points</div>
+                </div>
               </div>
             );
           })}
         </div>
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {derived.eventStats.map(stats => (
-          <EventCard
-            key={stats.event.id}
-            stats={stats}
-            onOpen={() => {
-              setSelectedEventId(stats.event.id);
-              setActiveTab('overview');
-            }}
-          />
-        ))}
+      {/* Events Grid */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-white">Athletics Events Desk</h2>
+            <p className="text-xs text-slate-400">Select an event card to manage roster enrollments, record finished timings, or auto-calculate positions.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {derived.eventStats.map(stats => (
+            <EventCard
+              key={stats.event.id}
+              stats={stats}
+              onOpen={() => {
+                setSelectedEventId(stats.event.id);
+                setActiveTab('overview');
+              }}
+            />
+          ))}
+        </div>
       </section>
 
-      {selectedStats && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSelectedEventId(null)}></div>
-          <div className="relative w-full max-w-7xl max-h-[92vh] overflow-hidden rounded-xl border border-primary/15 bg-[#0f172a] shadow-2xl flex flex-col">
+      {/* PORTAL MODAL FOR EVENT DETAILS */}
+      {selectedStats && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity animate-in fade-in duration-200" 
+            onClick={() => setSelectedEventId(null)} 
+          />
+
+          {/* Modal Box */}
+          <div className="relative w-full max-w-6xl my-auto max-h-[92vh] overflow-hidden rounded-2xl border border-primary/25 bg-[#0b121e] shadow-2xl flex flex-col z-[10000] animate-in zoom-in-95 duration-200">
             <ModalHeader
-              kicker="Athletics 2026"
+              kicker="Athletics 2026 Event Desk"
               icon="sprint"
               title={selectedEvent.name}
-              subtitle={`${selectedStats.enrolled} enrolled • ${selectedStats.finished} finished • ${HOUSES.reduce((sum, house) => sum + selectedStats.houseStats[house].points, 0)} points awarded`}
+              subtitle={`${selectedStats.enrolled} enrolled • ${selectedStats.finished} finished • ${HOUSES.reduce((sum, house) => sum + selectedStats.houseStats[house].points, 0)} house points awarded`}
               onClose={() => setSelectedEventId(null)}
             />
 
-            <div className="border-b border-primary/10 px-6 py-3 flex flex-wrap gap-2">
-              {(['overview', 'enrollments', 'results'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`rounded-lg px-4 py-2 text-xs font-black uppercase transition-all ${activeTab === tab ? 'royal-primary-btn' : 'royal-secondary-btn'}`}
+            {/* Modal Subnav Toolbar */}
+            <div className="border-b border-primary/15 bg-white/[0.02] px-6 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                {(['overview', 'enrollments', 'results'] as const).map(tab => {
+                  const icons = { overview: 'analytics', enrollments: 'groups', results: 'fact_check' };
+                  const active = activeTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${
+                        active 
+                          ? 'bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/10' 
+                          : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      <Icon name={icons[tab]} size="16" />
+                      {tab}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={exportEventRoster} 
+                  className="royal-secondary-btn rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2"
                 >
-                  {tab}
+                  <Icon name="download" size="16" />
+                  Export Roster
                 </button>
-              ))}
-              <button onClick={exportEventRoster} className="ml-auto rounded-lg royal-secondary-btn px-4 py-2 text-xs font-black uppercase flex items-center gap-2">
-                <Icon name="download" className="text-[16px]" />
-                Export Event
-              </button>
+              </div>
             </div>
 
-            <div className="p-6 overflow-y-auto custom-scrollbar">
+            {/* Modal Body Scroll Area */}
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+              {/* OVERVIEW TAB */}
               {activeTab === 'overview' && (
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                  <div className="xl:col-span-5 glass-panel rounded-xl border border-white/5 p-6">
-                    <h3 className="text-lg font-black text-white mb-4">Podium</h3>
-                    <AthleticsPodium stats={selectedStats} />
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <StatTile label="Best Timing" value={selectedStats.bestTiming || '--'} accent="text-primary" />
-                      <StatTile label="Finished" value={selectedStats.finished} accent="text-green-400" />
+                  <div className="xl:col-span-5 glass-panel rounded-2xl border border-white/10 p-6 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-xl font-black text-white">Event Podium</h3>
+                        <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Top Finishers</span>
+                      </div>
+                      <AthleticsPodium stats={selectedStats} />
+                    </div>
+
+                    <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
+                      <StatTile label="Best Timing" value={selectedStats.bestTiming || '--'} accent="text-amber-300 font-mono" icon="timer" />
+                      <StatTile label="Finished" value={selectedStats.finished} accent="text-emerald-400" icon="check_circle" />
                     </div>
                   </div>
 
                   <div className="xl:col-span-7 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="glass-panel rounded-xl border border-white/5 p-6">
-                      <h3 className="text-lg font-black text-white mb-4">House Output</h3>
-                      <div className="h-[280px]">
+                    <div className="glass-panel rounded-2xl border border-white/10 p-6">
+                      <h3 className="text-lg font-black text-white mb-1">House Points Breakdown</h3>
+                      <p className="text-xs text-slate-400 mb-4">Points earned in {selectedEvent.name}</p>
+                      <div className="h-[250px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={houseChartData}>
+                          <BarChart data={houseChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                            <XAxis dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 10, fontWeight: 800 }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(201,163,74,0.2)', borderRadius: 8, color: '#fff' }} />
+                            <XAxis dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 11, fontWeight: 800 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(201,163,74,0.3)', borderRadius: 10, color: '#fff' }} />
                             <Bar dataKey="points" radius={[6, 6, 0, 0]}>
                               {houseChartData.map(entry => <Cell key={entry.name} fill={entry.color} />)}
                             </Bar>
@@ -430,23 +612,26 @@ const Athletics: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="glass-panel rounded-xl border border-white/5 p-6">
-                      <h3 className="text-lg font-black text-white mb-4">Status Breakdown</h3>
-                      <div className="h-[280px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie data={statusPieData} dataKey="value" nameKey="name" innerRadius={62} outerRadius={96} paddingAngle={3}>
-                              {statusPieData.map(entry => <Cell key={entry.name} fill={entry.color} />)}
-                            </Pie>
-                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(201,163,74,0.2)', borderRadius: 8, color: '#fff' }} />
-                          </PieChart>
-                        </ResponsiveContainer>
+                    <div className="glass-panel rounded-2xl border border-white/10 p-6 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-lg font-black text-white mb-1">Status Breakdown</h3>
+                        <p className="text-xs text-slate-400 mb-2">Participant outcome distribution</p>
+                        <div className="h-[200px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie data={statusPieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={4}>
+                                {statusPieData.map(entry => <Cell key={entry.name} fill={entry.color} />)}
+                              </Pie>
+                              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(201,163,74,0.3)', borderRadius: 10, color: '#fff' }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2 border-t border-white/5 pt-3">
                         {statusPieData.map(entry => (
                           <div key={entry.name} className="flex items-center gap-2 text-xs text-slate-300">
-                            <span className="size-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
-                            <span>{entry.name}: <b className="text-white">{entry.value}</b></span>
+                            <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }}></span>
+                            <span className="truncate">{entry.name}: <b className="text-white font-black">{entry.value}</b></span>
                           </div>
                         ))}
                       </div>
@@ -455,28 +640,78 @@ const Athletics: React.FC = () => {
                 </div>
               )}
 
+              {/* ENROLLMENTS TAB */}
               {activeTab === 'enrollments' && (
                 <div className="space-y-5">
-                  <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
-                    <input
-                      value={studentSearch}
-                      onChange={event => setStudentSearch(event.target.value)}
-                      placeholder="Search by computer number, name, house, or class"
-                      className="royal-input rounded-lg px-4 py-3 flex-1"
-                    />
-                    <select value={departmentFilter} onChange={event => setDepartmentFilter(event.target.value as 'All' | 'PDB' | 'PDG')} className="royal-input rounded-lg px-4 py-3">
-                      <option value="All">All Prep</option>
-                      <option value="PDB">Prep Boys</option>
-                      <option value="PDG">Prep Girls</option>
-                    </select>
+                  {/* Filters & Search Toolbar */}
+                  <div className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                    <div className="flex flex-1 flex-col sm:flex-row gap-3">
+                      <div className="relative flex-1">
+                        <Icon name="search" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]" />
+                        <input
+                          value={studentSearch}
+                          onChange={event => setStudentSearch(event.target.value)}
+                          placeholder="Search by Computer No, student name, or class..."
+                          className="royal-input rounded-xl pl-10 pr-4 py-2.5 w-full text-sm"
+                        />
+                        {studentSearch && (
+                          <button onClick={() => setStudentSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                            <Icon name="close" size="16" />
+                          </button>
+                        )}
+                      </div>
+                      <select 
+                        value={departmentFilter} 
+                        onChange={event => setDepartmentFilter(event.target.value as 'All' | 'PDB' | 'PDG')} 
+                        className="royal-input rounded-xl px-4 py-2.5 text-sm shrink-0"
+                      >
+                        <option value="All">All Departments</option>
+                        <option value="PDB">Prep Boys (PDB)</option>
+                        <option value="PDG">Prep Girls (PDG)</option>
+                      </select>
+                      <select 
+                        value={houseFilter} 
+                        onChange={event => setHouseFilter(event.target.value as 'All' | typeof HOUSES[number])} 
+                        className="royal-input rounded-xl px-4 py-2.5 text-sm shrink-0"
+                      >
+                        <option value="All">All Houses</option>
+                        {HOUSES.map(h => <option key={h} value={h}>{h} House</option>)}
+                      </select>
+                    </div>
+
+                    {isLoggedIn && (
+                      <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-white/10">
+                        <button 
+                          onClick={enrollAllFiltered}
+                          className="royal-secondary-btn rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-1.5"
+                        >
+                          <Icon name="playlist_add_check" size="16" />
+                          Enroll Filtered ({filteredStudents.length})
+                        </button>
+                        <button 
+                          onClick={clearAllEnrollments}
+                          className="rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                        >
+                          <Icon name="delete_sweep" size="16" />
+                          Clear Roster
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {!isLoggedIn && (
-                    <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
-                      Staff login is required to edit event enrollments.
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300 flex items-center gap-3">
+                      <Icon name="info" className="text-[20px]" />
+                      <span>Staff authentication is required to toggle or edit event enrollments.</span>
                     </div>
                   )}
 
+                  <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-bold">
+                    <span>Showing {filteredStudents.length} of {students.length} prep students</span>
+                    <span>{enrolledIds.length} currently enrolled in {selectedEvent.name}</span>
+                  </div>
+
+                  {/* Student Enrollment Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {filteredStudents.map(student => {
                       const enrolled = enrolledIds.includes(student.id);
@@ -486,19 +721,32 @@ const Athletics: React.FC = () => {
                           key={student.id}
                           disabled={!isLoggedIn}
                           onClick={() => toggleEnrollment(selectedEvent, student.id)}
-                          className={`rounded-lg border p-4 text-left transition-all ${enrolled ? 'border-primary/40 bg-primary/10' : 'border-white/5 bg-white/[0.03] hover:border-primary/20'} disabled:cursor-not-allowed disabled:opacity-70`}
+                          className={`rounded-xl border p-4 text-left transition-all duration-200 relative overflow-hidden group ${
+                            enrolled 
+                              ? 'border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-yellow-600/5 shadow-lg shadow-amber-500/5' 
+                              : 'border-white/5 bg-white/[0.02] hover:border-amber-500/20 hover:bg-white/[0.04]'
+                          } disabled:cursor-not-allowed disabled:opacity-75`}
                         >
                           <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-white font-black truncate" title={student.name}>{student.name}</div>
-                              <div className="text-xs text-slate-400 mt-1">#{student.id} • Class {student.className} • {student.department}</div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-white font-black truncate text-sm" title={student.name}>{student.name}</div>
+                              <div className="text-xs text-slate-400 mt-1 font-medium">#{student.id} • Class {student.className} • {student.department}</div>
                             </div>
-                            <div className={`shrink-0 rounded-full border ${config.border}/30 ${config.bg}/20 px-2 py-1 text-[10px] font-black ${config.text}`}>
+                            <div className={`shrink-0 rounded-full border ${config.border}/40 ${config.bg}/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${config.text}`}>
                               {student.house}
                             </div>
                           </div>
-                          <div className={`mt-3 text-xs font-black uppercase ${enrolled ? 'text-green-400' : 'text-slate-500'}`}>
-                            {enrolled ? 'Enrolled' : 'Not Enrolled'}
+                          
+                          <div className="mt-3 flex items-center justify-between pt-2 border-t border-white/5">
+                            <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${enrolled ? 'text-emerald-400' : 'text-slate-500'}`}>
+                              <Icon name={enrolled ? 'check_circle' : 'radio_button_unchecked'} size="15" />
+                              {enrolled ? 'Enrolled' : 'Not Enrolled'}
+                            </span>
+                            {isLoggedIn && (
+                              <span className="text-[10px] text-amber-400/80 uppercase font-black opacity-0 group-hover:opacity-100 transition-opacity">
+                                Click to {enrolled ? 'Remove' : 'Add'}
+                              </span>
+                            )}
                           </div>
                         </button>
                       );
@@ -507,26 +755,37 @@ const Athletics: React.FC = () => {
                 </div>
               )}
 
+              {/* RESULTS TAB */}
               {activeTab === 'results' && (
                 <div className="space-y-4">
-                  <div className="flex flex-wrap gap-3 justify-between items-center">
+                  <div className="flex flex-wrap gap-3 justify-between items-center bg-white/[0.02] p-4 rounded-xl border border-white/5">
                     <div>
-                      <h3 className="text-lg font-black text-white">Result Entry</h3>
-                      <p className="text-xs text-slate-400">Use `SS:MS` for sprints or `MM:SS:MS` for longer races.</p>
+                      <h3 className="text-lg font-black text-white flex items-center gap-2">
+                        <Icon name="fact_check" className="text-amber-400 text-[20px]" />
+                        Result Entry & Timing Desk
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">Enter timing formats like `12:45` (seconds:ms) or `01:23:45` (mins:secs:ms).</p>
                     </div>
-                    <button disabled={!isLoggedIn} onClick={autoRankEvent} className="royal-primary-btn rounded-lg px-4 py-3 text-xs font-black uppercase disabled:opacity-50 flex items-center gap-2">
-                      <Icon name="sort" className="text-[18px]" />
-                      Auto Rank By Time
-                    </button>
+                    {isLoggedIn && (
+                      <button 
+                        onClick={autoRankEvent} 
+                        className="royal-primary-btn rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg"
+                      >
+                        <Icon name="sort" className="text-[18px]" />
+                        Auto-Rank Finish Positions
+                      </button>
+                    )}
                   </div>
 
                   {!isLoggedIn && (
-                    <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
-                      Staff login is required to edit results.
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300 flex items-center gap-3">
+                      <Icon name="info" className="text-[20px]" />
+                      <span>Staff authentication is required to modify or save student results.</span>
                     </div>
                   )}
 
-                  <div className="overflow-x-auto rounded-lg border border-white/5">
+                  {/* Results Table */}
+                  <div className="overflow-x-auto rounded-xl border border-white/10 shadow-xl bg-black/20">
                     <table className="royal-data-table min-w-[900px]">
                       <thead>
                         <tr>
@@ -540,29 +799,68 @@ const Athletics: React.FC = () => {
                       <tbody>
                         {resultRows.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="text-center py-12 text-slate-500">No students enrolled in this event yet.</td>
+                            <td colSpan={5} className="text-center py-16 text-slate-500">
+                              <Icon name="person_off" className="text-[36px] mb-2 opacity-50 block mx-auto" />
+                              No students are currently enrolled in this event. Go to the <b className="text-amber-400">Enrollments</b> tab to add participants.
+                            </td>
                           </tr>
                         ) : resultRows.map(({ student, result }) => {
                           const config = houseConfig(student.house);
+                          const isPodium = result.position && result.position <= 3;
+                          const rankBadge = result.position === 1 ? '🥇 1st' : result.position === 2 ? '🥈 2nd' : result.position === 3 ? '🥉 3rd' : `#${result.position}`;
+
                           return (
-                            <tr key={student.id}>
+                            <tr key={student.id} className="hover:bg-white/[0.02] transition-colors">
                               <td>
-                                <div className="font-black text-white">{student.name}</div>
-                                <div className="text-xs text-slate-500">#{student.id} • Class {student.className}</div>
+                                <div className="font-black text-white text-sm">{student.name}</div>
+                                <div className="text-xs text-slate-400 font-medium mt-0.5">#{student.id} • Class {student.className} • {student.department}</div>
                               </td>
                               <td>
-                                <span className={`rounded-full border ${config.border}/30 ${config.bg}/20 px-2 py-1 text-[10px] font-black ${config.text}`}>{student.house}</span>
+                                <span className={`rounded-full border ${config.border}/40 ${config.bg}/20 px-3 py-1 text-[10px] font-black uppercase tracking-wider ${config.text}`}>
+                                  {student.house}
+                                </span>
                               </td>
                               <td>
-                                <select disabled={!isLoggedIn} value={result.status} onChange={event => updateResult(student.id, { status: event.target.value as AthleticsResultStatus })} className="royal-input rounded-lg px-3 py-2 text-sm min-w-[150px] disabled:opacity-60">
-                                  {RESULT_STATUSES.map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}
+                                <select 
+                                  disabled={!isLoggedIn} 
+                                  value={result.status} 
+                                  onChange={event => updateResult(student.id, { status: event.target.value as AthleticsResultStatus })} 
+                                  className={`royal-input rounded-xl px-3 py-2 text-xs font-black min-w-[160px] border ${statusBadgeStyle(result.status)} disabled:opacity-60 cursor-pointer`}
+                                >
+                                  {RESULT_STATUSES.map(status => (
+                                    <option key={status} value={status} className="bg-[#0f172a] text-white">
+                                      {statusLabel(status)}
+                                    </option>
+                                  ))}
                                 </select>
                               </td>
                               <td>
-                                <input disabled={!isLoggedIn} value={result.timing || ''} onChange={event => updateResult(student.id, { timing: event.target.value })} placeholder="12:34 or 04:50:12" className="royal-input rounded-lg px-3 py-2 text-sm min-w-[150px] disabled:opacity-60" />
+                                <input 
+                                  disabled={!isLoggedIn} 
+                                  value={result.timing || ''} 
+                                  onChange={event => updateResult(student.id, { timing: event.target.value })} 
+                                  placeholder="e.g. 12:34" 
+                                  className="royal-input rounded-xl px-3 py-2 text-xs font-mono font-bold min-w-[140px] text-amber-300 disabled:opacity-60" 
+                                />
                               </td>
                               <td>
-                                <input disabled={!isLoggedIn} type="number" min="1" value={result.position || ''} onChange={event => updateResult(student.id, { position: event.target.value ? Number(event.target.value) : undefined })} className="royal-input rounded-lg px-3 py-2 text-sm w-24 disabled:opacity-60" />
+                                <div className="flex items-center gap-2">
+                                  <input 
+                                    disabled={!isLoggedIn} 
+                                    type="number" 
+                                    min="1" 
+                                    max="50"
+                                    value={result.position || ''} 
+                                    onChange={event => updateResult(student.id, { position: event.target.value ? Number(event.target.value) : undefined })} 
+                                    placeholder="Rank"
+                                    className="royal-input rounded-xl px-3 py-2 text-xs font-bold w-20 text-center disabled:opacity-60" 
+                                  />
+                                  {result.position && (
+                                    <span className={`text-xs font-black px-2 py-1 rounded-md ${isPodium ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400'}`}>
+                                      {rankBadge}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -574,7 +872,8 @@ const Athletics: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
