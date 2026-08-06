@@ -52,6 +52,7 @@ const Layout: React.FC = () => {
       case '/attendance': return { title: 'Sports Attendance', subtitle: 'Individual participation tracking' };
       case '/teams': return { title: 'School Teams', subtitle: 'Competitive squads across all age groups' };
       case '/hodsons': return { title: 'Hodson\'s Run 2026', subtitle: 'Annual Cross Country Championship' };
+      case '/athletics': return { title: 'Athletics 2026', subtitle: 'Prep track enrollment and results desk' };
       case '/staff-login': return { title: 'Staff Login', subtitle: 'Protected access to staff-only controls' };
       default: return { title: 'Sanawar Sports', subtitle: 'Analytics Dashboard' };
     }
@@ -107,6 +108,7 @@ const Layout: React.FC = () => {
           <SidebarItem to="/attendance" icon="fact_check" label="Attendance" />
           <SidebarItem to="/teams" icon="groups" label="School Teams" />
           <SidebarItem to="/hodsons" icon="directions_run" label="Hodsons 2026" />
+          <SidebarItem to="/athletics" icon="sprint" label="Athletics 2026" />
           <SidebarItem to="/staff-login" icon="lock_person" label="Staff Login" />
         </nav>
 

@@ -8,6 +8,7 @@ import Archive from './pages/Archive';
 import Attendance from './pages/Attendance';
 import SchoolTeams from './pages/SchoolTeams';
 import Hodsons from './pages/Hodsons';
+import Athletics from './pages/Athletics';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { StaffAuthProvider } from './components/auth/StaffAuthProvider';
 import StaffLogin from './pages/StaffLogin';
@@ -28,6 +29,7 @@ export default function App() {
               <Route path="attendance" element={<Attendance />} />
               <Route path="teams" element={<SchoolTeams />} />
               <Route path="hodsons" element={<Hodsons />} />
+              <Route path="athletics" element={<Athletics />} />
               <Route path="staff-login" element={<StaffLogin />} />
             </Route>
           </Routes>

@@ -24,7 +24,7 @@ const StaffLogin: React.FC = () => {
     setPassword('');
     showToast({
       title: 'Staff Access Enabled',
-      description: 'The Manage Results controls are now visible on the Hodsons page.'
+      description: 'Staff-only controls are now visible on Hodsons and Athletics pages.'
     });
     navigate('/hodsons');
   };
