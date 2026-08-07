@@ -17,7 +17,8 @@ import {
   getAthleticsSnapshot,
   getPrepAthleticsStudents,
   saveAthleticsSnapshot,
-  subscribeToAthleticsData
+  subscribeToAthleticsData,
+  AthleticsDepartment
 } from '../utils/athleticsStorage';
 import { AthleticsEventStats, buildAthleticsDerivedData } from '../utils/athleticsDerived';
 
@@ -29,8 +30,8 @@ const houseConfig = (house: string) => {
   return HOUSE_COLORS[key] ?? HOUSE_COLORS.nilgiri;
 };
 
-const statusLabel = (status: AthleticsResultStatus) => {
-  switch (status) {
+const statusLabel = (status: string) => {
+  switch (status as AthleticsResultStatus) {
     case 'medically_excused': return 'Medical Leave';
     case 'dnf': return 'DNF';
     case 'absent': return 'Absent';
@@ -113,7 +114,7 @@ const AthleticsPodium = ({ stats }: { stats: AthleticsEventStats }) => {
   );
 };
 
-const EventCard = ({ stats, onOpen }: { stats: AthleticsEventStats; onOpen: () => void }) => {
+const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void}> = ({ stats, onOpen }) => {
   const typeBadge = {
     sprint: { label: 'Sprint', bg: 'bg-amber-500/10 text-amber-300 border-amber-500/30', icon: 'sprint' },
     middle_distance: { label: 'Middle Distance', bg: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30', icon: 'directions_run' },
@@ -177,7 +178,7 @@ const Athletics: React.FC = () => {
   const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
   const [activeTab, setActiveTab] = React.useState<'overview' | 'enrollments' | 'results'>('overview');
   const [studentSearch, setStudentSearch] = React.useState('');
-  const [departmentFilter, setDepartmentFilter] = React.useState<'All' | 'PDB' | 'PDG'>('All');
+  const [departmentFilter, setDepartmentFilter] = React.useState<'All' | 'PDB' | 'PDG' | 'BD' | 'GD'>('All');
   const [houseFilter, setHouseFilter] = React.useState<'All' | typeof HOUSES[number]>('All');
 
   const students = React.useMemo(
@@ -361,13 +362,48 @@ const Athletics: React.FC = () => {
     downloadWorkbook(`Athletics 2026 ${selectedEvent.name} Roster.xlsx`, rows);
   };
 
-  const filteredStudents = students.filter(student => {
-    const matchesDepartment = departmentFilter === 'All' || student.department === departmentFilter;
+  const [eventDeptFilter, setEventDeptFilter] = React.useState<'All' | 'BD' | 'GD' | 'PD'>('All');
+
+  const filteredEventStats = React.useMemo(() => {
+    let events = derived.eventStats;
+    if (eventDeptFilter !== 'All') {
+      events = events.filter(stats => {
+        const depts = stats.event.departments as string[];
+        if (eventDeptFilter === 'PD') {
+          return depts.includes('PDB') || depts.includes('PDG');
+        }
+        return depts.includes(eventDeptFilter);
+      });
+    }
+    // Simple sort by event name
+    return events.slice().sort((a, b) => a.event.name.localeCompare(b.event.name));
+  }, [derived.eventStats, eventDeptFilter]);
+
+  // UI dashboard for sorting events
+  const eventDashboard = (
+    <div className="flex items-center gap-4 mb-4">
+      <span className="text-sm font-black text-white">Sort Events By Department:</span>
+      <select
+        value={eventDeptFilter}
+        onChange={e => setEventDeptFilter(e.target.value as any)}
+        className="royal-input rounded-xl px-3 py-2.5 text-sm"
+      >
+        <option value="All">All</option>
+        <option value="BD">BD</option>
+        <option value="GD">GD</option>
+        <option value="PD">Prep (PDB/PDG)</option>
+      </select>
+    </div>
+  );
+
+  const filteredStudents = React.useMemo(() => students.filter(student => {
+    const matchesDepartment = departmentFilter === 'All' ||
+      (departmentFilter === 'PD' ? (student.department === 'PDB' || student.department === 'PDG') : student.department === departmentFilter);
     const matchesHouse = houseFilter === 'All' || student.house === houseFilter;
     const query = studentSearch.trim().toLowerCase();
     const matchesSearch = !query || [student.id, student.name, student.house, student.className].some(value => value.toLowerCase().includes(query));
     return matchesDepartment && matchesHouse && matchesSearch;
-  });
+  }), [students, departmentFilter, houseFilter, studentSearch]);
 
   const resultRows = enrolledStudents.map(student => ({
     student,
@@ -507,6 +543,7 @@ const Athletics: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {eventDashboard}
           {derived.eventStats.map(stats => (
             <EventCard
               key={stats.event.id}
