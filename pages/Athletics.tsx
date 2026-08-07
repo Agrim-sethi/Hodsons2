@@ -2,6 +2,68 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as XLSX from 'xlsx';
+
+/* ─── Injected animation keyframes ─────────────────────────────────────── */
+const ANIM_STYLES = `
+  @keyframes ath-card-in {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0)   scale(1);    }
+  }
+  @keyframes ath-tick-pop {
+    0%   { opacity: 0; transform: scale(0.3) rotate(-20deg); }
+    55%  { opacity: 1; transform: scale(1.25) rotate(4deg); }
+    75%  { transform: scale(0.92) rotate(-2deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+  @keyframes ath-tick-out {
+    0%   { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.6) translateY(-4px); }
+  }
+  @keyframes ath-tab-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes ath-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+  }
+  @keyframes ath-modal-in {
+    from { opacity: 0; transform: scale(0.94) translateY(16px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0); }
+  }
+  @keyframes ath-badge-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(201,163,74,0); }
+    50%       { box-shadow: 0 0 0 6px rgba(201,163,74,0.18); }
+  }
+  @keyframes ath-row-flash {
+    0%   { background: rgba(16,185,129,0.18); }
+    100% { background: transparent; }
+  }
+  .ath-card-in       { animation: ath-card-in 0.45s cubic-bezier(.22,.68,0,1.2) both; }
+  .ath-tab-in        { animation: ath-tab-in  0.22s ease both; }
+  .ath-modal-in      { animation: ath-modal-in 0.28s cubic-bezier(.22,.68,0,1.15) both; }
+  .ath-shimmer-border {
+    position: relative;
+  }
+  .ath-shimmer-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(120deg, transparent 20%, rgba(201,163,74,0.45) 50%, transparent 80%);
+    background-size: 200% 100%;
+    animation: ath-shimmer 2.8s linear infinite;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .ath-shimmer-border:hover::before { opacity: 1; }
+  .ath-row-flash { animation: ath-row-flash 1.2s ease forwards; }
+`;
 import { Icon } from '../components/Icon';
 import ModalHeader from '../components/ui/ModalHeader';
 import { useToast } from '../components/ui/ToastProvider';
@@ -57,6 +119,30 @@ const downloadWorkbook = (filename: string, rows: Record<string, any>[]) => {
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Athletics 2026');
   XLSX.writeFile(workbook, filename);
 };
+
+/* ─── Saved-tick component ──────────────────────────────────────────────── */
+const SavedTick: React.FC<{ visible: boolean }> = ({ visible }) => (
+  <span
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: 28,
+      height: 28,
+      borderRadius: '50%',
+      background: 'rgba(16,185,129,0.18)',
+      border: '1.5px solid rgba(16,185,129,0.5)',
+      animation: visible ? 'ath-tick-pop 0.45s cubic-bezier(.22,.68,0,1.3) both' : 'ath-tick-out 0.3s ease forwards',
+      flexShrink: 0,
+      pointerEvents: 'none',
+    }}
+    title="Saved"
+  >
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  </span>
+);
 
 const StatTile = ({ label, value, accent = 'text-white', icon }: { label: string; value: React.ReactNode; accent?: string; icon?: string }) => (
   <div className="rounded-xl border border-primary/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 flex flex-col justify-between shadow-lg shadow-black/20 relative overflow-hidden group hover:border-primary/20 transition-all">
@@ -114,7 +200,7 @@ const AthleticsPodium = ({ stats }: { stats: AthleticsEventStats }) => {
   );
 };
 
-const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void}> = ({ stats, onOpen }) => {
+const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void; animDelay?: number}> = ({ stats, onOpen, animDelay = 0 }) => {
   const typeBadge = {
     sprint: { label: 'Sprint', bg: 'bg-amber-500/10 text-amber-300 border-amber-500/30', icon: 'sprint' },
     middle_distance: { label: 'Middle Distance', bg: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30', icon: 'directions_run' },
@@ -127,9 +213,13 @@ const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void}> = ({
   return (
     <div
       onClick={onOpen}
-      className="glass-panel rounded-2xl border border-primary/15 p-6 hover:border-primary/50 hover:bg-white/[0.04] transition-all duration-300 group cursor-pointer shadow-xl shadow-black/30 hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between"
+      style={{ animationDelay: `${animDelay}ms` }}
+      className="ath-card-in ath-shimmer-border glass-panel rounded-2xl border border-primary/15 p-6 hover:border-primary/50 hover:bg-white/[0.04] transition-all duration-300 group cursor-pointer shadow-xl shadow-black/30 hover:-translate-y-1.5 hover:shadow-primary/10 relative overflow-hidden flex flex-col justify-between"
     >
-      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none group-hover:bg-primary/10 transition-colors" />
+      {/* Animated glow orb */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none group-hover:bg-primary/12 group-hover:scale-125 transition-all duration-500" />
+      {/* Bottom edge shimmer line */}
+      <div className="absolute bottom-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
       <div>
         <div className="flex items-start justify-between gap-3">
@@ -140,9 +230,9 @@ const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void}> = ({
                 {typeBadge.label}
               </span>
             </div>
-            <h3 className="text-2xl font-black text-white leading-tight tracking-tight group-hover:text-primary transition-colors">{stats.event.name}</h3>
+            <h3 className="text-2xl font-black text-white leading-tight tracking-tight group-hover:text-primary transition-colors duration-200">{stats.event.name}</h3>
           </div>
-          <div className="size-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 text-primary flex items-center justify-center group-hover:scale-110 group-hover:border-primary/40 transition-all shadow-md shrink-0">
+          <div className="size-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 text-primary flex items-center justify-center group-hover:scale-115 group-hover:rotate-3 group-hover:border-primary/50 transition-all duration-300 shadow-md shrink-0">
             <Icon name={typeBadge.icon} className="text-[26px]" />
           </div>
         </div>
@@ -162,7 +252,7 @@ const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void}> = ({
 
         <div className="mt-4 flex items-center justify-between text-xs text-slate-400 pt-2 font-semibold">
           <span>Click to view detailed rosters & results</span>
-          <span className="text-primary font-black uppercase text-[11px] tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+          <span className="text-primary font-black uppercase text-[11px] tracking-wider flex items-center gap-1.5 group-hover:translate-x-1.5 transition-transform duration-200">
             Open Event <Icon name="arrow_forward" size="14" />
           </span>
         </div>
@@ -171,15 +261,18 @@ const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void}> = ({
   );
 };
 
+/* ─── Athletics page ───────────────────────────────────────────────────── */
 const Athletics: React.FC = () => {
   const { showToast } = useToast();
   const { isLoggedIn } = useStaffAuth();
   const [snapshot, setSnapshot] = React.useState<AthleticsSnapshot>(getAthleticsSnapshot());
   const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
   const [activeTab, setActiveTab] = React.useState<'overview' | 'enrollments' | 'results'>('overview');
+  const [tabKey, setTabKey] = React.useState(0); // bump to retrigger tab animation
   const [studentSearch, setStudentSearch] = React.useState('');
   const [departmentFilter, setDepartmentFilter] = React.useState<'All' | 'PDB' | 'PDG' | 'BD' | 'GD'>('All');
   const [houseFilter, setHouseFilter] = React.useState<'All' | typeof HOUSES[number]>('All');
+  const [savedStudentId, setSavedStudentId] = React.useState<string | null>(null); // for saved-tick animation
 
   const students = React.useMemo(
     () => getPrepAthleticsStudents(studentClasses as Record<string, string>),
@@ -295,6 +388,10 @@ const Athletics: React.FC = () => {
       'Result Saved',
       'The Athletics result table and charts have been updated.'
     );
+
+    // Trigger the saved-tick animation for this row
+    setSavedStudentId(studentId);
+    setTimeout(() => setSavedStudentId(null), 2000);
   };
 
   const autoRankEvent = () => {
@@ -434,6 +531,8 @@ const Athletics: React.FC = () => {
 
   return (
     <div className="max-w-[1500px] mx-auto space-y-8 pb-12">
+      {/* Inject animation CSS once */}
+      <style>{ANIM_STYLES}</style>
       {/* Top Banner Section */}
       <section className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between border-b border-primary/10 pb-6">
         <div>
@@ -544,13 +643,15 @@ const Athletics: React.FC = () => {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {eventDashboard}
-          {derived.eventStats.map(stats => (
+          {derived.eventStats.map((stats, index) => (
             <EventCard
               key={stats.event.id}
               stats={stats}
+              animDelay={index * 70}
               onOpen={() => {
                 setSelectedEventId(stats.event.id);
                 setActiveTab('overview');
+                setTabKey(k => k + 1);
               }}
             />
           ))}
@@ -562,12 +663,13 @@ const Athletics: React.FC = () => {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
+            className="fixed inset-0 bg-black/80 backdrop-blur-lg"
+            style={{ animation: 'ath-tab-in 0.18s ease both' }}
             onClick={() => setSelectedEventId(null)}
           />
 
           {/* Modal Box */}
-          <div className="relative w-full max-w-6xl my-auto max-h-[92vh] overflow-hidden rounded-2xl border border-primary/25 bg-[#0b121e] shadow-2xl flex flex-col z-[10000] animate-in zoom-in-95 duration-200">
+          <div className="ath-modal-in relative w-full max-w-6xl my-auto max-h-[92vh] overflow-hidden rounded-2xl border border-primary/25 bg-[#0b121e] shadow-2xl flex flex-col z-[10000]">
             <ModalHeader
               kicker="Athletics 2026 Event Desk"
               icon="sprint"
@@ -585,11 +687,13 @@ const Athletics: React.FC = () => {
                   return (
                     <button
                       key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${active
+                      onClick={() => { setActiveTab(tab); setTabKey(k => k + 1); }}
+                      className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all duration-200 ${
+                        active
                           ? 'bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/10'
                           : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-                        }`}
+                      }`}
+                      style={active ? { animation: 'ath-badge-pulse 2s ease-in-out infinite' } : undefined}
                     >
                       <Icon name={icons[tab]} size="16" />
                       {tab}
@@ -613,7 +717,7 @@ const Athletics: React.FC = () => {
             <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
               {/* OVERVIEW TAB */}
               {activeTab === 'overview' && (
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                <div key={`overview-${tabKey}`} className="ath-tab-in grid grid-cols-1 xl:grid-cols-12 gap-6">
                   <div className="xl:col-span-5 glass-panel rounded-2xl border border-white/10 p-6 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between mb-2">
@@ -678,7 +782,7 @@ const Athletics: React.FC = () => {
 
               {/* ENROLLMENTS TAB */}
               {activeTab === 'enrollments' && (
-                <div className="space-y-5">
+                <div key={`enrollments-${tabKey}`} className="ath-tab-in space-y-5">
                   {/* Filters & Search Toolbar */}
                   <div className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between bg-white/[0.02] p-4 rounded-xl border border-white/5">
                     <div className="flex flex-1 flex-col sm:flex-row gap-3">
@@ -792,7 +896,7 @@ const Athletics: React.FC = () => {
 
               {/* RESULTS TAB */}
               {activeTab === 'results' && (
-                <div className="space-y-4">
+                <div key={`results-${tabKey}`} className="ath-tab-in space-y-4">
                   <div className="flex flex-wrap gap-3 justify-between items-center bg-white/[0.02] p-4 rounded-xl border border-white/5">
                     <div>
                       <h3 className="text-lg font-black text-white flex items-center gap-2">
@@ -843,12 +947,19 @@ const Athletics: React.FC = () => {
                           const config = houseConfig(student.house);
                           const isPodium = result.position && result.position <= 3;
                           const rankBadge = result.position === 1 ? '🥇 1st' : result.position === 2 ? '🥈 2nd' : result.position === 3 ? '🥉 3rd' : `#${result.position}`;
+                          const justSaved = savedStudentId === student.id;
 
                           return (
-                            <tr key={student.id} className="hover:bg-white/[0.02] transition-colors">
+                            <tr
+                              key={student.id}
+                              className={`transition-colors ${justSaved ? 'ath-row-flash' : 'hover:bg-white/[0.02]'}`}
+                            >
                               <td>
-                                <div className="font-black text-white text-sm">{student.name}</div>
-                                <div className="text-xs text-slate-400 font-medium mt-0.5">#{student.id} • Class {student.className} • {student.department}</div>
+                                <div className="flex items-center gap-2">
+                                  <div className="font-black text-white text-sm">{student.name}</div>
+                                  {justSaved && <SavedTick visible={true} />}
+                                </div>
+                                <div className="text-xs text-slate-400 font-medium mt-0.5 ml-0">#{student.id} • Class {student.className} • {student.department}</div>
                               </td>
                               <td>
                                 <span className={`rounded-full border ${config.border}/40 ${config.bg}/20 px-3 py-1 text-[10px] font-black uppercase tracking-wider ${config.text}`}>
