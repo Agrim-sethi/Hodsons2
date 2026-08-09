@@ -200,6 +200,14 @@ const AthleticsPodium = ({ stats }: { stats: AthleticsEventStats }) => {
   );
 };
 
+/* ─── Department chip config ───────────────────────────────────────────── */
+const DEPT_CHIP_CONFIG: Record<string, { label: string; bg: string; icon: string }> = {
+  BD:  { label: 'BD',  bg: 'bg-[#c9a34a]/10 text-[#d7bf86] border-[#c9a34a]/25', icon: 'male' },
+  GD:  { label: 'GD',  bg: 'bg-[#e2c98d]/10 text-[#f0d8a1] border-[#e2c98d]/25', icon: 'female' },
+  PDB: { label: 'PDB', bg: 'bg-blue-500/10 text-blue-300 border-blue-500/25', icon: 'child_care' },
+  PDG: { label: 'PDG', bg: 'bg-pink-500/10 text-pink-300 border-pink-500/25', icon: 'child_care' },
+};
+
 const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void; animDelay?: number}> = ({ stats, onOpen, animDelay = 0 }) => {
   const typeBadge = {
     sprint: { label: 'Sprint', bg: 'bg-amber-500/10 text-amber-300 border-amber-500/30', icon: 'sprint' },
@@ -223,12 +231,28 @@ const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void; animD
 
       <div>
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="royal-kicker">Athletics 2026</span>
               <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${typeBadge.bg}`}>
                 {typeBadge.label}
               </span>
+            </div>
+            {/* Department chips */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {(stats.event.departments as string[]).map(dept => {
+                const chip = DEPT_CHIP_CONFIG[dept];
+                if (!chip) return null;
+                return (
+                  <span
+                    key={dept}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${chip.bg}`}
+                  >
+                    <Icon name={chip.icon} size="10" />
+                    {chip.label}
+                  </span>
+                );
+              })}
             </div>
             <h3 className="text-2xl font-black text-white leading-tight tracking-tight group-hover:text-primary transition-colors duration-200">{stats.event.name}</h3>
           </div>
@@ -237,7 +261,7 @@ const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void; animD
           </div>
         </div>
 
-        <div className="mt-5 border-t border-b border-primary/10 py-4 my-4">
+        <div className="mt-3 border-t border-b border-primary/10 py-4 my-4">
           <AthleticsPodium stats={stats} />
         </div>
       </div>
@@ -472,24 +496,132 @@ const Athletics: React.FC = () => {
         return depts.includes(eventDeptFilter);
       });
     }
-    // Simple sort by event name
     return events.slice().sort((a, b) => a.event.name.localeCompare(b.event.name));
   }, [derived.eventStats, eventDeptFilter]);
 
-  // UI dashboard for sorting events
+  /* ── Hodsons-style card-based department filter ───────────────────────── */
+  const EVENT_DEPT_OPTIONS: Array<{
+    key: 'All' | 'BD' | 'GD' | 'PD';
+    label: string;
+    shortLabel: string;
+    icon: string;
+    accent: string;
+    chip: string;
+    buttonActive: string;
+    buttonIdle: string;
+  }> = [
+    {
+      key: 'All',
+      label: 'All Departments',
+      shortLabel: 'All',
+      icon: 'apps',
+      accent: 'text-primary',
+      chip: 'border-primary/20 bg-primary/10',
+      buttonActive: 'border-primary/35 bg-[linear-gradient(135deg,rgba(201,163,74,0.18),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-primary/15',
+      buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-primary/20 hover:text-white hover:bg-primary/[0.06]'
+    },
+    {
+      key: 'BD',
+      label: "Boys' Department",
+      shortLabel: 'BD',
+      icon: 'male',
+      accent: 'text-[#d7bf86]',
+      chip: 'border-primary/20 bg-primary/10',
+      buttonActive: 'border-primary/30 bg-[linear-gradient(135deg,rgba(201,163,74,0.16),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-primary/10',
+      buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-primary/20 hover:text-white hover:bg-primary/[0.05]'
+    },
+    {
+      key: 'GD',
+      label: "Girls' Department",
+      shortLabel: 'GD',
+      icon: 'female',
+      accent: 'text-[#f0d8a1]',
+      chip: 'border-[#e2c98d]/20 bg-[#e2c98d]/10',
+      buttonActive: 'border-[#e2c98d]/30 bg-[linear-gradient(135deg,rgba(226,201,141,0.16),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-[#e2c98d]/10',
+      buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-[#e2c98d]/20 hover:text-white hover:bg-[#e2c98d]/[0.05]'
+    },
+    {
+      key: 'PD',
+      label: 'Prep Department',
+      shortLabel: 'PD',
+      icon: 'child_care',
+      accent: 'text-[#eed59a]',
+      chip: 'border-amber-400/20 bg-amber-500/10',
+      buttonActive: 'border-amber-400/30 bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-amber-500/10',
+      buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-amber-400/20 hover:text-white hover:bg-amber-500/[0.05]'
+    },
+  ];
+
   const eventDashboard = (
-    <div className="flex items-center gap-4 mb-4">
-      <span className="text-sm font-black text-white">Sort Events By Department:</span>
-      <select
-        value={eventDeptFilter}
-        onChange={e => setEventDeptFilter(e.target.value as any)}
-        className="royal-input rounded-xl px-3 py-2.5 text-sm"
-      >
-        <option value="All">All</option>
-        <option value="BD">BD</option>
-        <option value="GD">GD</option>
-        <option value="PD">Prep (PDB/PDG)</option>
-      </select>
+    <div className="col-span-full glass-panel section-plaque rounded-[28px] border border-primary/15 p-5 sm:p-6 mb-2 overflow-hidden relative">
+      {/* Top accent line */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent pointer-events-none" />
+      {/* Glow orb */}
+      <div className="absolute -top-8 -right-8 size-32 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
+
+      <div className="relative z-10 flex flex-col gap-5">
+        {/* Header row */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+              EVENT_DEPT_OPTIONS.find(d => d.key === eventDeptFilter)!.chip
+            } ${
+              EVENT_DEPT_OPTIONS.find(d => d.key === eventDeptFilter)!.accent
+            } text-[10px] font-black uppercase tracking-[0.25em] mb-3`}>
+              <Icon name={EVENT_DEPT_OPTIONS.find(d => d.key === eventDeptFilter)!.icon} size="14" />
+              Department Navigation
+            </div>
+            <h4 className="text-white text-xl sm:text-2xl font-black tracking-tight">Browse Events By Department</h4>
+            <p className="text-sm text-slate-400 mt-1">Switch between <span className="text-primary/80 font-black">`BD`</span>, <span className="text-[#f0d8a1]/80 font-black">`GD`</span>, <span className="text-amber-300/80 font-black">`PD`</span>, or <span className="text-slate-300 font-black">`All`</span> to filter events by department.</p>
+          </div>
+          <div className="flex items-center gap-3 self-start lg:self-auto">
+            <div className="royal-stat-card px-4 py-2 rounded-2xl shadow-[inset_0_1px_0_rgba(255,244,214,0.04)]">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Showing</div>
+              <div className="text-white text-lg font-black">{filteredEventStats.length} Events</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Department card buttons */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {EVENT_DEPT_OPTIONS.map(dept => {
+            const isActive = dept.key === eventDeptFilter;
+            const deptEventCount = dept.key === 'All'
+              ? derived.eventStats.length
+              : derived.eventStats.filter(s => {
+                  const depts = s.event.departments as string[];
+                  if (dept.key === 'PD') return depts.includes('PDB') || depts.includes('PDG');
+                  return depts.includes(dept.key);
+                }).length;
+            return (
+              <button
+                key={dept.key}
+                onClick={() => setEventDeptFilter(dept.key)}
+                className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 group ${
+                  isActive ? dept.buttonActive : dept.buttonIdle
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className={`size-11 rounded-2xl flex items-center justify-center border ${
+                    dept.chip
+                  } transition-transform ${isActive ? 'scale-105' : ''}`}>
+                    <Icon name={dept.icon} size="22" className={dept.accent} />
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${
+                    isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'
+                  }`}>
+                    {dept.shortLabel}
+                  </span>
+                </div>
+                <div className={`text-base font-black mb-1 ${
+                  isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'
+                }`}>{dept.label}</div>
+                <div className="text-xs text-slate-400">{deptEventCount} event{deptEventCount !== 1 ? 's' : ''}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 
@@ -643,7 +775,12 @@ const Athletics: React.FC = () => {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {eventDashboard}
-          {derived.eventStats.map((stats, index) => (
+          {filteredEventStats.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-500 rounded-2xl border border-dashed border-white/10">
+              <Icon name="filter_list_off" className="text-[48px] mb-3 opacity-40" />
+              <p className="text-sm font-bold">No events found for this department filter.</p>
+            </div>
+          ) : filteredEventStats.map((stats, index) => (
             <EventCard
               key={stats.event.id}
               stats={stats}
@@ -802,10 +939,12 @@ const Athletics: React.FC = () => {
                       </div>
                       <select
                         value={departmentFilter}
-                        onChange={event => setDepartmentFilter(event.target.value as 'All' | 'PDB' | 'PDG')}
+                        onChange={event => setDepartmentFilter(event.target.value as any)}
                         className="royal-input rounded-xl px-4 py-2.5 text-sm shrink-0"
                       >
                         <option value="All">All Departments</option>
+                        <option value="BD">Boys' Dept (BD)</option>
+                        <option value="GD">Girls' Dept (GD)</option>
                         <option value="PDB">Prep Boys (PDB)</option>
                         <option value="PDG">Prep Girls (PDG)</option>
                       </select>
