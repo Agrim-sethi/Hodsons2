@@ -2,6 +2,9 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as XLSX from 'xlsx';
+import { AlignmentType, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
+import { FieldMarkInput, TrackMarkInput } from '../components/athletics/MarkInputs';
+import { formatAthleticsMark } from '../utils/athleticsMarks';
 
 /* ─── Injected animation keyframes ─────────────────────────────────────── */
 const ANIM_STYLES = `
@@ -73,17 +76,19 @@ import studentClasses from '../utils/studentClasses.json';
 import {
   ATHLETICS_EVENTS,
   AthleticsEvent,
+  AthleticsEventSetting,
   AthleticsResult,
   AthleticsResultStatus,
   AthleticsSnapshot,
   getAthleticsSnapshot,
   getPrepAthleticsStudents,
   saveAthleticsSnapshot,
+  studentDepartment,
   subscribeToAthleticsData,
   AthleticsCategory,
   ALL_ATHLETICS_CATEGORIES
 } from '../utils/athleticsStorage';
-import { AthleticsEventStats, buildAthleticsDerivedData, matchesCategoryFilter } from '../utils/athleticsDerived';
+import { AthleticsEventStats, buildAthleticsDerivedData, rankFinishedResults } from '../utils/athleticsDerived';
 
 const HOUSES = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
 const RESULT_STATUSES: AthleticsResultStatus[] = ['pending', 'finished', 'dnf', 'absent', 'medically_excused'];
@@ -114,12 +119,40 @@ const statusBadgeStyle = (status: AthleticsResultStatus) => {
   }
 };
 
-const downloadWorkbook = (filename: string, rows: Record<string, any>[]) => {
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+const downloadWorkbook = (filename: string, rows: Record<string, any>[], sheetName = 'Athletics 2026') => {
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Athletics 2026');
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31));
   XLSX.writeFile(workbook, filename);
 };
+
+const docxTable = (headers: string[], rows: Array<Array<string | number>>) => new Table({
+  width: { size: 100, type: WidthType.PERCENTAGE },
+  rows: [
+    new TableRow({
+      children: headers.map(header => new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: header, bold: true })] })],
+        shading: { fill: 'EEEEEE', type: ShadingType.CLEAR }
+      }))
+    }),
+    ...rows.map(row => new TableRow({
+      children: row.map(value => new TableCell({
+        children: [new Paragraph(String(value ?? ''))]
+      }))
+    }))
+  ]
+});
 
 /* ─── Saved-tick component ──────────────────────────────────────────────── */
 const SavedTick: React.FC<{ visible: boolean }> = ({ visible }) => (
@@ -179,7 +212,7 @@ const AthleticsPodium = ({ stats }: { stats: AthleticsEventStats }) => {
                     {athlete.house}
                   </span>
                   <span className="mt-1 text-[10px] font-extrabold text-amber-300/90 font-mono">
-                    {athlete.timing || 'No time'}
+                    {athlete.timing ? formatAthleticsMark(athlete.timing, stats.event.category) : 'No mark'}
                   </span>
                 </>
               ) : (
@@ -214,7 +247,9 @@ const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void; animD
     sprint: { label: 'Sprint', bg: 'bg-amber-500/10 text-amber-300 border-amber-500/30', icon: 'sprint' },
     middle_distance: { label: 'Middle Distance', bg: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30', icon: 'directions_run' },
     distance: { label: 'Distance', bg: 'bg-blue-500/10 text-blue-300 border-blue-500/30', icon: 'timer' },
-    relay: { label: 'Relay', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/30', icon: 'military_tech' }
+    relay: { label: 'Relay', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/30', icon: 'military_tech' },
+    jump: { label: 'Jump', bg: 'bg-sky-500/10 text-sky-300 border-sky-500/30', icon: 'vertical_align_top' },
+    throw: { label: 'Throw', bg: 'bg-orange-500/10 text-orange-300 border-orange-500/30', icon: 'fitness_center' }
   }[stats.event.type] || { label: stats.event.type, bg: 'bg-slate-500/10 text-slate-300 border-slate-500/30', icon: 'sprint' };
 
   const totalPoints = HOUSES.reduce((sum, house) => sum + stats.houseStats[house].points, 0);
@@ -241,7 +276,7 @@ const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void; animD
             </div>
             {/* Department chips */}
             <div className="flex flex-wrap gap-1.5 mb-3">
-              {(stats.event.departments as string[]).map(dept => {
+              {(stats.departments || []).map(dept => {
                 const chip = DEPT_CHIP_CONFIG[dept];
                 if (!chip) return null;
                 return (
@@ -271,7 +306,7 @@ const EventCard: React.FC<{stats: AthleticsEventStats; onOpen: () => void; animD
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
           <StatTile label="Enrolled" value={stats.enrolled} icon="groups" />
           <StatTile label="Finished" value={stats.finished} accent="text-emerald-400" icon="check_circle" />
-          <StatTile label="Best Timing" value={stats.bestTiming || '--'} accent="text-amber-300 font-mono text-xl sm:text-2xl" icon="timer" />
+          <StatTile label={stats.event.category === 'field' ? 'Best Mark' : 'Best Timing'} value={stats.bestTiming ? formatAthleticsMark(stats.bestTiming, stats.event.category) : '--'} accent="text-amber-300 font-mono text-xl sm:text-2xl" icon="timer" />
           <StatTile label="House Points" value={totalPoints} accent="text-white" icon="emoji_events" />
         </div>
 
@@ -293,6 +328,9 @@ const Athletics: React.FC = () => {
   const [snapshot, setSnapshot] = React.useState<AthleticsSnapshot>(getAthleticsSnapshot());
   const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
   const [activeTab, setActiveTab] = React.useState<'overview' | 'enrollments' | 'results'>('overview');
+  const [pageTab, setPageTab] = React.useState<'desk' | 'summary'>('desk');
+  const [resultsStage, setResultsStage] = React.useState<'qualifying' | 'finals'>('qualifying');
+  const [isDownloading, setIsDownloading] = React.useState(false);
   const [tabKey, setTabKey] = React.useState(0); // bump to retrigger tab animation
   const [studentSearch, setStudentSearch] = React.useState('');
   const [categoryFilter, setCategoryFilter] = React.useState<AthleticsCategory | 'All'>('All');
@@ -319,7 +357,7 @@ const Athletics: React.FC = () => {
   }, []);
 
   const derived = React.useMemo(
-    () => buildAthleticsDerivedData(snapshot.enrollments, snapshot.results, students),
+    () => buildAthleticsDerivedData(snapshot.enrollments, snapshot.results, students, snapshot.eventSettings || {}),
     [snapshot, students]
   );
 
@@ -387,7 +425,7 @@ const Athletics: React.FC = () => {
       : snapshot.results.filter(result => !(result.eventId === event.id && result.studentId === studentId));
 
     saveNextSnapshot(
-      { enrollments: nextEnrollments, results: nextResults },
+      { ...snapshot, enrollments: nextEnrollments, results: nextResults },
       'Enrollment Updated',
       'The Athletics event roster has been updated.'
     );
@@ -404,7 +442,7 @@ const Athletics: React.FC = () => {
     );
 
     saveNextSnapshot(
-      { enrollments: nextEnrollments, results: snapshot.results },
+      { ...snapshot, enrollments: nextEnrollments },
       'Bulk Enrolled',
       `Enrolled ${toAddIds.length} students into ${selectedEvent.name}.`
     );
@@ -420,9 +458,26 @@ const Athletics: React.FC = () => {
     const nextResults = snapshot.results.filter(result => result.eventId !== selectedEvent.id);
 
     saveNextSnapshot(
-      { enrollments: nextEnrollments, results: nextResults },
+      { ...snapshot, enrollments: nextEnrollments, results: nextResults },
       'Enrollments Cleared',
       `Cleared all roster entries for ${selectedEvent.name}.`
+    );
+  };
+
+  const eventSettings = snapshot.eventSettings || {};
+  const selectedHasFinals = Boolean(eventSettings[selectedEvent?.id]?.hasFinals);
+  const selectedSetting: AthleticsEventSetting = eventSettings[selectedEvent?.id] || {};
+
+  const updateEventSetting = (patch: AthleticsEventSetting) => {
+    if (!isLoggedIn || !selectedEvent) return;
+    const nextSettings = {
+      ...eventSettings,
+      [selectedEvent.id]: { ...selectedSetting, ...patch }
+    };
+    saveNextSnapshot(
+      { ...snapshot, eventSettings: nextSettings },
+      'Event Settings Saved',
+      `${selectedEvent.name} settings have been updated.`
     );
   };
 
@@ -435,6 +490,10 @@ const Athletics: React.FC = () => {
       status: existing?.status || 'pending',
       timing: existing?.timing || '',
       position: existing?.position,
+      advancesToFinals: existing?.advancesToFinals,
+      finalsStatus: existing?.finalsStatus,
+      finalsTiming: existing?.finalsTiming,
+      finalsPosition: existing?.finalsPosition,
       ...patch
     };
 
@@ -448,95 +507,207 @@ const Athletics: React.FC = () => {
       'The Athletics result table and charts have been updated.'
     );
 
-    // Trigger the saved-tick animation for this row
     setSavedStudentId(studentId);
     setTimeout(() => setSavedStudentId(null), 2000);
   };
 
-  const autoRankEvent = () => {
+  const autoRankEvent = (stage: 'qualifying' | 'finals' = resultsStage) => {
     if (!isLoggedIn) return;
-    const finishedResults = enrolledIds
-      .map(studentId => snapshot.results.find(result => result.eventId === selectedEvent.id && result.studentId === studentId))
-      .filter((result): result is AthleticsResult => Boolean(result && result.status === 'finished' && result.timing))
-      .sort((a, b) => {
-        const parse = (timing = '') => {
-          const parts = timing.split(':').map(segment => parseInt(segment, 10));
-          if (parts.some(value => Number.isNaN(value))) return Number.POSITIVE_INFINITY;
-          if (parts.length === 3) return (parts[0] * 60) + parts[1] + parts[2] / 100;
-          if (parts.length === 2) return parts[0] * 60 + parts[1];
-          return parts[0];
-        };
-        return parse(a.timing) - parse(b.timing);
-      });
-
-    const rankMap = new Map(finishedResults.map((result, index) => [result.studentId, index + 1]));
+    const eventResults = snapshot.results.filter(result => result.eventId === selectedEvent.id);
+    const rankMap = rankFinishedResults(eventResults, enrolledStudents, selectedEvent, stage);
     const nextResults = snapshot.results.map(result => {
       if (result.eventId !== selectedEvent.id || !rankMap.has(result.studentId)) return result;
-      return { ...result, position: rankMap.get(result.studentId) };
+      const position = rankMap.get(result.studentId);
+      if (stage === 'finals') return { ...result, finalsPosition: position };
+      const shouldAdvance = selectedHasFinals && (position || 99) <= 8;
+      return { ...result, position, advancesToFinals: result.advancesToFinals ?? shouldAdvance };
     });
 
-    saveNextSnapshot({ ...snapshot, results: nextResults }, 'Positions Calculated', `Ranked ${finishedResults.length} finish timings automatically.`);
+    saveNextSnapshot(
+      { ...snapshot, results: nextResults },
+      'Positions Calculated',
+      `Ranked ${rankMap.size} ${stage} marks by category automatically.`
+    );
+  };
+
+  const advanceTopFinishers = () => {
+    if (!isLoggedIn) return;
+    const eventResults = snapshot.results.filter(result => result.eventId === selectedEvent.id);
+    const rankMap = rankFinishedResults(eventResults, enrolledStudents, selectedEvent, 'qualifying');
+    const nextResults = snapshot.results.map(result => {
+      if (result.eventId !== selectedEvent.id) return result;
+      const position = rankMap.get(result.studentId);
+      if (!position) return { ...result, advancesToFinals: false };
+      return { ...result, position, advancesToFinals: position <= 8 };
+    });
+    saveNextSnapshot(
+      { ...snapshot, results: nextResults },
+      'Finalists Allotted',
+      'Top 8 finishers in each category have been advanced to finals.'
+    );
+  };
+
+  const eventResultRows = (event: AthleticsEvent) => {
+    const ids = snapshot.enrollments.find(entry => entry.eventId === event.id)?.studentIds || [];
+    const hasFinals = Boolean(eventSettings[event.id]?.hasFinals);
+    const setting = eventSettings[event.id] || {};
+    return ids.map(studentId => {
+      const student = studentMap.get(studentId);
+      const result = snapshot.results.find(entry => entry.eventId === event.id && entry.studentId === studentId);
+      return {
+        Event: event.name,
+        Date: setting.date || '',
+        Coordinator: setting.coordinator || '',
+        ComputerNumber: studentId,
+        Name: student?.name || '',
+        Class: student?.className || '',
+        Category: student?.athleticsCategory || '',
+        Department: student ? studentDepartment(student.athleticsCategory) : '',
+        House: student?.house || '',
+        'Qualifying Status': result ? statusLabel(result.status) : 'Pending',
+        'Qualifying Mark': result?.timing ? formatAthleticsMark(result.timing, event.category) : '',
+        'Qualifying Position': result?.position || '',
+        'Advances To Finals': hasFinals ? (result?.advancesToFinals ? 'Yes' : 'No') : 'N/A',
+        'Finals Status': hasFinals ? statusLabel(result?.finalsStatus || 'pending') : 'N/A',
+        'Finals Mark': hasFinals && result?.finalsTiming ? formatAthleticsMark(result.finalsTiming, event.category) : '',
+        'Finals Position': hasFinals ? (result?.finalsPosition || '') : ''
+      };
+    });
   };
 
   const exportAllResults = () => {
-    const rows = ATHLETICS_EVENTS.flatMap(event => {
-      const ids = snapshot.enrollments.find(entry => entry.eventId === event.id)?.studentIds || [];
-      return ids.map(studentId => {
-        const student = studentMap.get(studentId);
-        const result = snapshot.results.find(entry => entry.eventId === event.id && entry.studentId === studentId);
-        return {
-          Event: event.name,
-          ComputerNumber: studentId,
-          Name: student?.name || '',
-          Class: student?.className || '',
-          Department: student?.department || '',
-          House: student?.house || '',
-          Status: result ? statusLabel(result.status) : 'Pending',
-          Timing: result?.timing || '',
-          Position: result?.position || ''
-        };
-      });
-    });
+    const rows = ATHLETICS_EVENTS.flatMap(event => eventResultRows(event));
     downloadWorkbook(`Athletics 2026 Results ${new Date().toISOString().slice(0, 10)}.xlsx`, rows);
   };
 
-  const exportEventRoster = () => {
-    const rows = enrolledStudents.map(student => {
-      const result = snapshot.results.find(entry => entry.eventId === selectedEvent.id && entry.studentId === student.id);
-      return {
-        Event: selectedEvent.name,
-        ComputerNumber: student.id,
-        Name: student.name,
-        Class: student.className,
-        Department: student.department,
-        House: student.house,
-        Status: result ? statusLabel(result.status) : 'Pending',
-        Timing: result?.timing || '',
-        Position: result?.position || ''
-      };
-    });
-    downloadWorkbook(`Athletics 2026 ${selectedEvent.name} Roster.xlsx`, rows);
+  const exportEventReport = async (format: 'xlsx' | 'docx') => {
+    if (!selectedEvent) return;
+    try {
+      setIsDownloading(true);
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const rows = eventResultRows(selectedEvent);
+      const setting = eventSettings[selectedEvent.id] || {};
+      const fileBase = `Athletics 2026 ${selectedEvent.name} Results ${timestamp}`;
+
+      if (format === 'xlsx') {
+        downloadWorkbook(`${fileBase}.xlsx`, rows, selectedEvent.name);
+        return;
+      }
+
+      const headers = rows[0] ? Object.keys(rows[0]) : ['Name', 'House', 'Category', 'Mark', 'Position'];
+      const tableRows = rows.map(row => headers.map(header => String((row as Record<string, unknown>)[header] ?? '')));
+      const doc = new Document({
+        sections: [{
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 200 },
+              children: [new TextRun({ text: `ATHLETICS 2026 — ${selectedEvent.name.toUpperCase()}`, bold: true, size: 32 })]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 300 },
+              children: [new TextRun({
+                text: `Date: ${setting.date || 'TBD'}  •  Sports Coordinator: ${setting.coordinator || 'TBD'}${selectedHasFinals ? '  •  Qualifying + Finals' : ''}`,
+                size: 20
+              })]
+            }),
+            docxTable(headers, tableRows)
+          ]
+        }]
+      });
+      const blob = await Packer.toBlob(doc);
+      downloadBlob(blob, `${fileBase}.docx`);
+    } catch (error) {
+      console.error(error);
+      showToast({ title: 'Export failed', description: 'Could not generate the event report.' });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
-  const [eventDeptFilter, setEventDeptFilter] = React.useState<'All' | 'BD' | 'GD' | 'PD'>('All');
+  const downloadSummaryDocx = async () => {
+    try {
+      setIsDownloading(true);
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const podiumSections = derived.categoryPodiums.map(entry => {
+        const table = docxTable(
+          ['Rank', 'Name', 'Class', 'House', 'Mark'],
+          entry.top3.map((athlete, index) => [
+            index + 1,
+            athlete?.name || 'TBD',
+            athlete?.className || '—',
+            athlete?.house || '—',
+            athlete?.timing ? formatAthleticsMark(athlete.timing, entry.isField ? 'field' : 'track') : '—'
+          ])
+        );
+        return [
+          new Paragraph({
+            spacing: { before: 360, after: 160 },
+            children: [new TextRun({ text: `${entry.eventName} — ${entry.category}`, bold: true, size: 24 })]
+          }),
+          table
+        ];
+      }).flat();
+
+      const standingsSections = ['Overall', 'BD', 'GD', 'PD'].map(key => {
+        const dept = derived.departmentStandings[key];
+        const table = docxTable(
+          ['House', 'Points'],
+          HOUSES
+            .map(house => ({ house, points: dept.houseStats[house].points }))
+            .sort((a, b) => b.points - a.points)
+            .map(entry => [entry.house, entry.points])
+        );
+        return [
+          new Paragraph({
+            spacing: { before: 400, after: 160 },
+            children: [new TextRun({ text: dept.title, bold: true, size: 24 })]
+          }),
+          table
+        ];
+      }).flat();
+
+      const doc = new Document({
+        sections: [{
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 400 },
+              children: [new TextRun({ text: 'ATHLETICS 2026 — SUMMARY', bold: true, size: 36 })]
+            }),
+            ...podiumSections,
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 600, after: 300 },
+              children: [new TextRun({ text: 'HOUSE STANDINGS', bold: true, size: 32 })]
+            }),
+            ...standingsSections
+          ]
+        }]
+      });
+      const blob = await Packer.toBlob(doc);
+      downloadBlob(blob, `Athletics 2026 Summary ${timestamp}.docx`);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const [eventTypeFilter, setEventTypeFilter] = React.useState<'All' | 'track' | 'field'>('All');
 
   const filteredEventStats = React.useMemo(() => {
     let events = derived.eventStats;
-    if (eventDeptFilter !== 'All') {
-      events = events.filter(stats => {
-        const depts = stats.event.departments as string[];
-        if (eventDeptFilter === 'PD') {
-          return depts.includes('PDB') || depts.includes('PDG');
-        }
-        return depts.includes(eventDeptFilter);
-      });
+    if (eventTypeFilter !== 'All') {
+      events = events.filter(stats => stats.event.category === eventTypeFilter);
     }
     return events.slice().sort((a, b) => a.event.name.localeCompare(b.event.name));
-  }, [derived.eventStats, eventDeptFilter]);
+  }, [derived.eventStats, eventTypeFilter]);
 
-  /* ── Hodsons-style card-based department filter ───────────────────────── */
-  const EVENT_DEPT_OPTIONS: Array<{
-    key: 'All' | 'BD' | 'GD' | 'PD';
+  /* ── Hodsons-style card-based event type filter ───────────────────────── */
+  const EVENT_TYPE_OPTIONS: Array<{
+    key: 'All' | 'track' | 'field';
     label: string;
     shortLabel: string;
     icon: string;
@@ -547,7 +718,7 @@ const Athletics: React.FC = () => {
   }> = [
     {
       key: 'All',
-      label: 'All Departments',
+      label: 'All Events',
       shortLabel: 'All',
       icon: 'apps',
       accent: 'text-primary',
@@ -556,35 +727,25 @@ const Athletics: React.FC = () => {
       buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-primary/20 hover:text-white hover:bg-primary/[0.06]'
     },
     {
-      key: 'BD',
-      label: "Boys' Department",
-      shortLabel: 'BD',
-      icon: 'male',
+      key: 'track',
+      label: "Track Events",
+      shortLabel: 'Track',
+      icon: 'sprint',
       accent: 'text-[#d7bf86]',
       chip: 'border-primary/20 bg-primary/10',
       buttonActive: 'border-primary/30 bg-[linear-gradient(135deg,rgba(201,163,74,0.16),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-primary/10',
       buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-primary/20 hover:text-white hover:bg-primary/[0.05]'
     },
     {
-      key: 'GD',
-      label: "Girls' Department",
-      shortLabel: 'GD',
-      icon: 'female',
+      key: 'field',
+      label: "Field Events",
+      shortLabel: 'Field',
+      icon: 'architecture',
       accent: 'text-[#f0d8a1]',
       chip: 'border-[#e2c98d]/20 bg-[#e2c98d]/10',
       buttonActive: 'border-[#e2c98d]/30 bg-[linear-gradient(135deg,rgba(226,201,141,0.16),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-[#e2c98d]/10',
       buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-[#e2c98d]/20 hover:text-white hover:bg-[#e2c98d]/[0.05]'
-    },
-    {
-      key: 'PD',
-      label: 'Prep Department',
-      shortLabel: 'PD',
-      icon: 'child_care',
-      accent: 'text-[#eed59a]',
-      chip: 'border-amber-400/20 bg-amber-500/10',
-      buttonActive: 'border-amber-400/30 bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(255,255,255,0.03))] text-[#fff4d4] shadow-lg shadow-amber-500/10',
-      buttonIdle: 'border-primary/10 bg-white/[0.03] text-slate-400 hover:border-amber-400/20 hover:text-white hover:bg-amber-500/[0.05]'
-    },
+    }
   ];
 
   const eventDashboard = (
@@ -599,15 +760,15 @@ const Athletics: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${
-              EVENT_DEPT_OPTIONS.find(d => d.key === eventDeptFilter)!.chip
+              EVENT_TYPE_OPTIONS.find(d => d.key === eventTypeFilter)!.chip
             } ${
-              EVENT_DEPT_OPTIONS.find(d => d.key === eventDeptFilter)!.accent
+              EVENT_TYPE_OPTIONS.find(d => d.key === eventTypeFilter)!.accent
             } text-[10px] font-black uppercase tracking-[0.25em] mb-3`}>
-              <Icon name={EVENT_DEPT_OPTIONS.find(d => d.key === eventDeptFilter)!.icon} size="14" />
-              Department Navigation
+              <Icon name={EVENT_TYPE_OPTIONS.find(d => d.key === eventTypeFilter)!.icon} size="14" />
+              Event Category
             </div>
-            <h4 className="text-white text-xl sm:text-2xl font-black tracking-tight">Browse Events By Department</h4>
-            <p className="text-sm text-slate-400 mt-1">Switch between <span className="text-primary/80 font-black">`BD`</span>, <span className="text-[#f0d8a1]/80 font-black">`GD`</span>, <span className="text-amber-300/80 font-black">`PD`</span>, or <span className="text-slate-300 font-black">`All`</span> to filter events by department.</p>
+            <h4 className="text-white text-xl sm:text-2xl font-black tracking-tight">Browse Events</h4>
+            <p className="text-sm text-slate-400 mt-1">Switch between <span className="text-[#d7bf86] font-black">Track</span> or <span className="text-[#f0d8a1]/80 font-black">Field</span> events.</p>
           </div>
           <div className="flex items-center gap-3 self-start lg:self-auto">
             <div className="royal-stat-card px-4 py-2 rounded-2xl shadow-[inset_0_1px_0_rgba(255,244,214,0.04)]">
@@ -617,41 +778,37 @@ const Athletics: React.FC = () => {
           </div>
         </div>
 
-        {/* Department card buttons */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {EVENT_DEPT_OPTIONS.map(dept => {
-            const isActive = dept.key === eventDeptFilter;
-            const deptEventCount = dept.key === 'All'
+        {/* Type card buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {EVENT_TYPE_OPTIONS.map(type => {
+            const isActive = type.key === eventTypeFilter;
+            const typeEventCount = type.key === 'All'
               ? derived.eventStats.length
-              : derived.eventStats.filter(s => {
-                  const depts = s.event.departments as string[];
-                  if (dept.key === 'PD') return depts.includes('PDB') || depts.includes('PDG');
-                  return depts.includes(dept.key);
-                }).length;
+              : derived.eventStats.filter(s => s.event.category === type.key).length;
             return (
               <button
-                key={dept.key}
-                onClick={() => setEventDeptFilter(dept.key)}
+                key={type.key}
+                onClick={() => setEventTypeFilter(type.key)}
                 className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 group ${
-                  isActive ? dept.buttonActive : dept.buttonIdle
+                  isActive ? type.buttonActive : type.buttonIdle
                 }`}
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className={`size-11 rounded-2xl flex items-center justify-center border ${
-                    dept.chip
+                    type.chip
                   } transition-transform ${isActive ? 'scale-105' : ''}`}>
-                    <Icon name={dept.icon} size="22" className={dept.accent} />
+                    <Icon name={type.icon} size="22" className={type.accent} />
                   </div>
                   <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${
                     isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'
                   }`}>
-                    {dept.shortLabel}
+                    {type.shortLabel}
                   </span>
                 </div>
                 <div className={`text-base font-black mb-1 ${
                   isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'
-                }`}>{dept.label}</div>
-                <div className="text-xs text-slate-400">{deptEventCount} event{deptEventCount !== 1 ? 's' : ''}</div>
+                }`}>{type.label}</div>
+                <div className="text-xs text-slate-400">{typeEventCount} event{typeEventCount !== 1 ? 's' : ''}</div>
               </button>
             );
           })}
@@ -668,14 +825,20 @@ const Athletics: React.FC = () => {
     return matchesCategory && matchesHouse && matchesSearch;
   }), [students, categoryFilter, houseFilter, studentSearch]);
 
-  const resultRows = enrolledStudents.map(student => ({
-    student,
-    result: snapshot.results.find(result => result.eventId === selectedEvent.id && result.studentId === student.id) || {
-      eventId: selectedEvent.id,
-      studentId: student.id,
-      status: 'pending' as const
-    }
-  }));
+  const resultRows = enrolledStudents
+    .filter(student => {
+      if (!selectedHasFinals || resultsStage !== 'finals') return true;
+      const result = snapshot.results.find(entry => entry.eventId === selectedEvent.id && entry.studentId === student.id);
+      return Boolean(result?.advancesToFinals);
+    })
+    .map(student => ({
+      student,
+      result: snapshot.results.find(result => result.eventId === selectedEvent.id && result.studentId === student.id) || {
+        eventId: selectedEvent.id,
+        studentId: student.id,
+        status: 'pending' as const
+      }
+    }));
 
   const houseChartData = selectedStats
     ? HOUSES.map(house => ({
@@ -705,8 +868,27 @@ const Athletics: React.FC = () => {
           <div className="royal-kicker mb-2">Track Desk</div>
           <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight">Athletics 2026</h1>
           <p className="text-slate-400 mt-2 max-w-3xl text-sm sm:text-base leading-relaxed">
-            Track & Field Desk for Prep Boys (PDB) and Prep Girls (PDG). Manage event enrollments, record times, auto-calculate ranks, and monitor house standings.
+            Track & field desk for all age categories. Record marks in split boxes, auto-rank within each category, allot finals, and export event reports.
           </p>
+          <div className="mt-4 inline-flex items-center gap-1 rounded-2xl border border-primary/15 bg-white/[0.03] p-1">
+            {([
+              { key: 'desk' as const, label: 'Events Desk', icon: 'sprint' },
+              { key: 'summary' as const, label: 'Summary', icon: 'history_edu' }
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setPageTab(tab.key)}
+                className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2 ${
+                  pageTab === tab.key
+                    ? 'bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-amber-300 border border-amber-500/40'
+                    : 'text-slate-400 hover:text-white border border-transparent'
+                }`}
+              >
+                <Icon name={tab.icon} size="16" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex flex-wrap gap-3">
           <button onClick={exportAllResults} className="royal-secondary-btn rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg">
@@ -720,6 +902,8 @@ const Athletics: React.FC = () => {
         </div>
       </section>
 
+      {pageTab === 'desk' && (
+      <>
       {/* Top Summary Stat Grid */}
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatTile label="Total Events" value={ATHLETICS_EVENTS.length} accent="text-amber-400 font-mono" icon="sprint" />
@@ -822,12 +1006,112 @@ const Athletics: React.FC = () => {
               onOpen={() => {
                 setSelectedEventId(stats.event.id);
                 setActiveTab('overview');
+                setResultsStage('qualifying');
                 setTabKey(k => k + 1);
               }}
             />
           ))}
         </div>
       </section>
+      </>
+      )}
+
+      {pageTab === 'summary' && (
+        <section className="glass-panel rounded-[32px] border border-white/10 overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-12">
+            <div className="flex items-center justify-end">
+              <button
+                onClick={downloadSummaryDocx}
+                disabled={isDownloading}
+                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl transition-all text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+              >
+                <Icon name={isDownloading ? 'sync' : 'download'} className={isDownloading ? 'animate-spin' : ''} />
+                <span>Download Full Results (.docx)</span>
+              </button>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-px flex-1 bg-white/5"></div>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[4px]">Category Podiums</span>
+                <div className="h-px flex-1 bg-white/5"></div>
+              </div>
+              {derived.categoryPodiums.length === 0 ? (
+                <div className="text-center py-16 text-slate-500 text-sm font-bold">No finished marks yet. Podiums will appear here after results are ranked.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {derived.categoryPodiums.map((entry) => (
+                    <div key={`${entry.eventId}-${entry.category}`} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 hover:border-white/10 transition-all">
+                      <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-1">{entry.eventName}</h4>
+                      <div className="text-[10px] text-slate-500 font-black uppercase tracking-wider mb-3 border-b border-white/5 pb-2">{entry.category}</div>
+                      <div className="space-y-2">
+                        {entry.top3.map((stu, rankIdx) => (
+                          <div key={rankIdx} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`text-[10px] font-black w-6 h-6 rounded flex items-center justify-center ${rankIdx === 0 ? 'bg-yellow-400/10 text-yellow-400' : rankIdx === 1 ? 'bg-slate-300/10 text-slate-300' : 'bg-amber-600/10 text-amber-600'}`}>
+                                {rankIdx + 1}
+                              </span>
+                              <span className="text-xs text-white font-bold truncate max-w-[120px]" title={stu?.name}>{stu?.name || 'TBD'}</span>
+                              {stu?.className && <span className="text-[9px] text-slate-500 font-medium">({stu.className})</span>}
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span className="text-[9px] font-bold text-slate-500 uppercase">{stu?.house || '—'}</span>
+                              <span className="text-[10px] font-mono text-slate-400">{stu?.timing ? formatAthleticsMark(stu.timing, entry.isField ? 'field' : 'track') : '—'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="h-px flex-1 bg-white/5"></div>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[4px]">House Leaderboards</span>
+                <div className="h-px flex-1 bg-white/5"></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {['Overall', 'BD', 'GD', 'PD'].map(deptKey => {
+                  const dept = derived.departmentStandings[deptKey];
+                  if (!dept) return null;
+                  return (
+                    <div key={deptKey} className="glass-panel p-6 border border-white/10 bg-white/[0.02] rounded-2xl">
+                      <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <Icon name="military_tech" size="18" className="text-primary" />
+                        {dept.title}
+                      </h3>
+                      <div className="space-y-4">
+                        {HOUSES
+                          .map(h => ({ name: h, points: dept.houseStats[h]?.points || 0 }))
+                          .sort((a, b) => b.points - a.points)
+                          .map((h, i) => {
+                            const config = houseConfig(h.name);
+                            return (
+                              <div key={h.name} className="flex items-center justify-between group">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs font-black text-slate-600">#{i + 1}</span>
+                                  <div className={`size-2 rounded-full ${config.bg}`}></div>
+                                  <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">{h.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-black text-white">{h.points}</span>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">pts</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* PORTAL MODAL FOR EVENT DETAILS */}
       {selectedStats && createPortal(
@@ -875,11 +1159,20 @@ const Athletics: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={exportEventRoster}
+                  onClick={() => exportEventReport('xlsx')}
+                  disabled={isDownloading}
                   className="royal-secondary-btn rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2"
                 >
-                  <Icon name="download" size="16" />
-                  Export Roster
+                  <Icon name="table_chart" size="16" />
+                  .xlsx
+                </button>
+                <button
+                  onClick={() => exportEventReport('docx')}
+                  disabled={isDownloading}
+                  className="royal-secondary-btn rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-2"
+                >
+                  <Icon name="description" size="16" />
+                  .docx
                 </button>
               </div>
             </div>
@@ -899,12 +1192,56 @@ const Athletics: React.FC = () => {
                     </div>
 
                     <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
-                      <StatTile label="Best Timing" value={selectedStats.bestTiming || '--'} accent="text-amber-300 font-mono" icon="timer" />
+                      <StatTile label={selectedEvent.category === 'field' ? 'Best Mark' : 'Best Timing'} value={selectedStats.bestTiming ? formatAthleticsMark(selectedStats.bestTiming, selectedEvent.category) : '--'} accent="text-amber-300 font-mono" icon="timer" />
                       <StatTile label="Finished" value={selectedStats.finished} accent="text-emerald-400" icon="check_circle" />
                     </div>
                   </div>
 
-                  <div className="xl:col-span-7 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="xl:col-span-7 space-y-6">
+                    <div className="glass-panel rounded-2xl border border-white/10 p-6">
+                      <h3 className="text-lg font-black text-white mb-1">Event Details</h3>
+                      <p className="text-xs text-slate-400 mb-4">Record when the event was held, who overlooked it, and whether it has a finals round after qualifying.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Date held</span>
+                          <input
+                            type="date"
+                            disabled={!isLoggedIn}
+                            value={selectedSetting.date || ''}
+                            onChange={event => updateEventSetting({ date: event.target.value })}
+                            className="royal-input rounded-xl px-3 py-2.5 text-sm disabled:opacity-60"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Sports coordinator</span>
+                          <input
+                            disabled={!isLoggedIn}
+                            value={selectedSetting.coordinator || ''}
+                            onChange={event => updateEventSetting({ coordinator: event.target.value })}
+                            placeholder="Name of the coordinator"
+                            className="royal-input rounded-xl px-3 py-2.5 text-sm disabled:opacity-60"
+                          />
+                        </label>
+                      </div>
+                      <label className={`mt-4 flex items-start gap-3 rounded-2xl border p-4 ${selectedHasFinals ? 'border-amber-500/30 bg-amber-500/10' : 'border-white/10 bg-white/[0.02]'}`}>
+                        <input
+                          type="checkbox"
+                          disabled={!isLoggedIn}
+                          checked={selectedHasFinals}
+                          onChange={event => {
+                            updateEventSetting({ hasFinals: event.target.checked });
+                            if (!event.target.checked) setResultsStage('qualifying');
+                          }}
+                          className="mt-1"
+                        />
+                        <span>
+                          <span className="block text-sm font-black text-white">Allot a finals round</span>
+                          <span className="block text-xs text-slate-400 mt-1">Held after the initial qualifying event. Top 8 in each category can be advanced, or tick athletes individually.</span>
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="glass-panel rounded-2xl border border-white/10 p-6">
                       <h3 className="text-lg font-black text-white mb-1">House Points Breakdown</h3>
                       <p className="text-xs text-slate-400 mb-4">Points earned in {selectedEvent.name}</p>

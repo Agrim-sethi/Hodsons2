@@ -35,6 +35,16 @@ export interface AthleticsResult {
   status: AthleticsResultStatus;
   timing?: string;
   position?: number;
+  advancesToFinals?: boolean;
+  finalsStatus?: AthleticsResultStatus;
+  finalsTiming?: string;
+  finalsPosition?: number;
+}
+
+export interface AthleticsEventSetting {
+  hasFinals?: boolean;
+  date?: string;
+  coordinator?: string;
 }
 
 export interface AthleticsStudent extends HodsonsStudent {
@@ -45,6 +55,7 @@ export interface AthleticsStudent extends HodsonsStudent {
 export interface AthleticsSnapshot {
   enrollments: AthleticsEnrollment[];
   results: AthleticsResult[];
+  eventSettings?: Record<string, AthleticsEventSetting>;
 }
 
 export const ATHLETICS_EVENTS: AthleticsEvent[] = [
@@ -84,8 +95,25 @@ const sanitizeForFirebase = (obj: any): any => {
 
 const emptySnapshot = (): AthleticsSnapshot => ({
   enrollments: ATHLETICS_EVENTS.map(event => ({ eventId: event.id, studentIds: [] })),
-  results: []
+  results: [],
+  eventSettings: {}
 });
+
+const migrateSnapshot = (parsed: any): AthleticsSnapshot => {
+  const enrollments = Array.isArray(parsed.enrollments) ? parsed.enrollments : [];
+  const results = Array.isArray(parsed.results) ? parsed.results : [];
+  const eventSettings = (parsed.eventSettings && typeof parsed.eventSettings === 'object') ? parsed.eventSettings : {};
+  const enrollmentMap = new Map(enrollments.map((entry: AthleticsEnrollment) => [entry.eventId, entry.studentIds || []]));
+
+  return {
+    enrollments: ATHLETICS_EVENTS.map(event => ({
+      eventId: event.id,
+      studentIds: enrollmentMap.get(event.id) || []
+    })),
+    results,
+    eventSettings
+  };
+};
 
 export const getAthleticsSnapshot = (): AthleticsSnapshot => {
   const stored = localStorage.getItem(ATHLETICS_STORAGE_KEY);
@@ -93,17 +121,7 @@ export const getAthleticsSnapshot = (): AthleticsSnapshot => {
 
   try {
     const parsed = JSON.parse(stored);
-    const enrollments = Array.isArray(parsed.enrollments) ? parsed.enrollments : [];
-    const results = Array.isArray(parsed.results) ? parsed.results : [];
-    const enrollmentMap = new Map(enrollments.map((entry: AthleticsEnrollment) => [entry.eventId, entry.studentIds || []]));
-
-    return {
-      enrollments: ATHLETICS_EVENTS.map(event => ({
-        eventId: event.id,
-        studentIds: enrollmentMap.get(event.id) || []
-      })),
-      results
-    };
+    return migrateSnapshot(parsed);
   } catch {
     return emptySnapshot();
   }
@@ -126,12 +144,13 @@ export const subscribeToAthleticsData = (callback: (snapshot: AthleticsSnapshot)
     }
 
     const data = snapshot.data() as Partial<AthleticsSnapshot>;
-    const nextSnapshot = {
-      enrollments: data.enrollments || emptySnapshot().enrollments,
-      results: data.results || []
-    };
+    const nextSnapshot = migrateSnapshot({
+      enrollments: data.enrollments || [],
+      results: data.results || [],
+      eventSettings: data.eventSettings || {}
+    });
     localStorage.setItem(ATHLETICS_STORAGE_KEY, JSON.stringify(nextSnapshot));
-    callback(getAthleticsSnapshot());
+    callback(nextSnapshot);
   }, (error) => {
     console.error('Athletics snapshot listener error:', error);
   });
@@ -181,4 +200,11 @@ export const getAthleticsStudents = (baseClasses: Record<string, string> = {}): 
   }));
 };
 
-export const getPrepAthleticsStudents = getAthleticsStudents; // Keeping alias for backwards compatibility if needed
+export const getPrepAthleticsStudents = getAthleticsStudents;
+
+export const studentDepartment = (category: string) => {
+  if (category.startsWith('PDG')) return 'PDG';
+  if (category.startsWith('PDB')) return 'PDB';
+  if (category.startsWith('GD')) return 'GD';
+  return 'BD';
+};
