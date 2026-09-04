@@ -8,7 +8,6 @@ export interface HodsonsStudent {
     name: string;
     house: 'Vindhya' | 'Himalaya' | 'Nilgiri' | 'Siwalik';
     category: HodsonsCategory;
-    dob?: string; // Date of birth (YYYY-MM-DD)
 }
 
 export type HodsonsPrePhaseType = 'pending' | 'participating' | 'not_participating' | 'on_leave' | 'medically_excused' | 'left_school';
