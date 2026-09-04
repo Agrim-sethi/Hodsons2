@@ -3,13 +3,15 @@ export const ALL_STUDENTS = [
         "id": "05517",
         "name": "AADIL PARTAP SINGH TEJA",
         "category": "PDB Under 11",
-        "house": "Nilgiri"
+        "house": "Nilgiri",
+        "dob": "2016-01-15"
     },
     {
         "id": "06027",
         "name": "AADIT CHOPRA",
         "category": "BD Under 13",
-        "house": "Nilgiri"
+        "house": "Nilgiri",
+        "dob": "2015-05-15" // < 12 yrs old (should map to U13)
     },
     {
         "id": "05334",
@@ -21,7 +23,8 @@ export const ALL_STUDENTS = [
         "id": "05298",
         "name": "AADVIK AGGARWAL",
         "category": "PDB Under 12",
-        "house": "Himalaya"
+        "house": "Himalaya",
+        "dob": "2014-02-15" // > 12 and < 13 yrs old (should map to U13)
     },
     {
         "id": "05534",

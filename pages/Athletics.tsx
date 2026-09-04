@@ -80,9 +80,10 @@ import {
   getPrepAthleticsStudents,
   saveAthleticsSnapshot,
   subscribeToAthleticsData,
-  AthleticsDepartment
+  AthleticsCategory,
+  ALL_ATHLETICS_CATEGORIES
 } from '../utils/athleticsStorage';
-import { AthleticsEventStats, buildAthleticsDerivedData } from '../utils/athleticsDerived';
+import { AthleticsEventStats, buildAthleticsDerivedData, matchesCategoryFilter } from '../utils/athleticsDerived';
 
 const HOUSES = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
 const RESULT_STATUSES: AthleticsResultStatus[] = ['pending', 'finished', 'dnf', 'absent', 'medically_excused'];
@@ -294,7 +295,7 @@ const Athletics: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState<'overview' | 'enrollments' | 'results'>('overview');
   const [tabKey, setTabKey] = React.useState(0); // bump to retrigger tab animation
   const [studentSearch, setStudentSearch] = React.useState('');
-  const [departmentFilter, setDepartmentFilter] = React.useState<'All' | 'PDB' | 'PDG' | 'BD' | 'GD'>('All');
+  const [categoryFilter, setCategoryFilter] = React.useState<AthleticsCategory | 'All'>('All');
   const [houseFilter, setHouseFilter] = React.useState<'All' | typeof HOUSES[number]>('All');
   const [savedStudentId, setSavedStudentId] = React.useState<string | null>(null); // for saved-tick animation
 
@@ -336,6 +337,40 @@ const Athletics: React.FC = () => {
 
   const toggleEnrollment = (event: AthleticsEvent, studentId: string) => {
     if (!isLoggedIn) return;
+
+    // Check if adding or removing
+    const isCurrentlyEnrolled = snapshot.enrollments.find(e => e.eventId === event.id)?.studentIds.includes(studentId);
+    
+    if (!isCurrentlyEnrolled) {
+      // Calculate current enrollments
+      let trackCount = 0;
+      let fieldCount = 0;
+      
+      snapshot.enrollments.forEach(entry => {
+        if (entry.studentIds.includes(studentId)) {
+          const ev = ATHLETICS_EVENTS.find(e => e.id === entry.eventId);
+          if (ev?.category === 'track') trackCount++;
+          if (ev?.category === 'field') fieldCount++;
+        }
+      });
+
+      if (event.category === 'track') trackCount++;
+      if (event.category === 'field') fieldCount++;
+
+      if (trackCount + fieldCount > 3) {
+        showToast({ title: 'Enrollment Failed', description: 'Student cannot take more than 3 events in total.' });
+        return;
+      }
+      if (trackCount > 2) {
+        showToast({ title: 'Enrollment Failed', description: 'Student cannot take more than 2 track events.' });
+        return;
+      }
+      if (fieldCount > 2) {
+        showToast({ title: 'Enrollment Failed', description: 'Student cannot take more than 2 field events.' });
+        return;
+      }
+    }
+
     const nextEnrollments = snapshot.enrollments.map(entry => {
       if (entry.eventId !== event.id) return entry;
       const exists = entry.studentIds.includes(studentId);
@@ -626,13 +661,12 @@ const Athletics: React.FC = () => {
   );
 
   const filteredStudents = React.useMemo(() => students.filter(student => {
-    const matchesDepartment = departmentFilter === 'All' ||
-      (departmentFilter === 'PD' ? (student.department === 'PDB' || student.department === 'PDG') : student.department === departmentFilter);
+    const matchesCategory = categoryFilter === 'All' || student.athleticsCategory === categoryFilter;
     const matchesHouse = houseFilter === 'All' || student.house === houseFilter;
     const query = studentSearch.trim().toLowerCase();
     const matchesSearch = !query || [student.id, student.name, student.house, student.className].some(value => value.toLowerCase().includes(query));
-    return matchesDepartment && matchesHouse && matchesSearch;
-  }), [students, departmentFilter, houseFilter, studentSearch]);
+    return matchesCategory && matchesHouse && matchesSearch;
+  }), [students, categoryFilter, houseFilter, studentSearch]);
 
   const resultRows = enrolledStudents.map(student => ({
     student,
@@ -938,15 +972,14 @@ const Athletics: React.FC = () => {
                         )}
                       </div>
                       <select
-                        value={departmentFilter}
-                        onChange={event => setDepartmentFilter(event.target.value as any)}
+                        value={categoryFilter}
+                        onChange={event => setCategoryFilter(event.target.value as any)}
                         className="royal-input rounded-xl px-4 py-2.5 text-sm shrink-0"
                       >
-                        <option value="All">All Departments</option>
-                        <option value="BD">Boys' Dept (BD)</option>
-                        <option value="GD">Girls' Dept (GD)</option>
-                        <option value="PDB">Prep Boys (PDB)</option>
-                        <option value="PDG">Prep Girls (PDG)</option>
+                        <option value="All">All Categories</option>
+                        {ALL_ATHLETICS_CATEGORIES.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
                       </select>
                       <select
                         value={houseFilter}
@@ -1070,7 +1103,7 @@ const Athletics: React.FC = () => {
                           <th>Competitor</th>
                           <th>House</th>
                           <th>Status</th>
-                          <th>Timing</th>
+                          <th>{selectedEvent.category === 'track' ? 'Timing' : 'Distance'}</th>
                           <th>Position</th>
                         </tr>
                       </thead>
@@ -1124,8 +1157,9 @@ const Athletics: React.FC = () => {
                                   disabled={!isLoggedIn}
                                   value={result.timing || ''}
                                   onChange={event => updateResult(student.id, { timing: event.target.value })}
-                                  placeholder="e.g. 12:34"
+                                  placeholder={selectedEvent.category === 'track' ? "e.g. 01:23:45" : "e.g. 5.45"}
                                   className="royal-input rounded-xl px-3 py-2 text-xs font-mono font-bold min-w-[140px] text-amber-300 disabled:opacity-60"
+                                  title={selectedEvent.category === 'track' ? "Mins:Secs:Millisecs" : "Metres & Centimetres"}
                                 />
                               </td>
                               <td>

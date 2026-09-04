@@ -2,16 +2,26 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { getAllHodsonsClasses, getAllHodsonsStudents, HodsonsStudent } from './hodsonsStorage';
 
-export type AthleticsDepartment = 'PDB' | 'PDG' | 'BD' | 'GD';
+export type AthleticsCategory = 
+  | 'PDB Under 11' | 'PDB Under 12' | 'PDG Under 11' | 'PDG Under 12'
+  | 'BD Under 13' | 'BD Under 14' | 'BD Under 16' | 'BD Opens'
+  | 'GD Under 13' | 'GD Under 14' | 'GD Under 16' | 'GD Opens';
+
+export const ALL_ATHLETICS_CATEGORIES: AthleticsCategory[] = [
+  'PDB Under 11', 'PDB Under 12', 'PDG Under 11', 'PDG Under 12',
+  'BD Under 13', 'BD Under 14', 'BD Under 16', 'BD Opens',
+  'GD Under 13', 'GD Under 14', 'GD Under 16', 'GD Opens'
+];
+
 export type AthleticsHouse = HodsonsStudent['house'];
 export type AthleticsResultStatus = 'pending' | 'finished' | 'dnf' | 'absent' | 'medically_excused';
 
 export interface AthleticsEvent {
   id: string;
   name: string;
-  distanceMeters: number;
-  type: 'sprint' | 'middle_distance' | 'distance' | 'relay';
-  departments: AthleticsDepartment[];
+  category: 'track' | 'field';
+  type: 'sprint' | 'middle_distance' | 'distance' | 'relay' | 'jump' | 'throw';
+  categories: AthleticsCategory[]; // All categories this event is available for
 }
 
 export interface AthleticsEnrollment {
@@ -29,7 +39,7 @@ export interface AthleticsResult {
 
 export interface AthleticsStudent extends HodsonsStudent {
   className: string;
-  department: AthleticsDepartment;
+  athleticsCategory: AthleticsCategory;
 }
 
 export interface AthleticsSnapshot {
@@ -38,13 +48,20 @@ export interface AthleticsSnapshot {
 }
 
 export const ATHLETICS_EVENTS: AthleticsEvent[] = [
-  { id: '100m', name: '100 Metres', distanceMeters: 100, type: 'sprint', departments: ['PDB', 'PDG', 'BD', 'GD'] },
-  { id: '200m', name: '200 Metres', distanceMeters: 200, type: 'sprint', departments: ['PDB', 'PDG', 'BD', 'GD'] },
-  { id: '400m', name: '400 Metres', distanceMeters: 400, type: 'sprint', departments: ['PDB', 'PDG', 'BD', 'GD'] },
-  { id: '800m', name: '800 Metres', distanceMeters: 800, type: 'middle_distance', departments: ['PDB', 'PDG', 'BD', 'GD'] },
-  { id: '1500m', name: '1500 Metres', distanceMeters: 1500, type: 'middle_distance', departments: ['PDB', 'PDG', 'BD', 'GD'] },
-  { id: '3000m', name: '3000 Metres', distanceMeters: 3000, type: 'distance', departments: ['PDB', 'PDG', 'BD', 'GD'] },
-  { id: '4x100m-relay', name: '4 x 100 Metres Relay', distanceMeters: 400, type: 'relay', departments: ['PDB', 'PDG', 'BD', 'GD'] }
+  // Track Events
+  { id: '100m', name: '100 Metres', category: 'track', type: 'sprint', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: '200m', name: '200 Metres', category: 'track', type: 'sprint', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: '400m', name: '400 Metres', category: 'track', type: 'sprint', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: '800m', name: '800 Metres', category: 'track', type: 'middle_distance', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: '1500m', name: '1500 Metres', category: 'track', type: 'middle_distance', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: '3000m', name: '3000 Metres', category: 'track', type: 'distance', categories: ALL_ATHLETICS_CATEGORIES },
+  // Field Events
+  { id: 'long_jump', name: 'Long Jump', category: 'field', type: 'jump', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: 'high_jump', name: 'High Jump', category: 'field', type: 'jump', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: 'shot_put', name: 'Shot Put', category: 'field', type: 'throw', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: 'discus_throw', name: 'Discus Throw', category: 'field', type: 'throw', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: 'javelin_throw', name: 'Javelin Throw', category: 'field', type: 'throw', categories: ALL_ATHLETICS_CATEGORIES },
+  { id: 'triple_jump', name: 'Triple Jump', category: 'field', type: 'jump', categories: ALL_ATHLETICS_CATEGORIES },
 ];
 
 const ATHLETICS_STORAGE_KEY = 'sanawar_athletics_2026';
@@ -120,21 +137,48 @@ export const subscribeToAthleticsData = (callback: (snapshot: AthleticsSnapshot)
   });
 };
 
-export const getAthleticsDepartment = (category: string): AthleticsDepartment => {
-  if (category.startsWith('PDB')) return 'PDB';
-  if (category.startsWith('PDG')) return 'PDG';
-  if (category.startsWith('BD')) return 'BD';
-  if (category.startsWith('GD')) return 'GD';
-  return 'PDB';
+const getAgeAsOfOct4_2026 = (dobString: string): number => {
+  const dob = new Date(dobString);
+  const target = new Date('2026-10-04');
+  let age = target.getFullYear() - dob.getFullYear();
+  const m = target.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && target.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+export const getDynamicAthleticsCategory = (student: HodsonsStudent): AthleticsCategory => {
+  let category = student.category as AthleticsCategory;
+
+  if (student.dob) {
+    const age = getAgeAsOfOct4_2026(student.dob);
+    const isBD = category.startsWith('BD');
+    const isGD = category.startsWith('GD');
+    const isPDB = category.startsWith('PDB');
+    const isPDG = category.startsWith('PDG');
+
+    // Rule 1: Students in BD/GD that are < 12 years old should be routed to BD/GD Under 13
+    if ((isBD || isGD) && age < 12) {
+      return isBD ? 'BD Under 13' : 'GD Under 13';
+    }
+
+    // Rule 2: Students in PD that are >= 12 and < 13 should be routed to BD/GD Under 13
+    if ((isPDB || isPDG) && age >= 12 && age < 13) {
+      return isPDB ? 'BD Under 13' : 'GD Under 13';
+    }
+  }
+
+  return category;
 };
 
 export const getAthleticsStudents = (baseClasses: Record<string, string> = {}): AthleticsStudent[] => {
   const classes = getAllHodsonsClasses(baseClasses);
   return getAllHodsonsStudents().map(student => ({
     ...student,
-    department: getAthleticsDepartment(student.category),
+    athleticsCategory: getDynamicAthleticsCategory(student),
     className: classes[student.id] || 'N/A'
   }));
 };
 
-export const getPrepAthleticsStudents = getAthleticsStudents;
+export const getPrepAthleticsStudents = getAthleticsStudents; // Keeping alias for backwards compatibility if needed

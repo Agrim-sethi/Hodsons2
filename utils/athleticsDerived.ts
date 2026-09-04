@@ -1,7 +1,8 @@
 import { HOUSE_COLORS } from '../constants';
 import {
   ATHLETICS_EVENTS,
-  AthleticsDepartment,
+  AthleticsCategory,
+  ALL_ATHLETICS_CATEGORIES,
   AthleticsEnrollment,
   AthleticsEvent,
   AthleticsHouse,
@@ -43,7 +44,7 @@ export interface AthleticsEventStats {
 export interface AthleticsDerivedData {
   eventStats: AthleticsEventStats[];
   standings: Array<{ name: AthleticsHouse; points: number; color: string }>;
-  departmentStats: Record<AthleticsDepartment, { enrolled: number; finished: number; points: number }>;
+  categoryStats: Record<AthleticsCategory, { enrolled: number; finished: number; points: number }>;
 }
 
 const HOUSES: AthleticsHouse[] = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'];
@@ -55,10 +56,19 @@ const createHouseStats = (): Record<AthleticsHouse, AthleticsHouseStats> => ({
   Siwalik: { enrolled: 0, finished: 0, dnf: 0, absent: 0, med: 0, points: 0 }
 });
 
-export const athleticsTimingToSeconds = (timing?: string) => {
-  if (!timing) return Number.POSITIVE_INFINITY;
-  const parts = timing.split(':').map(segment => parseInt(segment, 10));
-  if (parts.some(value => Number.isNaN(value))) return Number.POSITIVE_INFINITY;
+export const athleticsValueToNumber = (value?: string, isField: boolean = false) => {
+  if (!value) return isField ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
+  
+  if (isField) {
+    // For field events, value might be '5.45' or '5m 45cm'
+    // Extract the first valid float number we can find
+    const match = value.match(/[\d.]+/);
+    return match ? parseFloat(match[0]) : Number.NEGATIVE_INFINITY;
+  }
+
+  // Track events: mm:ss:ms
+  const parts = value.split(':').map(segment => parseFloat(segment));
+  if (parts.some(val => Number.isNaN(val))) return Number.POSITIVE_INFINITY;
   if (parts.length === 3) return (parts[0] * 60) + parts[1] + (parts[2] / 100);
   if (parts.length === 2) return (parts[0] * 60) + parts[1];
   return parts[0];
@@ -69,30 +79,29 @@ const pointsForPosition = (position?: number) => {
   return 6 - position;
 };
 
-export const matchesDepartmentFilter = (dept: AthleticsDepartment, filter: string) => {
+export const matchesCategoryFilter = (cat: AthleticsCategory, filter: string) => {
   if (!filter || filter === 'All') return true;
-  if (filter === 'PD') return dept === 'PDB' || dept === 'PDG';
-  return dept === filter;
+  return cat === filter;
 };
 
 export const buildAthleticsDerivedData = (
   enrollments: AthleticsEnrollment[],
   results: AthleticsResult[],
   students: AthleticsStudent[],
-  departmentFilter: string = 'All'
+  categoryFilter: string = 'All'
 ): AthleticsDerivedData => {
   const studentMap = new Map(students.map(student => [student.id, student]));
   const enrollmentMap = new Map(enrollments.map(entry => [entry.eventId, entry.studentIds || []]));
   const resultMap = new Map(results.map(result => [`${result.eventId}:${result.studentId}`, result]));
   const housePoints: Record<AthleticsHouse, number> = { Vindhya: 0, Himalaya: 0, Nilgiri: 0, Siwalik: 0 };
-  const departmentStats: Record<AthleticsDepartment, { enrolled: number; finished: number; points: number }> = {
-    BD: { enrolled: 0, finished: 0, points: 0 },
-    GD: { enrolled: 0, finished: 0, points: 0 },
-    PDB: { enrolled: 0, finished: 0, points: 0 },
-    PDG: { enrolled: 0, finished: 0, points: 0 }
-  };
+  
+  const categoryStats = {} as Record<AthleticsCategory, { enrolled: number; finished: number; points: number }>;
+  ALL_ATHLETICS_CATEGORIES.forEach(cat => {
+    categoryStats[cat] = { enrolled: 0, finished: 0, points: 0 };
+  });
 
   const eventStats = ATHLETICS_EVENTS.map((event): AthleticsEventStats => {
+    const isField = event.category === 'field';
     const houseStats = createHouseStats();
     const enrolledIds = enrollmentMap.get(event.id) || [];
     const podiumCandidates: AthleticsPodiumAthlete[] = [];
@@ -107,12 +116,12 @@ export const buildAthleticsDerivedData = (
       const student = studentMap.get(studentId);
       if (!student) return;
 
-      if (!matchesDepartmentFilter(student.department, departmentFilter)) return;
+      if (!matchesCategoryFilter(student.athleticsCategory, categoryFilter)) return;
 
       const result = resultMap.get(`${event.id}:${studentId}`);
       houseStats[student.house].enrolled += 1;
-      if (departmentStats[student.department]) {
-        departmentStats[student.department].enrolled += 1;
+      if (categoryStats[student.athleticsCategory]) {
+        categoryStats[student.athleticsCategory].enrolled += 1;
       }
 
       if (!result || result.status === 'pending') return;
@@ -121,14 +130,14 @@ export const buildAthleticsDerivedData = (
       if (result.status === 'finished') {
         finished += 1;
         houseStats[student.house].finished += 1;
-        if (departmentStats[student.department]) {
-          departmentStats[student.department].finished += 1;
+        if (categoryStats[student.athleticsCategory]) {
+          categoryStats[student.athleticsCategory].finished += 1;
         }
         const points = pointsForPosition(result.position);
         houseStats[student.house].points += points;
         housePoints[student.house] += points;
-        if (departmentStats[student.department]) {
-          departmentStats[student.department].points += points;
+        if (categoryStats[student.athleticsCategory]) {
+          categoryStats[student.athleticsCategory].points += points;
         }
         podiumCandidates.push({
           id: student.id,
@@ -139,8 +148,12 @@ export const buildAthleticsDerivedData = (
           position: result.position || 999
         });
 
-        if (result.timing && athleticsTimingToSeconds(result.timing) < athleticsTimingToSeconds(bestTiming)) {
-          bestTiming = result.timing;
+        if (result.timing) {
+          const currentVal = athleticsValueToNumber(result.timing, isField);
+          const bestVal = athleticsValueToNumber(bestTiming, isField);
+          if (bestTiming === undefined || (isField ? currentVal > bestVal : currentVal < bestVal)) {
+            bestTiming = result.timing;
+          }
         }
       }
 
@@ -162,13 +175,15 @@ export const buildAthleticsDerivedData = (
 
     const filteredEnrolledCount = enrolledIds.filter(id => {
       const s = studentMap.get(id);
-      return s && matchesDepartmentFilter(s.department, departmentFilter);
+      return s && matchesCategoryFilter(s.athleticsCategory, categoryFilter);
     }).length;
 
     const podium = podiumCandidates
       .sort((a, b) => {
         if (a.position !== b.position) return a.position - b.position;
-        return athleticsTimingToSeconds(a.timing) - athleticsTimingToSeconds(b.timing);
+        const valA = athleticsValueToNumber(a.timing, isField);
+        const valB = athleticsValueToNumber(b.timing, isField);
+        return isField ? valB - valA : valA - valB;
       })
       .slice(0, 3);
 
@@ -191,6 +206,6 @@ export const buildAthleticsDerivedData = (
     standings: HOUSES
       .map(house => ({ name: house, points: housePoints[house], color: HOUSE_COLORS[house.toLowerCase() as keyof typeof HOUSE_COLORS].hex }))
       .sort((a, b) => b.points - a.points),
-    departmentStats
+    categoryStats
   };
 };
