@@ -101,7 +101,7 @@ const StaffLogin: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid gap-5">
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Staff ID or Firebase Email</label>
+                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Staff ID</label>
                   <input
                     type="text"
                     value={userId}
@@ -110,10 +110,10 @@ const StaffLogin: React.FC = () => {
                       setError('');
                     }}
                     className="w-full royal-input rounded-xl px-4 py-3 text-white font-bold tracking-[0.08em]"
-                    placeholder="SNA or staff email"
+                    placeholder="SNA"
                     autoComplete="username"
                   />
-                  <p className="text-xs text-slate-500 mt-2">Enter the exact email shown in Firebase Authentication, or use SNA when VITE_FIREBASE_STAFF_EMAIL is configured in Vercel.</p>
+                  <p className="text-xs text-slate-500 mt-2">Enter your staff ID. SNA is mapped to the secure Firebase staff account automatically.</p>
                 </div>
                 <div>
                   <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Password</label>
