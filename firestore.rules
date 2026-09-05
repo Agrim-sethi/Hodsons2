@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function activeStaff() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.active == true;
+    }
+
+    // Publicly readable competition data. Only an active staff account may mutate it.
+    match /athletics_2026_v1/data {
+      allow read: if true;
+      allow create, update, delete: if activeStaff();
+    }
+
+    // Staff profiles are provisioned from the Firebase Console. The client can
+    // read its own profile to establish the active staff session, but cannot
+    // create, modify, or delete staff permissions.
+    match /staff/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update, delete: if false;
+    }
+
+    // Optional immutable audit trail for future server-side logging.
+    match /athletics_2026_audit/{auditId} {
+      allow read: if activeStaff();
+      allow create: if activeStaff()
+        && request.resource.data.actorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Keep the rest of Firestore closed unless a collection gets an explicit rule.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
