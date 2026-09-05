@@ -6,7 +6,7 @@ import { getFirestore } from "firebase/firestore";
 // Firebase web configuration for the HODSONS1 project.
 // These values are intentionally public client configuration values.
 const firebaseConfig = {
-  apiKey: "AIzaSyDYIVKEtgKw2lqTJMMUQcARwK7R8F3F8a3Y",
+  apiKey: "AIzaSyDYIVKEtgKw2lqTJMMUQcARwK7R8K3F8a3Y",
   authDomain: "hodsons-848af.firebaseapp.com",
   projectId: "hodsons-848af",
   storageBucket: "hodsons-848af.firebasestorage.app",
