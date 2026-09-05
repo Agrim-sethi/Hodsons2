@@ -5,7 +5,7 @@ import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDYIVKEtgKw2lqTJMMUQcARw7K8R3F8a3Y",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDYIVKEtgKw2lqTJMMUQcARwK7R8F3a8Y3",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "hodsons-848af.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "hodsons-848af",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "hodsons-848af.firebasestorage.app",
@@ -19,7 +19,9 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// The staff-facing ID can stay as SNA while the actual Firebase Auth account
-// remains an email/password user. Configure VITE_FIREBASE_STAFF_EMAIL in Vercel
-// (and locally, when needed) to map SNA to that Firebase Auth email.
-export const FIREBASE_STAFF_EMAIL = (import.meta.env.VITE_FIREBASE_STAFF_EMAIL || "").trim();
+// Staff can sign in with the short SNA ID while Firebase continues to use
+// the underlying email/password account. The environment variable can
+// override this mapping for a different staff account in another deployment.
+export const FIREBASE_STAFF_EMAIL = (
+  import.meta.env.VITE_FIREBASE_STAFF_EMAIL || "sna@hodsons-848af.firebaseapp.com"
+).trim();
