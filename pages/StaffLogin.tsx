@@ -7,30 +7,37 @@ import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 const StaffLogin: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { isLoggedIn, login, logout } = useStaffAuth();
+  const { isLoggedIn, authLoading, login, logout } = useStaffAuth();
   const [userId, setUserId] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = login(userId, password);
-    if (!success) {
-      setError('Incorrect user ID or password.');
-      return;
-    }
-
+    setIsSubmitting(true);
     setError('');
-    setPassword('');
-    showToast({
-      title: 'Staff Access Enabled',
-      description: 'Staff-only controls are now visible on Hodsons and Athletics pages.'
-    });
-    navigate('/hodsons');
+
+    try {
+      const success = await login(userId, password);
+      if (!success) {
+        setError('Incorrect user ID or password, or this account is not enabled for staff access.');
+        return;
+      }
+
+      setPassword('');
+      showToast({
+        title: 'Staff Access Enabled',
+        description: 'Staff-only controls are now visible on Hodsons and Athletics pages.'
+      });
+      navigate('/hodsons');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setUserId('');
     setPassword('');
     setError('');
@@ -47,12 +54,16 @@ const StaffLogin: React.FC = () => {
           <div className="royal-kicker mb-3">Protected Access</div>
           <h1 className="text-3xl font-black text-white tracking-tight">Staff Login</h1>
           <p className="text-sm text-slate-400 mt-2 max-w-xl">
-            Use the staff credentials to unlock the staff-managed controls for Hodsons results and event administration on this public website.
+            Staff access is verified by Firebase Authentication and an active staff profile in Firestore.
           </p>
         </div>
 
         <div className="p-8">
-          {isLoggedIn ? (
+          {authLoading ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-5 text-sm text-slate-400">
+              Checking staff session…
+            </div>
+          ) : isLoggedIn ? (
             <div className="space-y-6">
               <div className="rounded-2xl border border-green-500/20 bg-green-500/10 px-5 py-5">
                 <div className="flex items-center gap-3">
@@ -61,7 +72,7 @@ const StaffLogin: React.FC = () => {
                   </div>
                   <div>
                     <div className="text-white font-black text-lg">Staff session active</div>
-                    <div className="text-sm text-slate-400">Staff-only management controls are now available where applicable.</div>
+                    <div className="text-sm text-slate-400">Firebase has authenticated this session and the staff profile is active.</div>
                   </div>
                 </div>
               </div>
@@ -122,9 +133,10 @@ const StaffLogin: React.FC = () => {
               <div className="flex flex-wrap gap-3">
                 <button
                   type="submit"
-                  className="px-5 py-3 rounded-xl royal-primary-btn font-black text-xs uppercase tracking-widest"
+                  disabled={isSubmitting}
+                  className="px-5 py-3 rounded-xl royal-primary-btn font-black text-xs uppercase tracking-widest disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Log In
+                  {isSubmitting ? 'Authenticating…' : 'Log In'}
                 </button>
               </div>
             </form>
