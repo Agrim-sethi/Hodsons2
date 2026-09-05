@@ -12,21 +12,27 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.active == true;
     }
 
-    // Publicly readable competition data. Only an active staff account may mutate it.
+    // Public result data. Only an active Firebase staff account can write.
     match /athletics_2026_v1/data {
       allow read: if true;
       allow create, update, delete: if activeStaff();
     }
 
-    // Staff profiles are provisioned from the Firebase Console. The client can
-    // read its own profile to establish the active staff session, but cannot
-    // create, modify, or delete staff permissions.
+    // Existing Hodson's Run result store. It uses the same staff session.
+    match /hodsons_production_v1/data {
+      allow read: if true;
+      allow create, update, delete: if activeStaff();
+    }
+
+    // Staff profiles are provisioned manually from the Firebase Console.
+    // A signed-in user may read only their own profile. Clients can never
+    // grant, revoke, or edit staff permissions.
     match /staff/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow create, update, delete: if false;
     }
 
-    // Optional immutable audit trail for future server-side logging.
+    // Immutable audit trail for future administrative logging.
     match /athletics_2026_audit/{auditId} {
       allow read: if activeStaff();
       allow create: if activeStaff()
@@ -34,7 +40,7 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Keep the rest of Firestore closed unless a collection gets an explicit rule.
+    // No accidental access to new collections until they receive an explicit rule.
     match /{document=**} {
       allow read, write: if false;
     }
