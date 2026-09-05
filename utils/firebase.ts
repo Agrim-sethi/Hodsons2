@@ -4,10 +4,8 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 // Verified Firebase Web SDK configuration from the HODSONS1 Firebase Console.
-// Keep these values fixed so an old/mismatched Vercel environment variable
-// cannot silently override the client configuration used by Firebase Auth.
 const firebaseConfig = {
-  apiKey: "AIzaSyDYIVKEtgKw2lqTJMMUQcARwK7R8K3F8a3Y",
+  apiKey: "AIzaSyDYIVKEtgKw2lqTJMMUQcARwK7R8F3a8Y3",
   authDomain: "hodsons-848af.firebaseapp.com",
   projectId: "hodsons-848af",
   storageBucket: "hodsons-848af.firebasestorage.app",
