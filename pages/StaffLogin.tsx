@@ -7,21 +7,25 @@ import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 const StaffLogin: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { isLoggedIn, login, logout } = useStaffAuth();
+  const { isLoggedIn, isLoading: authLoading, login, logout } = useStaffAuth();
   const [userId, setUserId] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
 
     try {
-      const success = login(userId, password);
+      const success = await login(userId, password);
       if (!success) {
-        setError('Enter the staff user ID and a password to continue.');
+        setError(
+          userId.trim().toUpperCase() === 'SNA'
+            ? 'SNA must be mapped to the Firebase Auth email in Vercel (VITE_FIREBASE_STAFF_EMAIL), or enter the Firebase email directly.'
+            : 'Incorrect Firebase email/password, or this account is not enabled for staff access.'
+        );
         return;
       }
 
@@ -36,8 +40,8 @@ const StaffLogin: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setUserId('');
     setPassword('');
     setError('');
@@ -47,6 +51,16 @@ const StaffLogin: React.FC = () => {
     });
   };
 
+  if (authLoading) {
+    return (
+      <div className="max-w-3xl mx-auto w-full py-12">
+        <div className="glass-panel section-plaque rounded-[32px] border border-primary/15 p-8 text-slate-400">
+          Checking staff session…
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto w-full py-12">
       <div className="glass-panel section-plaque rounded-[32px] border border-primary/15 overflow-hidden">
@@ -54,7 +68,7 @@ const StaffLogin: React.FC = () => {
           <div className="royal-kicker mb-3">Protected Access</div>
           <h1 className="text-3xl font-black text-white tracking-tight">Staff Login</h1>
           <p className="text-sm text-slate-400 mt-2 max-w-xl">
-            Temporary local staff access is enabled while Firebase Authentication is offline. Firebase Firestore remains available for competition data.
+            Staff access is secured by Firebase Authentication. Only Firebase accounts with an active staff profile can use staff-only controls.
           </p>
         </div>
 
@@ -68,7 +82,7 @@ const StaffLogin: React.FC = () => {
                   </div>
                   <div>
                     <div className="text-white font-black text-lg">Staff session active</div>
-                    <div className="text-sm text-slate-400">This session is stored locally on this device.</div>
+                    <div className="text-sm text-slate-400">Firebase Authentication is keeping this session active.</div>
                   </div>
                 </div>
               </div>
@@ -91,18 +105,19 @@ const StaffLogin: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid gap-5">
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">User ID</label>
+                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Staff ID or Firebase Email</label>
                   <input
                     type="text"
                     value={userId}
                     onChange={(e) => {
-                      setUserId(e.target.value.toUpperCase());
+                      setUserId(e.target.value.includes('@') ? e.target.value : e.target.value.toUpperCase());
                       setError('');
                     }}
-                    className="w-full royal-input rounded-xl px-4 py-3 text-white font-bold tracking-[0.16em] uppercase"
-                    placeholder="SNA"
+                    className="w-full royal-input rounded-xl px-4 py-3 text-white font-bold tracking-[0.08em]"
+                    placeholder="SNA or staff email"
                     autoComplete="username"
                   />
+                  <p className="text-xs text-slate-500 mt-2">SNA works when VITE_FIREBASE_STAFF_EMAIL is configured in Vercel. You can always enter the Firebase Auth email directly.</p>
                 </div>
                 <div>
                   <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Password</label>
