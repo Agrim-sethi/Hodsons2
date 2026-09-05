@@ -25,11 +25,11 @@ export default function App() {
               <Route path="standings" element={<Standings />} />
               <Route path="events" element={<Events />} />
               <Route path="archive" element={<Archive />} />
-              <Route path="profile" element={<Navigate to="/staff-login" replace />} />
               <Route path="attendance" element={<Attendance />} />
               <Route path="teams" element={<SchoolTeams />} />
               <Route path="hodsons" element={<Hodsons />} />
               <Route path="athletics" element={<Athletics />} />
+              <Route path="profile" element={<Navigate to="/staff-login" replace />} />
               <Route path="staff-login" element={<StaffLogin />} />
             </Route>
           </Routes>
