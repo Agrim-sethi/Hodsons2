@@ -1,39 +1,87 @@
 import React from 'react';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../utils/firebase';
 
-const STAFF_AUTH_KEY = 'sanawar_staff_logged_in';
-const STAFF_USER_ID = 'SNA';
-const STAFF_PASSWORD = 'HODSONS123';
+const STAFF_USER_EMAILS: Record<string, string> = {
+  SNA: import.meta.env.VITE_FIREBASE_STAFF_EMAIL || 'sna@hodsons-848af.firebaseapp.com'
+};
 
-type StaffAuthContextValue = {
+export type StaffAuthContextValue = {
   isLoggedIn: boolean;
-  login: (userId: string, password: string) => boolean;
-  logout: () => void;
+  authLoading: boolean;
+  login: (userId: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 };
 
 const StaffAuthContext = React.createContext<StaffAuthContextValue | null>(null);
 
 export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(STAFF_AUTH_KEY) === 'true';
-  });
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const [authLoading, setAuthLoading] = React.useState(true);
 
-  const login = React.useCallback((userId: string, password: string) => {
-    const success = userId.trim().toUpperCase() === STAFF_USER_ID && password === STAFF_PASSWORD;
-    if (success) {
-      window.localStorage.setItem(STAFF_AUTH_KEY, 'true');
-      setIsLoggedIn(true);
-    }
-    return success;
+  React.useEffect(() => {
+    const auth = getAuth();
+
+    return onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setIsLoggedIn(false);
+        setAuthLoading(false);
+        return;
+      }
+
+      try {
+        const staffDoc = await getDoc(doc(db, 'staff', user.uid));
+        const active = staffDoc.exists() && staffDoc.data()?.active === true;
+        if (!active) {
+          await signOut(auth);
+        }
+        setIsLoggedIn(active);
+      } catch (error) {
+        console.error('Staff profile lookup failed:', error);
+        await signOut(auth);
+        setIsLoggedIn(false);
+      } finally {
+        setAuthLoading(false);
+      }
+    });
   }, []);
 
-  const logout = React.useCallback(() => {
-    window.localStorage.removeItem(STAFF_AUTH_KEY);
-    setIsLoggedIn(false);
+  const login = React.useCallback(async (userId: string, password: string) => {
+    const normalizedId = userId.trim().toUpperCase();
+    const email = STAFF_USER_EMAILS[normalizedId];
+    if (!email || !password) return false;
+
+    try {
+      const auth = getAuth();
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const staffDoc = await getDoc(doc(db, 'staff', credential.user.uid));
+      const active = staffDoc.exists() && staffDoc.data()?.active === true;
+
+      if (!active) {
+        await signOut(auth);
+        return false;
+      }
+
+      setIsLoggedIn(true);
+      return true;
+    } catch (error) {
+      console.error('Staff login failed:', error);
+      setIsLoggedIn(false);
+      return false;
+    }
+  }, []);
+
+  const logout = React.useCallback(async () => {
+    try {
+      await signOut(getAuth());
+    } finally {
+      setIsLoggedIn(false);
+    }
   }, []);
 
   return (
-    <StaffAuthContext.Provider value={{ isLoggedIn, login, logout }}>
+    <StaffAuthContext.Provider value={{ isLoggedIn, authLoading, login, logout }}>
       {children}
     </StaffAuthContext.Provider>
   );
