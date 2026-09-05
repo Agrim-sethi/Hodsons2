@@ -7,21 +7,21 @@ import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 const StaffLogin: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { isLoggedIn, authLoading, login, logout } = useStaffAuth();
+  const { isLoggedIn, login, logout } = useStaffAuth();
   const [userId, setUserId] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
 
     try {
-      const success = await login(userId, password);
+      const success = login(userId, password);
       if (!success) {
-        setError('Incorrect user ID or password, or this account is not enabled for staff access.');
+        setError('Enter the staff user ID and a password to continue.');
         return;
       }
 
@@ -36,8 +36,8 @@ const StaffLogin: React.FC = () => {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
+    logout();
     setUserId('');
     setPassword('');
     setError('');
@@ -54,16 +54,12 @@ const StaffLogin: React.FC = () => {
           <div className="royal-kicker mb-3">Protected Access</div>
           <h1 className="text-3xl font-black text-white tracking-tight">Staff Login</h1>
           <p className="text-sm text-slate-400 mt-2 max-w-xl">
-            Staff access is verified by Firebase Authentication and an active staff profile in Firestore.
+            Temporary local staff access is enabled while Firebase Authentication is offline. Firebase Firestore remains available for competition data.
           </p>
         </div>
 
         <div className="p-8">
-          {authLoading ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-5 text-sm text-slate-400">
-              Checking staff session…
-            </div>
-          ) : isLoggedIn ? (
+          {isLoggedIn ? (
             <div className="space-y-6">
               <div className="rounded-2xl border border-green-500/20 bg-green-500/10 px-5 py-5">
                 <div className="flex items-center gap-3">
@@ -72,7 +68,7 @@ const StaffLogin: React.FC = () => {
                   </div>
                   <div>
                     <div className="text-white font-black text-lg">Staff session active</div>
-                    <div className="text-sm text-slate-400">Firebase has authenticated this session and the staff profile is active.</div>
+                    <div className="text-sm text-slate-400">This session is stored locally on this device.</div>
                   </div>
                 </div>
               </div>
@@ -136,7 +132,7 @@ const StaffLogin: React.FC = () => {
                   disabled={isSubmitting}
                   className="px-5 py-3 rounded-xl royal-primary-btn font-black text-xs uppercase tracking-widest disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? 'Authenticating…' : 'Log In'}
+                  {isSubmitting ? 'Signing In…' : 'Log In'}
                 </button>
               </div>
             </form>
