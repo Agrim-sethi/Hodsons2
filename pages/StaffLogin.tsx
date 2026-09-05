@@ -19,13 +19,9 @@ const StaffLogin: React.FC = () => {
     setError('');
 
     try {
-      const success = await login(userId, password);
-      if (!success) {
-        setError(
-          userId.trim().toUpperCase() === 'SNA'
-            ? 'SNA must be mapped to the Firebase Auth email in Vercel (VITE_FIREBASE_STAFF_EMAIL), or enter the Firebase email directly.'
-            : 'Incorrect Firebase email/password, or this account is not enabled for staff access.'
-        );
+      const result = await login(userId, password);
+      if (!result.success) {
+        setError(result.error || 'Firebase sign-in failed.');
         return;
       }
 
@@ -117,7 +113,7 @@ const StaffLogin: React.FC = () => {
                     placeholder="SNA or staff email"
                     autoComplete="username"
                   />
-                  <p className="text-xs text-slate-500 mt-2">SNA works when VITE_FIREBASE_STAFF_EMAIL is configured in Vercel. You can always enter the Firebase Auth email directly.</p>
+                  <p className="text-xs text-slate-500 mt-2">Enter the exact email shown in Firebase Authentication, or use SNA when VITE_FIREBASE_STAFF_EMAIL is configured in Vercel.</p>
                 </div>
                 <div>
                   <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Password</label>
@@ -136,7 +132,7 @@ const StaffLogin: React.FC = () => {
               </div>
 
               {error && (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300 break-words">
                   {error}
                 </div>
               )}
