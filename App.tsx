@@ -8,7 +8,7 @@ import Archive from './pages/Archive';
 import Attendance from './pages/Attendance';
 import SchoolTeams from './pages/SchoolTeams';
 import Hodsons from './pages/Hodsons';
-import Athletics from './pages/Athletics';
+import Athletics from './pages/AthleticsCategoryGate';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { StaffAuthProvider } from './components/auth/StaffAuthProvider';
 import StaffLogin from './pages/StaffLogin';
