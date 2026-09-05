@@ -5,11 +5,16 @@ import { auth, db, FIREBASE_STAFF_EMAIL } from '../../utils/firebase';
 
 const STAFF_USER_ID = 'SNA';
 
+type StaffLoginResult = {
+  success: boolean;
+  error?: string;
+};
+
 type StaffAuthContextValue = {
   isLoggedIn: boolean;
   isLoading: boolean;
   user: User | null;
-  login: (userIdOrEmail: string, password: string) => Promise<boolean>;
+  login: (userIdOrEmail: string, password: string) => Promise<StaffLoginResult>;
   logout: () => Promise<void>;
 };
 
@@ -20,6 +25,48 @@ const resolveStaffEmail = (userIdOrEmail: string) => {
   if (value.includes('@')) return value;
   if (value.toUpperCase() === STAFF_USER_ID && FIREBASE_STAFF_EMAIL) return FIREBASE_STAFF_EMAIL;
   return '';
+};
+
+const firebaseAuthMessage = (code: string) => {
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'Firebase rejected this email address as invalid.';
+    case 'auth/user-disabled':
+      return 'This Firebase Authentication account is disabled.';
+    case 'auth/user-not-found':
+      return 'No Firebase Authentication account exists for this email.';
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'Firebase rejected the email/password. Check the password and make sure you are using the account from the HODSONS1 Firebase project.';
+    case 'auth/too-many-requests':
+      return 'Firebase has temporarily blocked sign-in attempts from this device. Wait a little and try again.';
+    case 'auth/network-request-failed':
+      return 'Firebase could not be reached. Check the network connection or VPN and try again.';
+    case 'permission-denied':
+      return 'Firebase Authentication succeeded, but Firestore denied access to the staff profile. Check that the deployed Firestore rules allow the signed-in user to read staff/{UID}.';
+    default:
+      return `Firebase sign-in failed (${code}). Check the browser console for the full error.`;
+  }
+};
+
+const verifyStaffProfile = async (firebaseUser: User) => {
+  try {
+    const staffDoc = await getDoc(doc(db, 'staff', firebaseUser.uid));
+    const staffData = staffDoc.exists() ? staffDoc.data() : null;
+
+    if (!staffDoc.exists()) {
+      return { ok: false as const, error: `Firebase login succeeded, but no Firestore staff profile exists for UID ${firebaseUser.uid}.` };
+    }
+
+    if (staffData?.active !== true) {
+      return { ok: false as const, error: 'Firebase login succeeded, but this staff profile is not active. Set active to true in Firestore.' };
+    }
+
+    return { ok: true as const };
+  } catch (error: any) {
+    const code = error?.code || 'unknown';
+    return { ok: false as const, error: firebaseAuthMessage(code) };
+  }
 };
 
 export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -34,46 +81,52 @@ export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return;
       }
 
-      try {
-        const staffDoc = await getDoc(doc(db, 'staff', nextUser.uid));
-        const staffData = staffDoc.exists() ? staffDoc.data() : null;
-
-        if (staffData?.active === true) {
-          setUser(nextUser);
-        } else {
-          await signOut(auth);
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Staff profile verification error:', error);
+      const verification = await verifyStaffProfile(nextUser);
+      if (verification.ok) {
+        setUser(nextUser);
+      } else {
         await signOut(auth);
         setUser(null);
-      } finally {
-        setIsLoading(false);
+        console.error('Staff profile verification failed:', verification.error);
       }
+      setIsLoading(false);
     });
   }, []);
 
-  const login = React.useCallback(async (userIdOrEmail: string, password: string) => {
+  const login = React.useCallback(async (userIdOrEmail: string, password: string): Promise<StaffLoginResult> => {
     const email = resolveStaffEmail(userIdOrEmail);
-    if (!email || !password) return false;
+    if (!email) {
+      return {
+        success: false,
+        error: userIdOrEmail.trim().toUpperCase() === STAFF_USER_ID
+          ? 'SNA is not mapped to a Firebase email in this deployment. Enter the Firebase Auth email directly, or configure VITE_FIREBASE_STAFF_EMAIL in Vercel.'
+          : 'Enter the Firebase Authentication email address.'
+      };
+    }
+
+    if (!password) {
+      return { success: false, error: 'Enter the Firebase account password.' };
+    }
 
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
-      const staffDoc = await getDoc(doc(db, 'staff', credential.user.uid));
-      const staffData = staffDoc.exists() ? staffDoc.data() : null;
+      const verification = await verifyStaffProfile(credential.user);
 
-      if (staffData?.active !== true) {
+      if (!verification.ok) {
         await signOut(auth);
-        return false;
+        setUser(null);
+        return { success: false, error: verification.error };
       }
 
       setUser(credential.user);
-      return true;
-    } catch (error) {
+      return { success: true };
+    } catch (error: any) {
       console.error('Firebase staff login error:', error);
       setUser(null);
-      return false;
+      return {
+        success: false,
+        error: firebaseAuthMessage(error?.code || 'unknown')
+      };
     }
   }, []);
 
