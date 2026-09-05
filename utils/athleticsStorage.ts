@@ -27,6 +27,7 @@ export interface AthleticsResult {
   status: AthleticsResultStatus;
   timing?: string;
   position?: number;
+  qualified?: boolean;
 }
 export interface AthleticsStudent extends HodsonsStudent { className: string; department: AthleticsDepartment; }
 export interface AthleticsSnapshot {
@@ -73,7 +74,7 @@ const emptySnapshot = (): AthleticsSnapshot => ({
 
 const normalizeSnapshot = (raw: Partial<AthleticsSnapshot> | null | undefined): AthleticsSnapshot => {
   const sourceEnrollments = Array.isArray(raw?.enrollments) ? raw!.enrollments! : [];
-  const enrollmentMap = new Map(sourceEnrollments.map(entry => [entry.eventId, entry.studentIds || []]));
+  const enrollmentMap = new Map(sourceEnrollments.map(entry => [entry.eventId, Array.isArray(entry.studentIds) ? entry.studentIds : []]));
   const sourceFinals = Array.isArray(raw?.finals) ? raw!.finals! : [];
   const finalsMap = new Map(sourceFinals.map(entry => [entry.eventId, entry]));
   const sourceResults = Array.isArray(raw?.results) ? raw!.results! : [];
@@ -93,7 +94,8 @@ const normalizeSnapshot = (raw: Partial<AthleticsSnapshot> | null | undefined): 
     }),
     results: sourceResults.map(result => ({
       ...result,
-      stage: result.stage === 'finals' ? 'finals' : 'qualifying'
+      stage: result.stage === 'finals' ? 'finals' : 'qualifying',
+      qualified: result.qualified === true
     }))
   };
 };
