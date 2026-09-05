@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
@@ -13,6 +14,12 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-8SNX99YQ2W"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// The staff-facing ID can stay as SNA while the actual Firebase Auth account
+// remains an email/password user. Configure VITE_FIREBASE_STAFF_EMAIL in Vercel
+// (and locally, when needed) to map SNA to that Firebase Auth email.
+export const FIREBASE_STAFF_EMAIL = (import.meta.env.VITE_FIREBASE_STAFF_EMAIL || "").trim();
