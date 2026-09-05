@@ -1,41 +1,89 @@
 import React from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
+import { auth, db, FIREBASE_STAFF_EMAIL } from '../../utils/firebase';
 
-const STAFF_AUTH_KEY = 'sanawar_staff_logged_in';
 const STAFF_USER_ID = 'SNA';
 
 type StaffAuthContextValue = {
   isLoggedIn: boolean;
-  login: (userId: string, password: string) => boolean;
-  logout: () => void;
+  isLoading: boolean;
+  user: User | null;
+  login: (userIdOrEmail: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 };
 
 const StaffAuthContext = React.createContext<StaffAuthContextValue | null>(null);
 
-export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(STAFF_AUTH_KEY) === 'true';
-  });
+const resolveStaffEmail = (userIdOrEmail: string) => {
+  const value = userIdOrEmail.trim();
+  if (value.includes('@')) return value;
+  if (value.toUpperCase() === STAFF_USER_ID && FIREBASE_STAFF_EMAIL) return FIREBASE_STAFF_EMAIL;
+  return '';
+};
 
-  const login = React.useCallback((userId: string, password: string) => {
-    // Temporary local-only staff gate while Firebase Authentication is disabled.
-    // A non-empty password keeps the existing login UI intact; real authentication
-    // can be restored later without changing the rest of the app.
-    const success = userId.trim().toUpperCase() === STAFF_USER_ID && password.trim().length > 0;
-    if (success) {
-      window.localStorage.setItem(STAFF_AUTH_KEY, 'true');
-      setIsLoggedIn(true);
-    }
-    return success;
+export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = React.useState<User | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    return onAuthStateChanged(auth, async (nextUser) => {
+      if (!nextUser) {
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const staffDoc = await getDoc(doc(db, 'staff', nextUser.uid));
+        const staffData = staffDoc.exists() ? staffDoc.data() : null;
+
+        if (staffData?.active === true) {
+          setUser(nextUser);
+        } else {
+          await signOut(auth);
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Staff profile verification error:', error);
+        await signOut(auth);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    });
   }, []);
 
-  const logout = React.useCallback(() => {
-    window.localStorage.removeItem(STAFF_AUTH_KEY);
-    setIsLoggedIn(false);
+  const login = React.useCallback(async (userIdOrEmail: string, password: string) => {
+    const email = resolveStaffEmail(userIdOrEmail);
+    if (!email || !password) return false;
+
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const staffDoc = await getDoc(doc(db, 'staff', credential.user.uid));
+      const staffData = staffDoc.exists() ? staffDoc.data() : null;
+
+      if (staffData?.active !== true) {
+        await signOut(auth);
+        return false;
+      }
+
+      setUser(credential.user);
+      return true;
+    } catch (error) {
+      console.error('Firebase staff login error:', error);
+      setUser(null);
+      return false;
+    }
+  }, []);
+
+  const logout = React.useCallback(async () => {
+    await signOut(auth);
+    setUser(null);
   }, []);
 
   return (
-    <StaffAuthContext.Provider value={{ isLoggedIn, login, logout }}>
+    <StaffAuthContext.Provider value={{ isLoggedIn: Boolean(user), isLoading, user, login, logout }}>
       {children}
     </StaffAuthContext.Provider>
   );
