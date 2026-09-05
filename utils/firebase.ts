@@ -5,7 +5,7 @@ import { getFirestore } from "firebase/firestore";
 
 // Verified Firebase Web SDK configuration from the HODSONS1 Firebase Console.
 const firebaseConfig = {
-  apiKey: "AIzaSyDYIVKEtgKw2lqTJMMUQcARwK7R8F3a8Y3",
+  apiKey: "AIzaSyDYIVKEtgKw2lqTJMMUQcARw7K8R3F8a3Y",
   authDomain: "hodsons-848af.firebaseapp.com",
   projectId: "hodsons-848af",
   storageBucket: "hodsons-848af.firebasestorage.app",
