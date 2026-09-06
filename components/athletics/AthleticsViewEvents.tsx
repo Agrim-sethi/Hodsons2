@@ -128,14 +128,14 @@ const AthleticsViewEvents: React.FC<{
     const getEnrollment = (eventId: string) => {
         return (
             snapshot.enrollments.find(
-                (entry) => entry.eventId === eventId
+                (entry) => entry.eventId === eventId && entry.category === category
             )?.studentIds ?? []
         );
     };
 
     const finalsFor = (eventId: string) => {
         return snapshot.finals.find(
-            (entry) => entry.eventId === eventId
+            (entry) => entry.eventId === eventId && entry.category === category
         );
     };
 
@@ -147,6 +147,7 @@ const AthleticsViewEvents: React.FC<{
         return snapshot.results.find(
             (result) =>
                 result.eventId === event.id &&
+                result.category === category &&
                 result.studentId === studentId &&
                 resultStageOf(result) === requestedStage
         );
@@ -210,7 +211,7 @@ const AthleticsViewEvents: React.FC<{
                 computedPosition: index + 1,
             }));
         },
-        [snapshot, studentMap]
+        [snapshot, studentMap, category]
     );
 
     const podiumFor = React.useCallback(
