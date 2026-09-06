@@ -289,40 +289,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard
-          title="Daily Attendance"
-          value={totalStudentsToday > 0 ? totalStudentsToday.toString() : "--"}
-          icon="analytics"
-          borderClass="border-l-primary"
-          colorClass="text-primary"
-          subtext={<p className="text-xs text-slate-400">{totalStudentsToday > 0 ? `${totalStudentsToday} marked today` : 'Record attendance'}</p>}
-          onClick={() => setShowAttendanceModal(true)}
-          manageText="Mark Attendance"
-        />
-        <StatCard
-          title="Active Sessions"
-          value={activeSessions.length.toString()}
-          icon="exercise"
-          borderClass="border-l-house-siwalik"
-          colorClass="text-house-siwalik"
-          subtext={<p className="text-xs text-slate-400">{activeSessions.length > 0 ? `${activeSessions.length} active now` : 'No active sessions'}</p>}
-          onClick={() => setShowSessionModal(true)}
-          manageText="Manage Sessions"
-        />
-        <StatCard
-          title="Injuries Reported"
-          value={injuries.length.toString()}
-          icon="medical_services"
-          borderClass="border-l-house-vindhya"
-          colorClass="text-house-vindhya"
-          subtext={<p className="text-xs text-slate-400">{injuries.length > 0 ? `${injuries.length} reports logged` : 'None reported'}</p>}
-          onClick={() => setShowInjuryModal(true)}
-          manageText="Report Injury"
-        />
-      </div>
-
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
