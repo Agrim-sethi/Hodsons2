@@ -233,10 +233,10 @@ const Athletics: React.FC = () => {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {visibleEvents.map((event) => {
                 const finals = snapshot.finals.find(
-                  (entry) => entry.eventId === event.id,
+                  (entry) => entry.eventId === event.id && entry.category === selectedCategory,
                 );
                 const enrollment = snapshot.enrollments.find(
-                  (entry) => entry.eventId === event.id,
+                  (entry) => entry.eventId === event.id && entry.category === selectedCategory,
                 );
 
                 return (
