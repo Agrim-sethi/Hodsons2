@@ -137,12 +137,12 @@ const AthleticsEventManager: React.FC<Props> = ({
   }, [students]);
 
   const enrollment = React.useMemo(() => {
-    return snapshot.enrollments.find((entry) => entry.eventId === event.id)?.studentIds || [];
-  }, [event.id, snapshot.enrollments]);
+    return snapshot.enrollments.find((entry) => entry.eventId === event.id && entry.category === category)?.studentIds || [];
+  }, [event.id, category, snapshot.enrollments]);
 
   const finalsConfig = React.useMemo(() => {
-    return snapshot.finals.find((entry) => entry.eventId === event.id);
-  }, [event.id, snapshot.finals]);
+    return snapshot.finals.find((entry) => entry.eventId === event.id && entry.category === category);
+  }, [event.id, category, snapshot.finals]);
 
   const finalsEnabled = Boolean(finalsConfig?.enabled);
   const finalistIds = finalsConfig?.studentIds || [];
@@ -173,10 +173,12 @@ const AthleticsEventManager: React.FC<Props> = ({
       snapshot.results.find(
         (result) =>
           result.eventId === event.id &&
+          result.category === category &&
           result.studentId === studentId &&
           resultStageOf(result) === resultStage,
       ) || {
         eventId: event.id,
+        category,
         studentId,
         stage: resultStage,
         status: 'pending',
@@ -251,7 +253,7 @@ const AthleticsEventManager: React.FC<Props> = ({
     }
 
     const enrollments = snapshot.enrollments.map((entry) => {
-      if (entry.eventId !== event.id) {
+      if (entry.eventId !== event.id || entry.category !== category) {
         return entry;
       }
 
@@ -266,13 +268,13 @@ const AthleticsEventManager: React.FC<Props> = ({
     const results = enrolled
       ? snapshot.results.filter(
           (result) =>
-            !(result.eventId === event.id && result.studentId === studentId),
+            !(result.eventId === event.id && result.category === category && result.studentId === studentId),
         )
       : snapshot.results;
 
     const finals = enrolled
       ? snapshot.finals.map((finalsEntry) => {
-          if (finalsEntry.eventId !== event.id) {
+          if (finalsEntry.eventId !== event.id || finalsEntry.category !== category) {
             return finalsEntry;
           }
 
@@ -309,12 +311,14 @@ const AthleticsEventManager: React.FC<Props> = ({
     const existing = snapshot.results.find(
       (result) =>
         result.eventId === event.id &&
+        result.category === category &&
         result.studentId === studentId &&
         resultStageOf(result) === resultStage,
     );
 
     const nextResult: AthleticsResult = {
       eventId: event.id,
+      category,
       studentId,
       stage: resultStage,
       status: existing?.status || 'pending',
@@ -328,6 +332,7 @@ const AthleticsEventManager: React.FC<Props> = ({
       ? snapshot.results.map((result) => {
           if (
             result.eventId !== event.id ||
+            result.category !== category ||
             result.studentId !== studentId ||
             resultStageOf(result) !== resultStage
           ) {
@@ -405,7 +410,7 @@ const AthleticsEventManager: React.FC<Props> = ({
       {
         ...snapshot,
         finals: snapshot.finals.map((entry) => {
-          if (entry.eventId !== event.id) {
+          if (entry.eventId !== event.id || entry.category !== category) {
             return entry;
           }
 
@@ -448,7 +453,7 @@ const AthleticsEventManager: React.FC<Props> = ({
       {
         ...snapshot,
         finals: snapshot.finals.map((entry) => {
-          if (entry.eventId !== event.id) {
+          if (entry.eventId !== event.id || entry.category !== category) {
             return entry;
           }
 
@@ -491,7 +496,7 @@ const AthleticsEventManager: React.FC<Props> = ({
       {
         ...snapshot,
         finals: snapshot.finals.map((entry) => {
-          if (entry.eventId !== event.id) {
+          if (entry.eventId !== event.id || entry.category !== category) {
             return entry;
           }
 
@@ -538,6 +543,7 @@ const AthleticsEventManager: React.FC<Props> = ({
         results: snapshot.results.map((result) => {
           if (
             result.eventId !== event.id ||
+            result.category !== category ||
             resultStageOf(result) !== stage ||
             !rankMap.has(result.studentId)
           ) {
