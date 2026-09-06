@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../components/Icon';
 import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 import studentClasses from '../utils/studentClasses.json';
@@ -307,17 +308,20 @@ const Athletics: React.FC = () => {
             </div>
           </section>
 
-          {selectedEvent && (
-            <AthleticsEventManager
-              event={selectedEvent}
-              category={selectedCategory}
-              students={students}
-              snapshot={snapshot}
-              isLoggedIn={isLoggedIn}
-              onSave={handleSave}
-              onClose={() => setSelectedEventId(null)}
-            />
-          )}
+          {selectedEvent &&
+            typeof document !== 'undefined' &&
+            createPortal(
+              <AthleticsEventManager
+                event={selectedEvent}
+                category={selectedCategory}
+                students={students}
+                snapshot={snapshot}
+                isLoggedIn={isLoggedIn}
+                onSave={handleSave}
+                onClose={() => setSelectedEventId(null)}
+              />,
+              document.body,
+            )}
         </>
       )}
     </div>
