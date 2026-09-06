@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { HOUSE_COLORS, IMAGES } from '../constants';
-import { getEvents, saveEvent, Event, subscribeToGeneralData } from '../utils/storage';
+import { getEvents, saveEvent, updateEvent, deleteEvent, Event, subscribeToGeneralData } from '../utils/storage';
+import { formatEventTime } from '../utils/eventTime';
 import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 import { useToast } from '../components/ui/ToastProvider';
 
@@ -128,6 +129,8 @@ const Events: React.FC = () => {
     const [userEvents, setUserEvents] = useState<Event[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editingEventId, setEditingEventId] = useState<string | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     const loadEvents = () => {
         const allEvents = getEvents();
@@ -169,35 +172,88 @@ const Events: React.FC = () => {
 
     const resetAndClose = () => {
         setForm(emptyForm);
+        setEditingEventId(null);
         setShowAddModal(false);
     };
 
-    const handleAddEvent = () => {
+    const openAddModal = () => {
+        setForm(emptyForm);
+        setEditingEventId(null);
+        setShowAddModal(true);
+    };
+
+    const openEditModal = (event: Event) => {
+        setForm({
+            title: event.title,
+            sport: event.sport,
+            sportIcon: event.sportIcon,
+            subtext: event.subtext || '',
+            ageCategory: event.ageCategory || '',
+            date: event.date,
+            time: event.time || '',
+            venue: event.venue,
+            teachers: event.teachers || '',
+            participation: event.participation,
+            houses: event.houses || [],
+            homeSchool: event.homeSchool || '',
+            opponentSchool: event.opponentSchool || ''
+        });
+        setEditingEventId(event.id);
+        setSelectedEvent(null);
+        setShowAddModal(true);
+    };
+
+    const buildEventFromForm = (id: string): Event => ({
+        id,
+        sport: form.sport.trim(),
+        sportIcon: form.sportIcon.trim() || 'sports',
+        participation: form.participation,
+        ageCategory: form.ageCategory.trim() || 'Open',
+        time: form.time,
+        date: form.date,
+        venue: form.venue.trim(),
+        teachers: form.teachers.trim(),
+        title: form.title.trim(),
+        subtext: form.subtext.trim(),
+        ...(form.participation === 'houses' ? { houses: form.houses } : {}),
+        ...(form.participation === 'inter_school' ? { homeSchool: form.homeSchool.trim(), opponentSchool: form.opponentSchool.trim() } : {})
+    });
+
+    const handleSaveEvent = () => {
         if (!form.title.trim() || !form.sport.trim() || !form.date || !form.time || !form.venue.trim()) {
             showToast({ title: 'Missing Details', description: 'Title, sport, date, time and venue are required.' });
             return;
         }
 
-        const newEvent: Event = {
-            id: `event_${Date.now()}`,
-            sport: form.sport.trim(),
-            sportIcon: form.sportIcon.trim() || 'sports',
-            participation: form.participation,
-            ageCategory: form.ageCategory.trim() || 'Open',
-            time: form.time,
-            date: form.date,
-            venue: form.venue.trim(),
-            teachers: form.teachers.trim(),
-            title: form.title.trim(),
-            subtext: form.subtext.trim(),
-            ...(form.participation === 'houses' ? { houses: form.houses } : {}),
-            ...(form.participation === 'inter_school' ? { homeSchool: form.homeSchool.trim(), opponentSchool: form.opponentSchool.trim() } : {})
-        };
+        if (editingEventId) {
+            const existing = userEvents.find(e => e.id === editingEventId) || getEvents().find(e => e.id === editingEventId);
+            const updated: Event = {
+                ...buildEventFromForm(editingEventId),
+                completed: existing?.completed,
+                result: existing?.result,
+                resultDetails: existing?.resultDetails,
+                athleticsDetail: existing?.athleticsDetail
+            };
+            updateEvent(updated);
+            loadEvents();
+            showToast({ title: 'Event Updated', description: `${updated.title} has been updated.` });
+        } else {
+            const newEvent = buildEventFromForm(`event_${Date.now()}`);
+            saveEvent(newEvent);
+            loadEvents();
+            showToast({ title: 'Event Added', description: `${newEvent.title} has been added to the fixtures desk.` });
+        }
 
-        saveEvent(newEvent);
-        loadEvents();
-        showToast({ title: 'Event Added', description: `${newEvent.title} has been added to the fixtures desk.` });
         resetAndClose();
+    };
+
+    const handleDeleteEvent = (id: string) => {
+        const event = userEvents.find(e => e.id === id);
+        deleteEvent(id);
+        loadEvents();
+        setSelectedEvent(null);
+        setConfirmDeleteId(null);
+        showToast({ title: 'Event Deleted', description: event ? `${event.title} has been removed.` : 'The event has been removed.' });
     };
 
     const getHouseConfig = (code: string) => {
@@ -220,7 +276,7 @@ const Events: React.FC = () => {
                 </div>
                 {isLoggedIn && (
                     <button
-                        onClick={() => setShowAddModal(true)}
+                        onClick={openAddModal}
                         className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-5 py-3 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-all shrink-0"
                     >
                         <Icon name="add_circle" size="18" /> Add Event
@@ -243,7 +299,7 @@ const Events: React.FC = () => {
                             title={event.title + (event.athleticsDetail ? ` (${event.athleticsDetail})` : '')}
                             subtext={event.subtext}
                             date={event.date}
-                            time={event.time}
+                            time={formatEventTime(event.time)}
                             sport={{ name: event.sport, icon: event.sportIcon }}
                             location={event.venue}
                             participation={event.participation}
@@ -290,7 +346,7 @@ const Events: React.FC = () => {
                                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
                                         <Icon name="schedule" size="14" /> Time
                                     </p>
-                                    <p className="text-white font-medium">{selectedEvent.time}</p>
+                                    <p className="text-white font-medium">{formatEventTime(selectedEvent.time)}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
@@ -343,7 +399,23 @@ const Events: React.FC = () => {
                                 </div>
                             )}
 
-                            <div className="pt-6">
+                            <div className="pt-6 space-y-2.5">
+                                {isLoggedIn && (
+                                    <div className="grid grid-cols-2 gap-2.5">
+                                        <button
+                                            onClick={() => selectedEvent && openEditModal(selectedEvent)}
+                                            className="flex items-center justify-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary font-bold py-3 rounded-xl border border-primary/20 transition-all uppercase tracking-widest text-xs"
+                                        >
+                                            <Icon name="edit" size="16" /> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => selectedEvent && setConfirmDeleteId(selectedEvent.id)}
+                                            className="flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-3 rounded-xl border border-red-500/20 transition-all uppercase tracking-widest text-xs"
+                                        >
+                                            <Icon name="delete" size="16" /> Delete
+                                        </button>
+                                    </div>
+                                )}
                                 <button
                                     onClick={() => setSelectedEvent(null)}
                                     className="w-full bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-xl border border-white/10 transition-all uppercase tracking-widest text-xs"
@@ -356,7 +428,38 @@ const Events: React.FC = () => {
                 </div>
             )}
 
-            {/* Add Event Modal */}
+            {/* Delete Confirmation Modal */}
+            {confirmDeleteId && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="glass-panel w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl border border-red-500/20 animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-500/20 rounded-lg text-red-400">
+                                    <Icon name="warning" size="24" />
+                                </div>
+                                <h2 className="text-lg font-bold text-white">Delete this event?</h2>
+                            </div>
+                            <p className="text-sm text-slate-400">This will permanently remove the event from the fixtures desk for everyone. This cannot be undone.</p>
+                            <div className="grid grid-cols-2 gap-2.5 pt-2">
+                                <button
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-xl border border-white/10 transition-all uppercase tracking-widest text-xs"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => confirmDeleteId && handleDeleteEvent(confirmDeleteId)}
+                                    className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-all uppercase tracking-widest text-xs"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add / Edit Event Modal */}
             {showAddModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <div className="glass-panel w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
@@ -365,7 +468,7 @@ const Events: React.FC = () => {
                                 <div className="p-2 bg-primary/20 rounded-lg text-primary">
                                     <Icon name="add_circle" size="24" />
                                 </div>
-                                <h2 className="text-xl font-bold text-white">Add Event</h2>
+                                <h2 className="text-xl font-bold text-white">{editingEventId ? 'Edit Event' : 'Add Event'}</h2>
                             </div>
                             <button onClick={resetAndClose} className="text-slate-400 hover:text-white transition-colors">
                                 <Icon name="close" size="24" />
@@ -435,9 +538,9 @@ const Events: React.FC = () => {
                                 <div>
                                     <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Time</label>
                                     <input
+                                        type="time"
                                         value={form.time}
                                         onChange={e => setForm({ ...form, time: e.target.value })}
-                                        placeholder="4:00 PM"
                                         className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
                                     />
                                 </div>
@@ -526,7 +629,7 @@ const Events: React.FC = () => {
 
                         <div className="p-6 pt-2 shrink-0">
                             <button
-                                onClick={handleAddEvent}
+                                onClick={handleSaveEvent}
                                 className="w-full bg-primary hover:bg-primary/90 text-background-dark font-black py-3 rounded-xl transition-all uppercase tracking-widest text-xs"
                             >
                                 Save Event
