@@ -1,67 +1,327 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { Icon } from '../components/Icon';
-import { HOUSE_COLORS } from '../constants';
-import { useToast } from '../components/ui/ToastProvider';
 import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 import studentClasses from '../utils/studentClasses.json';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, getAthleticsSnapshot, getPrepAthleticsStudents, saveAthleticsSnapshot, subscribeToAthleticsData } from '../utils/athleticsStorage';
-import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../utils/athleticsCategories';
+import {
+  ATHLETICS_EVENTS,
+  AthleticsEvent,
+  AthleticsSnapshot,
+  getAthleticsSnapshot,
+  getPrepAthleticsStudents,
+  saveAthleticsSnapshot,
+  subscribeToAthleticsData,
+} from '../utils/athleticsStorage';
+import {
+  ATHLETICS_CATEGORIES,
+  AthleticsCategory,
+} from '../utils/athleticsCategories';
 import AthleticsLeaderboard from '../components/athletics/AthleticsLeaderboard';
 import AthleticsSummary from '../components/athletics/AthleticsSummary';
 import AthleticsViewEvents from '../components/athletics/AthleticsViewEvents';
+import AthleticsEventManager from '../components/athletics/AthleticsEventManager';
 
-const HOUSES=['Vindhya','Himalaya','Nilgiri','Siwalik'] as const;
-const RESULT_STATUSES:AthleticsResultStatus[]=['pending','finished','dnf','absent','medically_excused'];
-const TRACK_EVENTS=new Set(['100m','200m','400m','800m','1500m','3000m']);
-const EXCLUSIVE_EVENT_CATEGORIES:Record<string,AthleticsCategory[]>={ '3000m':['BD Opens'], 'triple-jump':['BD Opens'], 'javelin-throw':['BD Opens'] };
-type Category=AthleticsCategory; type PageTab='view'|'manage'|'leaderboard'|'summary'; type ResultParts={first:string;second:string;third:string};
-
-const houseConfig=(house:string)=>{const key=house.toLowerCase() as keyof typeof HOUSE_COLORS;return HOUSE_COLORS[key]??HOUSE_COLORS.nilgiri;};
-const resultStageOf=(r:AthleticsResult):AthleticsStage=>r.stage||'qualifying';
-const placementPoints=(p?:number)=>p===1?4:p===2?3:p===3?2:p===4?1:0;
-const parseTrackTiming=(v='')=>{const p=v.trim().split(':').map(Number);return p.length===3&&p.every(Number.isFinite)?p[0]*60+p[1]+p[2]/1000:Infinity;};
-const parseFieldDistance=(v='')=>{const n=Number(v.trim().replace(',','.'));return Number.isFinite(n)?n:-Infinity;};
-const splitTrackTiming=(v?:string):ResultParts=>{const p=(v||'').split(':');return{first:p[0]||'0',second:p[1]||'0',third:p[2]||'0'};};
-const splitFieldDistance=(v?:string)=>{const [m,c='']=(v||'').split('.');return{first:m||'',second:c.slice(0,2)};};
-const clampNumber=(v:string,max:number)=>{const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.min(max,Math.trunc(n))):0;};
-const statusLabel=(s:AthleticsResultStatus)=>({pending:'Pending',finished:'Finished',dnf:'DNF',absent:'Absent',medically_excused:'Medical Leave'}[s]);
-const statusStyle=(s:AthleticsResultStatus)=>({finished:'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',dnf:'border-amber-500/30 bg-amber-500/10 text-amber-300',absent:'border-rose-500/30 bg-rose-500/10 text-rose-300',medically_excused:'border-purple-500/30 bg-purple-500/10 text-purple-300',pending:'border-slate-500/20 bg-slate-500/10 text-slate-300'}[s]);
-
-const Athletics:React.FC=()=>{
- const {showToast}=useToast(); const {isLoggedIn}=useStaffAuth();
- const [snapshot,setSnapshot]=React.useState<AthleticsSnapshot>(()=>getAthleticsSnapshot());
- const [pageTab,setPageTab]=React.useState<PageTab>('view'); const [selectedEventId,setSelectedEventId]=React.useState<string|null>(null);
- const [selectedCategory,setSelectedCategory]=React.useState<Category>('PDB Under 11'); const [stage,setStage]=React.useState<AthleticsStage>('qualifying');
- const [search,setSearch]=React.useState(''); const [houseFilter,setHouseFilter]=React.useState('All'); const [savedStudent,setSavedStudent]=React.useState<string|null>(null);
- const students=React.useMemo(()=>getPrepAthleticsStudents(studentClasses as Record<string,string>),[]); const studentMap=React.useMemo(()=>new Map(students.map(s=>[s.id,s])),[students]);
- React.useEffect(()=>{setSnapshot(getAthleticsSnapshot());return subscribeToAthleticsData(setSnapshot);},[]);
- React.useEffect(()=>{if(!isLoggedIn&&pageTab==='manage')setPageTab('view');},[isLoggedIn,pageTab]);
- React.useEffect(()=>{if(selectedEventId){setStage('qualifying');setSearch('');setHouseFilter('All');}},[selectedEventId]);
- const selectedEvent=ATHLETICS_EVENTS.find(e=>e.id===selectedEventId)||null;
- const finalsConfig=selectedEvent?snapshot.finals.find(f=>f.eventId===selectedEvent.id):undefined; const finalsEnabled=Boolean(finalsConfig?.enabled);
- const qualifyingEnrollment=selectedEvent?(snapshot.enrollments.find(e=>e.eventId===selectedEvent.id)?.studentIds||[]):[]; const finalistIds=finalsConfig?.studentIds||[];
- const currentEnrollment=stage==='finals'?finalistIds:qualifyingEnrollment;
- const categoryStudents=React.useMemo(()=>students.filter(s=>s.category===selectedCategory),[students,selectedCategory]);
- const filteredStudents=React.useMemo(()=>categoryStudents.filter(s=>{const q=search.trim().toLowerCase();return(!q||s.id.toLowerCase().includes(q)||s.name.toLowerCase().includes(q)||s.className.toLowerCase().includes(q))&&(houseFilter==='All'||s.house===houseFilter);}),[categoryStudents,search,houseFilter]);
- const visibleEvents=React.useMemo(()=>ATHLETICS_EVENTS.filter(e=>!EXCLUSIVE_EVENT_CATEGORIES[e.id]||EXCLUSIVE_EVENT_CATEGORIES[e.id].includes(selectedCategory)),[selectedCategory]);
- const canAddStudent=React.useCallback((studentId:string,event:AthleticsEvent)=>{const ids=snapshot.enrollments.filter(e=>e.studentIds.includes(studentId)).map(e=>e.eventId);if(ids.includes(event.id))return{ok:true,reason:''};if(ids.length>=3)return{ok:false,reason:'A student can take no more than 3 athletics events.'};const track=ids.filter(id=>TRACK_EVENTS.has(id)).length+(event.kind==='track'?1:0);const field=ids.length-ids.filter(id=>TRACK_EVENTS.has(id)).length+(event.kind==='field'?1:0);return track<=2&&field<=2?{ok:true,reason:''}:{ok:false,reason:'Allowed combination: 2 track + 1 field or 2 field + 1 track.'};},[snapshot.enrollments]);
- const saveNext=(next:AthleticsSnapshot,title:string,description:string)=>{setSnapshot(next);void saveAthleticsSnapshot(next);showToast({title,description});};
- const toggleEnrollment=(event:AthleticsEvent,studentId:string)=>{if(!isLoggedIn)return;const current=snapshot.enrollments.find(e=>e.eventId===event.id)?.studentIds||[];const enrolled=current.includes(studentId);if(!enrolled){const c=canAddStudent(studentId,event);if(!c.ok)return showToast({title:'Enrollment blocked',description:c.reason});}const enrollments=snapshot.enrollments.map(e=>e.eventId===event.id?{...e,studentIds:enrolled?e.studentIds.filter(id=>id!==studentId):[...e.studentIds,studentId]}:e);const results=enrolled?snapshot.results.filter(r=>!(r.eventId===event.id&&r.studentId===studentId)):snapshot.results;const finals=enrolled?snapshot.finals.map(f=>f.eventId===event.id?{...f,studentIds:f.studentIds.filter(id=>id!==studentId)}:f):snapshot.finals;saveNext({...snapshot,enrollments,results,finals},enrolled?'Student Removed':'Student Enrolled',enrolled?'Removed from this event.':`${studentMap.get(studentId)?.name||'Student'} enrolled.`);};
- const clearRoster=()=>{if(!isLoggedIn||!selectedEvent||stage!=='qualifying')return;if(!window.confirm(`Clear all qualifying enrollments for ${selectedEvent.name}?`))return;saveNext({...snapshot,enrollments:snapshot.enrollments.map(e=>e.eventId===selectedEvent.id?{...e,studentIds:[]}:e),finals:snapshot.finals.map(f=>f.eventId===selectedEvent.id?{...f,studentIds:[]}:f),results:snapshot.results.filter(r=>r.eventId!==selectedEvent.id)},'Qualifying Roster Cleared',`${selectedEvent.name} reset.`);};
- const toggleFinals=()=>{if(!isLoggedIn||!selectedEvent)return;const enabled=!finalsEnabled;saveNext({...snapshot,finals:snapshot.finals.map(f=>f.eventId===selectedEvent.id?{...f,enabled,studentIds:enabled?f.studentIds:[]}:f)},enabled?'Finals Allotted':'Finals Removed',enabled?'Separate finals stage enabled.':'Finals disabled.');if(!enabled)setStage('qualifying');};
- const toggleQualified=(studentId:string)=>{if(!isLoggedIn||!selectedEvent||stage!=='qualifying')return;const existing=snapshot.results.find(r=>r.eventId===selectedEvent.id&&r.studentId===studentId&&resultStageOf(r)==='qualifying');const next={eventId:selectedEvent.id,studentId,stage:'qualifying' as const,status:existing?.status||'pending',timing:existing?.timing||'',position:existing?.position,qualified:!existing?.qualified};const results=existing?snapshot.results.map(r=>r.eventId===selectedEvent.id&&r.studentId===studentId&&resultStageOf(r)==='qualifying'?next:r):[...snapshot.results,next];saveNext({...snapshot,results},next.qualified?'Athlete Qualified':'Qualification Removed',next.qualified?'Marked qualified.':'Qualification removed.');};
- const toggleFinalist=(studentId:string)=>{if(!isLoggedIn||!selectedEvent||!finalsEnabled||stage!=='qualifying')return;const exists=finalistIds.includes(studentId);const finals=snapshot.finals.map(f=>f.eventId===selectedEvent.id?{...f,studentIds:exists?f.studentIds.filter(id=>id!==studentId):[...f.studentIds,studentId]}:f);saveNext({...snapshot,finals},exists?'Removed From Finals':'Added to Finals',`${studentMap.get(studentId)?.name||'Student'} ${exists?'removed from':'added to'} finals.`);};
- const autoPickFinalists=()=>{if(!isLoggedIn||!selectedEvent||!finalsEnabled)return;const candidates=qualifyingEnrollment.map(id=>snapshot.results.find(r=>r.eventId===selectedEvent.id&&r.studentId===id&&resultStageOf(r)==='qualifying'&&r.qualified&&r.status==='finished'&&r.timing)).filter((r):r is AthleticsResult=>Boolean(r));candidates.sort((a,b)=>selectedEvent.kind==='track'?parseTrackTiming(a.timing)-parseTrackTiming(b.timing):parseFieldDistance(b.timing)-parseFieldDistance(a.timing));saveNext({...snapshot,finals:snapshot.finals.map(f=>f.eventId===selectedEvent.id?{...f,studentIds:candidates.slice(0,4).map(r=>r.studentId)}:f)},'Finalists Selected',`${Math.min(4,candidates.length)} qualified competitors selected for finals.`);};
- const getResult=(studentId:string,s:AthleticsStage):AthleticsResult=>snapshot.results.find(r=>r.eventId===selectedEvent?.id&&r.studentId===studentId&&resultStageOf(r)===s)||{eventId:selectedEvent?.id||'',studentId,stage:s,status:'pending',timing:'',qualified:false};
- const updateResult=(studentId:string,s:AthleticsStage,patch:Partial<AthleticsResult>)=>{if(!isLoggedIn||!selectedEvent)return;const existing=snapshot.results.find(r=>r.eventId===selectedEvent.id&&r.studentId===studentId&&resultStageOf(r)===s);const next={eventId:selectedEvent.id,studentId,stage:s,status:existing?.status||'pending',timing:existing?.timing||'',position:existing?.position,qualified:existing?.qualified||false,...patch};const results=existing?snapshot.results.map(r=>r.eventId===selectedEvent.id&&r.studentId===studentId&&resultStageOf(r)===s?next:r):[...snapshot.results,next];saveNext({...snapshot,results},'Result Saved',`${selectedEvent.name} ${s} result updated.`);setSavedStudent(`${s}:${studentId}`);window.setTimeout(()=>setSavedStudent(null),900);};
- const updateTrackPart=(id:string,s:AthleticsStage,key:keyof ResultParts,raw:string,max:number)=>{const cur=splitTrackTiming(getResult(id,s).timing);const next={...cur,[key]:String(clampNumber(raw,max))};updateResult(id,s,{timing:`${clampNumber(next.first,999)}:${clampNumber(next.second,59)}:${clampNumber(next.third,999)}`});};
- const updateFieldPart=(id:string,s:AthleticsStage,key:'first'|'second',raw:string)=>{const cur=splitFieldDistance(getResult(id,s).timing);const next={...cur,[key]:raw.replace(/\D/g,'').slice(0,key==='first'?3:2)};updateResult(id,s,{timing:next.first===''&&next.second===''?'':`${next.first||'0'}.${(next.second||'0').padStart(2,'0')}`});};
- const autoRank=()=>{if(!isLoggedIn||!selectedEvent)return;const ranked=currentEnrollment.map(id=>getResult(id,stage)).filter(r=>r.status==='finished'&&Boolean(r.timing)&&(stage==='finals'||r.qualified===true));ranked.sort((a,b)=>selectedEvent.kind==='track'?parseTrackTiming(a.timing)-parseTrackTiming(b.timing):parseFieldDistance(b.timing)-parseFieldDistance(a.timing));const rankMap=new Map(ranked.map((r,i)=>[r.studentId,i+1]));const results=snapshot.results.map(r=>{const rs=resultStageOf(r);return r.eventId===selectedEvent.id&&rs===stage&&rankMap.has(r.studentId)?{...r,stage:rs,position:rankMap.get(r.studentId)}:r;});saveNext({...snapshot,results},'Positions Calculated',`${ranked.length} ${stage} competitors ranked.`);};
- const eventPoints=React.useCallback((studentId:string,event:AthleticsEvent)=>{const q=snapshot.results.find(r=>r.eventId===event.id&&r.studentId===studentId&&resultStageOf(r)==='qualifying');const finalsOn=Boolean(snapshot.finals.find(f=>f.eventId===event.id)?.enabled);const f=finalsOn?snapshot.results.find(r=>r.eventId===event.id&&r.studentId===studentId&&resultStageOf(r)==='finals'):undefined;let points=q&&(q.qualified||q.status==='finished')?1:0;if(finalsOn){if(f?.status==='finished')points+=placementPoints(f.position);}else if(q?.status==='finished')points+=placementPoints(q.position);return points;},[snapshot.results,snapshot.finals]);
- const leaderboard=React.useMemo(()=>{const houses=HOUSES.map(h=>({house:h,points:0,athletes:0}));const map=new Map(houses.map(x=>[x.house,x]));const individual=students.map(s=>{const points=ATHLETICS_EVENTS.reduce((sum,e)=>sum+eventPoints(s.id,e),0);if(points)map.get(s.house)!.points+=points;return{student:s,points};}).filter(x=>x.points>0).sort((a,b)=>b.points-a.points||a.student.name.localeCompare(b.student.name));houses.forEach(h=>h.athletes=individual.filter(x=>x.student.house===h.house).length);return{houses:houses.sort((a,b)=>b.points-a.points),individual};},[students,eventPoints]);
- const maxHousePoints=Math.max(...leaderboard.houses.map(h=>h.points),0);
- const modal=selectedEvent?<div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md"><div className="relative flex w-[calc(100vw-1.5rem)] max-w-[1220px] max-h-[calc(100vh-1.5rem)] flex-col overflow-hidden rounded-2xl border border-primary/25 bg-[#0b121e] shadow-[0_30px_100px_rgba(0,0,0,0.72)]"><div className="shrink-0 border-b border-primary/15 bg-[#0b121e] px-4 py-4 sm:px-6 sm:py-5"><div className="flex items-start gap-4"><div className="hidden sm:flex size-11 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Icon name={selectedEvent.kind==='track'?'directions_run':'sports_handball'} size="23"/></div><div className="min-w-0 flex-1"><div className="royal-kicker mb-1">{selectedCategory} • Athletics 2026</div><h2 className="truncate text-2xl font-black tracking-tight text-white sm:text-3xl">{selectedEvent.name}</h2><div className="mt-1 text-xs text-slate-400 sm:text-sm">{selectedEvent.kind==='track'?'Track':'Field'} • {stage==='qualifying'?'Qualifying':'Finals'}</div></div><button onClick={()=>setSelectedEventId(null)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.03] p-2 text-slate-300 hover:border-primary/30 hover:text-white"><Icon name="close" size="22"/></button></div></div><div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-5"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] p-1"><button onClick={()=>setStage('qualifying')} className={`rounded-lg px-4 py-2 text-xs font-black uppercase ${stage==='qualifying'?'bg-primary/15 text-primary':'text-slate-400'}`}>Qualifying</button>{finalsEnabled&&<button onClick={()=>setStage('finals')} className={`rounded-lg px-4 py-2 text-xs font-black uppercase ${stage==='finals'?'bg-primary/15 text-primary':'text-slate-400'}`}>Finals <span className="ml-1 opacity-70">{finalistIds.length}</span></button>}</div><div className="flex flex-wrap gap-2"><button disabled={!isLoggedIn} onClick={toggleFinals} className={`rounded-xl border px-3 py-2 text-xs font-black uppercase disabled:opacity-50 ${finalsEnabled?'border-emerald-500/30 bg-emerald-500/10 text-emerald-300':'border-white/10 bg-white/[0.03] text-slate-300'}`}>{finalsEnabled?'Finals Allotted':'Allot Finals'}</button>{stage==='qualifying'&&finalsEnabled&&<button disabled={!isLoggedIn} onClick={autoPickFinalists} className="royal-secondary-btn rounded-xl px-3 py-2 text-xs font-black uppercase">Allot Top 4</button>}</div></div>{stage==='qualifying'&&<div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-4 text-sm text-slate-300">{finalsEnabled?'Qualifying and finals are separate. Mark Qualified first, then use Allot Top 4 to place the fastest four qualified competitors into finals.':'This event has no finals, so qualifying positions count for placement points.'}</div>}{stage==='qualifying'&&<div className="grid grid-cols-1 gap-3 lg:grid-cols-3"><div className="relative lg:col-span-2"><Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size="18"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search student, number, class..." className="royal-input w-full rounded-xl py-3 pl-10 pr-4 text-sm"/></div><select value={houseFilter} onChange={e=>setHouseFilter(e.target.value)} className="royal-input rounded-xl px-3 py-3 text-sm"><option>All</option>{HOUSES.map(h=><option key={h}>{h}</option>)}</select></div>}{stage==='qualifying'&&<div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">{filteredStudents.map(s=>{const enrolled=qualifyingEnrollment.includes(s.id);const limit=canAddStudent(s.id,selectedEvent);const cfg=houseConfig(s.house);return <div key={`${s.id}|${s.name}`} className={`rounded-xl border p-4 ${enrolled?'border-emerald-500/35 bg-emerald-500/[0.045]':limit.ok?'border-white/10 bg-white/[0.02]':'border-rose-500/20 bg-rose-500/[0.03] opacity-60'}`}><button disabled={!isLoggedIn||(!enrolled&&!limit.ok)} onClick={()=>toggleEnrollment(selectedEvent,s.id)} className="w-full text-left"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="truncate font-black text-white">{s.name}</div><div className="mt-1 text-[11px] text-slate-400">#{s.id} • Class {s.className}</div><div className="mt-1 text-[10px] font-bold text-primary">{s.category}</div></div><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-bold uppercase ${cfg.bg}/20 ${cfg.text} ${cfg.border}/30`}>{s.house}</span></div><div className="mt-3 flex items-center justify-between border-t border-white/5 pt-2"><span className={`text-[10px] font-black uppercase ${enrolled?'text-emerald-300':'text-slate-500'}`}>{enrolled?'✓ Enrolled':'Not enrolled'}</span><span className="text-[10px] text-slate-500">{snapshot.enrollments.filter(e=>e.studentIds.includes(s.id)).length}/3 events</span></div></button>{!enrolled&&!limit.ok&&<div className="mt-2 text-[9px] text-rose-300">{limit.reason}</div>}</div>;})}</div>}{stage==='finals'&&<div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.035] p-4 text-sm text-slate-300">Only explicitly added finalists appear here. Qualifying points remain separate.</div>}<div className="border-t border-white/10 pt-5"><div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between"><div><h3 className="text-lg font-black text-white">{stage==='qualifying'?'Qualifying Results':'Finals Results'}</h3><p className="mt-1 text-xs text-slate-400">{selectedEvent.kind==='track'?'Enter minutes, seconds and milliseconds separately.':'Enter metres and centimetres separately.'}</p></div><div className="flex gap-2">{isLoggedIn&&<button onClick={autoRank} className="royal-primary-btn rounded-xl px-4 py-2 text-xs font-black uppercase">Auto-Rank</button>}{isLoggedIn&&stage==='qualifying'&&<button onClick={clearRoster} className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs font-black uppercase text-rose-300">Clear</button>}</div></div><div className="max-h-[42vh] overflow-auto rounded-xl border border-white/10"><table className="royal-data-table min-w-[1160px]"><thead><tr><th>Competitor</th><th>House</th><th>Status</th><th>{selectedEvent.kind==='track'?'Time':'Distance'}</th><th>Position</th>{stage==='qualifying'&&<th>Qualification</th>}{stage==='qualifying'&&finalsEnabled&&<th>Finals</th>}</tr></thead><tbody>{currentEnrollment.length===0?<tr><td colSpan={stage==='qualifying'&&finalsEnabled?7:stage==='qualifying'?6:5} className="py-10 text-center text-slate-500">{stage==='finals'?'No finalists have been allotted yet.':'No students enrolled in this event.'}</td></tr>:currentEnrollment.map(id=>{const s=studentMap.get(id);if(!s)return null;const r=getResult(s.id,stage);const q=getResult(s.id,'qualifying');const qualified=Boolean(q.qualified);const finalist=finalistIds.includes(s.id);const key=`${stage}:${s.id}`;const tp=splitTrackTiming(r.timing);const fp=splitFieldDistance(r.timing);const cfg=houseConfig(s.house);return <tr key={key} className={stage==='qualifying'&&qualified?'bg-emerald-500/[0.035]':''}><td><div className={`font-black ${stage==='qualifying'&&qualified?'text-emerald-200':'text-white'}`}>{stage==='qualifying'&&qualified?'✓ ':''}{s.name}</div><div className="text-[10px] text-slate-500">#{s.id} • {s.category}</div></td><td><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-bold ${cfg.bg}/20 ${cfg.text} ${cfg.border}/30`}>{s.house}</span></td><td><select disabled={!isLoggedIn} value={r.status} onChange={e=>updateResult(s.id,stage,{status:e.target.value as AthleticsResultStatus})} className={`royal-input rounded-lg px-2 py-2 text-xs ${statusStyle(r.status)}`}>{RESULT_STATUSES.map(st=><option key={st} value={st}>{statusLabel(st)}</option>)}</select></td><td>{selectedEvent.kind==='track'?<div className="flex min-w-[280px] items-center gap-2"><input disabled={!isLoggedIn} type="number" min="0" value={tp.first} onChange={e=>updateTrackPart(s.id,stage,'first',e.target.value,999)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" placeholder="0"/><span>:</span><input disabled={!isLoggedIn} type="number" min="0" max="59" value={tp.second} onChange={e=>updateTrackPart(s.id,stage,'second',e.target.value,59)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" placeholder="0"/><span>:</span><input disabled={!isLoggedIn} type="number" min="0" max="999" value={tp.third} onChange={e=>updateTrackPart(s.id,stage,'third',e.target.value,999)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" placeholder="0"/></div>:<div className="flex min-w-[220px] items-center gap-2"><input disabled={!isLoggedIn} type="number" min="0" value={fp.first} onChange={e=>updateFieldPart(s.id,stage,'first',e.target.value)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" placeholder="0"/><span>.</span><input disabled={!isLoggedIn} type="number" min="0" max="99" value={fp.second} onChange={e=>updateFieldPart(s.id,stage,'second',e.target.value)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" placeholder="00"/></div>}{savedStudent===key&&<span className="ml-2 text-xs text-emerald-400">✓</span>}</td><td><input disabled={!isLoggedIn} type="number" min="1" value={r.position||''} onChange={e=>updateResult(s.id,stage,{position:e.target.value?Number(e.target.value):undefined})} className="royal-input w-20 rounded-lg px-2 py-2 text-center text-xs" placeholder="#"/></td>{stage==='qualifying'&&<td><button disabled={!isLoggedIn} onClick={()=>toggleQualified(s.id)} className={`rounded-lg border px-3 py-2 text-[10px] font-black uppercase ${qualified?'border-emerald-400/40 bg-emerald-400/15 text-emerald-200':'border-white/10 bg-white/[0.025] text-slate-400 hover:border-emerald-500/30 hover:text-emerald-300'}`}>{qualified?'✓ Qualified':'Qualified'}</button></td>}{stage==='qualifying'&&finalsEnabled&&<td><button disabled={!isLoggedIn} onClick={()=>toggleFinalist(s.id)} className={`rounded-lg border px-3 py-2 text-[10px] font-black uppercase ${finalist?'border-primary/40 bg-primary/10 text-primary':'border-white/10 bg-white/[0.025] text-slate-300 hover:border-primary/30 hover:text-primary'}`}>{finalist?'✓ In Finals':'Add to Finals'}</button></td>}</tr>;})}</tbody></table></div></div></div></div></div>:null;
- return <div className="mx-auto max-w-[1500px] space-y-7 pb-12"><section className="flex flex-col gap-5 border-b border-primary/10 pb-6 xl:flex-row xl:items-end xl:justify-between"><div><div className="royal-kicker mb-2">Track & Field Desk</div><h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">Athletics 2026</h1><p className="mt-2 max-w-4xl text-sm leading-relaxed text-slate-400">Athletics events organised by exact department and age category.</p></div><div className={`rounded-xl border px-4 py-3 text-xs font-black uppercase ${isLoggedIn?'border-emerald-500/30 bg-emerald-500/10 text-emerald-300':'border-white/10 bg-white/5 text-slate-400'}`}>{isLoggedIn?'Staff Editing Active':'Read Only Mode'}</div></section><section className="flex items-center justify-between gap-3"><div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1"><button onClick={()=>setPageTab('view')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab==='view'?'bg-primary/15 text-primary':'text-slate-400'}`}>View Events</button>{isLoggedIn&&<button onClick={()=>setPageTab('manage')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab==='manage'?'bg-primary/15 text-primary':'text-slate-400'}`}>Manage Events</button>}<button onClick={()=>setPageTab('leaderboard')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab==='leaderboard'?'bg-primary/15 text-primary':'text-slate-400'}`}>Leaderboard</button><button onClick={()=>setPageTab('summary')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab==='summary'?'bg-primary/15 text-primary':'text-slate-400'}`}>Summary</button></div><div className="text-xs text-slate-500">Scoring updates live.</div></section>{pageTab==='view'?<AthleticsViewEvents students={students} snapshot={snapshot}/>:pageTab==='manage'?<><section className="space-y-4"><div><div className="royal-kicker mb-1">Event Management</div><h2 className="text-2xl font-black text-white">Choose a department & age group</h2></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{ATHLETICS_CATEGORIES.map(c=><button key={c} onClick={()=>setSelectedCategory(c)} className={`rounded-xl border px-3 py-3 text-left ${selectedCategory===c?'border-primary/50 bg-primary/10 text-white':'border-white/10 bg-white/[0.02] text-slate-400'}`}><div className="text-sm font-black">{c}</div><div className="mt-1 text-[10px] uppercase tracking-wider opacity-70">{students.filter(s=>s.category===c).length} students</div></button>)}</div></section><section className="space-y-4"><div className="flex items-end justify-between"><div><div className="royal-kicker mb-1">{selectedCategory}</div><h2 className="text-2xl font-black text-white">Event Cards</h2></div><div className="text-xs text-slate-400">{visibleEvents.length} events</div></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{visibleEvents.map(e=>{const finals=snapshot.finals.find(f=>f.eventId===e.id);return <button key={e.id} onClick={()=>setSelectedEventId(e.id)} className="glass-panel group rounded-2xl border border-primary/10 p-5 text-left hover:border-primary/40"><div className="flex items-start justify-between gap-3"><div><span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-black uppercase ${e.kind==='track'?'border-amber-500/30 bg-amber-500/10 text-amber-300':'border-sky-500/30 bg-sky-500/10 text-sky-300'}`}>{e.kind==='track'?'Track':'Field'}</span><h3 className="mt-3 text-xl font-black text-white group-hover:text-primary">{e.name}</h3></div><Icon name={e.kind==='track'?'directions_run':'sports_handball'} className="text-[27px] text-primary"/></div><div className="mt-5 grid grid-cols-2 gap-2"><div className="rounded-lg border border-white/5 bg-white/[0.03] p-3"><div className="text-[9px] font-black uppercase text-slate-500">Enrolled</div><div className="mt-0.5 text-lg font-black text-white">{snapshot.enrollments.find(x=>x.eventId===e.id)?.studentIds.length||0}</div></div><div className="rounded-lg border border-white/5 bg-white/[0.03] p-3"><div className="text-[9px] font-black uppercase text-slate-500">Finals</div><div className={`mt-1 text-sm font-black ${finals?.enabled?'text-emerald-300':'text-slate-500'}`}>{finals?.enabled?'Allotted':'Qualifying only'}</div></div></div><div className="mt-4 text-[10px] font-black uppercase tracking-wider text-primary">Open event →</div></button>})}</div></section></>:pageTab==='leaderboard'?<AthleticsLeaderboard students={students} snapshot={snapshot}/>:<AthleticsSummary students={students} snapshot={snapshot}/>} {pageTab==='manage'&&selectedEvent&&typeof document!=='undefined'?createPortal(modal,document.body):null}</div>;
+const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = {
+  '3000m': ['BD Opens'],
+  'triple-jump': ['BD Opens'],
+  'javelin-throw': ['BD Opens'],
 };
+
+type PageTab = 'view' | 'manage' | 'leaderboard' | 'summary';
+
+const Athletics: React.FC = () => {
+  const { isLoggedIn } = useStaffAuth();
+  const [snapshot, setSnapshot] = React.useState<AthleticsSnapshot>(() => {
+    return getAthleticsSnapshot();
+  });
+  const [pageTab, setPageTab] = React.useState<PageTab>('view');
+  const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = React.useState<AthleticsCategory>(
+    'PDB Under 11',
+  );
+
+  const students = React.useMemo(() => {
+    return getPrepAthleticsStudents(
+      studentClasses as Record<string, string>,
+    );
+  }, []);
+
+  React.useEffect(() => {
+    setSnapshot(getAthleticsSnapshot());
+    return subscribeToAthleticsData(setSnapshot);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isLoggedIn && pageTab === 'manage') {
+      setPageTab('view');
+    }
+  }, [isLoggedIn, pageTab]);
+
+  const visibleEvents = React.useMemo(() => {
+    return ATHLETICS_EVENTS.filter((event) => {
+      const allowedCategories = EXCLUSIVE_EVENT_CATEGORIES[event.id];
+
+      return !allowedCategories || allowedCategories.includes(selectedCategory);
+    });
+  }, [selectedCategory]);
+
+  const selectedEvent = React.useMemo(() => {
+    return ATHLETICS_EVENTS.find((event) => event.id === selectedEventId) || null;
+  }, [selectedEventId]);
+
+  const handleSave = React.useCallback(
+    (
+      nextSnapshot: AthleticsSnapshot,
+      title: string,
+      description: string,
+    ) => {
+      setSnapshot(nextSnapshot);
+      void saveAthleticsSnapshot(nextSnapshot);
+    },
+    [],
+  );
+
+  return (
+    <div className="mx-auto max-w-[1500px] space-y-7 pb-12">
+      <section className="flex flex-col gap-5 border-b border-primary/10 pb-6 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <div className="royal-kicker mb-2">Track & Field Desk</div>
+          <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+            Athletics 2026
+          </h1>
+          <p className="mt-2 max-w-4xl text-sm leading-relaxed text-slate-400">
+            Athletics events organised by exact department and age category.
+          </p>
+        </div>
+
+        <div
+          className={`rounded-xl border px-4 py-3 text-xs font-black uppercase ${
+            isLoggedIn
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+              : 'border-white/10 bg-white/5 text-slate-400'
+          }`}
+        >
+          {isLoggedIn ? 'Staff Editing Active' : 'Read Only Mode'}
+        </div>
+      </section>
+
+      <section className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1">
+          <button
+            type="button"
+            onClick={() => setPageTab('view')}
+            className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${
+              pageTab === 'view'
+                ? 'bg-primary/15 text-primary'
+                : 'text-slate-400'
+            }`}
+          >
+            View Events
+          </button>
+
+          {isLoggedIn && (
+            <button
+              type="button"
+              onClick={() => setPageTab('manage')}
+              className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${
+                pageTab === 'manage'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-slate-400'
+              }`}
+            >
+              Manage Events
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setPageTab('leaderboard')}
+            className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${
+              pageTab === 'leaderboard'
+                ? 'bg-primary/15 text-primary'
+                : 'text-slate-400'
+            }`}
+          >
+            Leaderboard
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPageTab('summary')}
+            className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${
+              pageTab === 'summary'
+                ? 'bg-primary/15 text-primary'
+                : 'text-slate-400'
+            }`}
+          >
+            Summary
+          </button>
+        </div>
+
+        <div className="hidden text-xs text-slate-500 sm:block">
+          Scoring updates live.
+        </div>
+      </section>
+
+      {pageTab === 'view' && (
+        <AthleticsViewEvents
+          students={students}
+          snapshot={snapshot}
+        />
+      )}
+
+      {pageTab === 'leaderboard' && (
+        <AthleticsLeaderboard
+          students={students}
+          snapshot={snapshot}
+        />
+      )}
+
+      {pageTab === 'summary' && (
+        <AthleticsSummary
+          students={students}
+          snapshot={snapshot}
+        />
+      )}
+
+      {pageTab === 'manage' && (
+        <>
+          <section className="space-y-4">
+            <div>
+              <div className="royal-kicker mb-1">Event Management</div>
+              <h2 className="text-2xl font-black text-white">
+                Choose a department & age group
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              {ATHLETICS_CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  className={`rounded-xl border px-3 py-3 text-left ${
+                    selectedCategory === category
+                      ? 'border-primary/50 bg-primary/10 text-white'
+                      : 'border-white/10 bg-white/[0.02] text-slate-400'
+                  }`}
+                >
+                  <div className="text-sm font-black">{category}</div>
+                  <div className="mt-1 text-[10px] uppercase tracking-wider opacity-70">
+                    {students.filter((student) => student.category === category).length}{' '}
+                    students
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="royal-kicker mb-1">{selectedCategory}</div>
+                <h2 className="text-2xl font-black text-white">
+                  Event Cards
+                </h2>
+              </div>
+
+              <div className="text-xs text-slate-400">
+                {visibleEvents.length} events
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleEvents.map((event) => {
+                const finals = snapshot.finals.find(
+                  (entry) => entry.eventId === event.id,
+                );
+                const enrollment = snapshot.enrollments.find(
+                  (entry) => entry.eventId === event.id,
+                );
+
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => setSelectedEventId(event.id)}
+                    className="glass-panel group rounded-2xl border border-primary/10 p-5 text-left transition-all hover:border-primary/40"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-black uppercase ${
+                            event.kind === 'track'
+                              ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                              : 'border-sky-500/30 bg-sky-500/10 text-sky-300'
+                          }`}
+                        >
+                          {event.kind === 'track' ? 'Track' : 'Field'}
+                        </span>
+
+                        <h3 className="mt-3 text-xl font-black text-white group-hover:text-primary">
+                          {event.name}
+                        </h3>
+                      </div>
+
+                      <Icon
+                        name={
+                          event.kind === 'track'
+                            ? 'directions_run'
+                            : 'sports_handball'
+                        }
+                        className="text-[27px] text-primary"
+                      />
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg border border-white/5 bg-white/[0.03] p-3">
+                        <div className="text-[9px] font-black uppercase text-slate-500">
+                          Enrolled
+                        </div>
+                        <div className="mt-0.5 text-lg font-black text-white">
+                          {enrollment?.studentIds.length || 0}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-white/5 bg-white/[0.03] p-3">
+                        <div className="text-[9px] font-black uppercase text-slate-500">
+                          Finals
+                        </div>
+                        <div
+                          className={`mt-1 text-sm font-black ${
+                            finals?.enabled
+                              ? 'text-emerald-300'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {finals?.enabled ? 'Allotted' : 'Qualifying only'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 text-[10px] font-black uppercase tracking-wider text-primary">
+                      Open event →
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {selectedEvent && (
+            <AthleticsEventManager
+              event={selectedEvent}
+              category={selectedCategory}
+              students={students}
+              snapshot={snapshot}
+              isLoggedIn={isLoggedIn}
+              onSave={handleSave}
+              onClose={() => setSelectedEventId(null)}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 export default Athletics;
