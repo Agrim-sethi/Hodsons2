@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { HOUSE_COLORS, IMAGES } from '../constants';
-import { getEvents, Event } from '../utils/storage';
+import { getEvents, saveEvent, Event, subscribeToGeneralData } from '../utils/storage';
+import { useStaffAuth } from '../components/auth/StaffAuthProvider';
+import { useToast } from '../components/ui/ToastProvider';
 
 const EventCard = ({ sport, date, h1, h2, time, location, title, subtext, color, participation, houses, school1, school2, onViewDetails }: any) => {
     // Determine which houses to show
@@ -121,14 +123,82 @@ const EventCard = ({ sport, date, h1, h2, time, location, title, subtext, color,
 };
 
 const Events: React.FC = () => {
+    const { isLoggedIn } = useStaffAuth();
+    const { showToast } = useToast();
     const [userEvents, setUserEvents] = useState<Event[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+    const [showAddModal, setShowAddModal] = useState(false);
 
-    useEffect(() => {
+    const loadEvents = () => {
         const allEvents = getEvents();
         const activeEvents = allEvents.filter(e => !e.completed);
         setUserEvents(activeEvents);
+    };
+
+    useEffect(() => {
+        loadEvents();
+        const unsubscribe = subscribeToGeneralData(() => loadEvents());
+        return () => unsubscribe();
     }, []);
+
+    const emptyForm = {
+        title: '',
+        sport: '',
+        sportIcon: 'sports',
+        subtext: '',
+        ageCategory: '',
+        date: '',
+        time: '',
+        venue: '',
+        teachers: '',
+        participation: 'houses' as Event['participation'],
+        houses: [] as string[],
+        homeSchool: '',
+        opponentSchool: ''
+    };
+    const [form, setForm] = useState(emptyForm);
+
+    const toggleHouse = (code: string) => {
+        setForm(prev => {
+            const exists = prev.houses.includes(code);
+            if (exists) return { ...prev, houses: prev.houses.filter(h => h !== code) };
+            if (prev.houses.length >= 2) return prev;
+            return { ...prev, houses: [...prev.houses, code] };
+        });
+    };
+
+    const resetAndClose = () => {
+        setForm(emptyForm);
+        setShowAddModal(false);
+    };
+
+    const handleAddEvent = () => {
+        if (!form.title.trim() || !form.sport.trim() || !form.date || !form.time || !form.venue.trim()) {
+            showToast({ title: 'Missing Details', description: 'Title, sport, date, time and venue are required.' });
+            return;
+        }
+
+        const newEvent: Event = {
+            id: `event_${Date.now()}`,
+            sport: form.sport.trim(),
+            sportIcon: form.sportIcon.trim() || 'sports',
+            participation: form.participation,
+            ageCategory: form.ageCategory.trim() || 'Open',
+            time: form.time,
+            date: form.date,
+            venue: form.venue.trim(),
+            teachers: form.teachers.trim(),
+            title: form.title.trim(),
+            subtext: form.subtext.trim(),
+            ...(form.participation === 'houses' ? { houses: form.houses } : {}),
+            ...(form.participation === 'inter_school' ? { homeSchool: form.homeSchool.trim(), opponentSchool: form.opponentSchool.trim() } : {})
+        };
+
+        saveEvent(newEvent);
+        loadEvents();
+        showToast({ title: 'Event Added', description: `${newEvent.title} has been added to the fixtures desk.` });
+        resetAndClose();
+    };
 
     const getHouseConfig = (code: string) => {
         switch (code) {
@@ -142,10 +212,20 @@ const Events: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto w-full py-10">
-            <div className="px-4 mb-8">
-                <div className="royal-kicker mb-2">Fixtures Desk</div>
-                <h1 className="text-3xl font-bold text-white">Sports Events</h1>
-                <p className="royal-subtitle mt-2 max-w-2xl">Upcoming fixtures, house matchups, and school contests in one cleaner view.</p>
+            <div className="px-4 mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <div className="royal-kicker mb-2">Fixtures Desk</div>
+                    <h1 className="text-3xl font-bold text-white">Sports Events</h1>
+                    <p className="royal-subtitle mt-2 max-w-2xl">Upcoming fixtures, house matchups, and school contests in one cleaner view.</p>
+                </div>
+                {isLoggedIn && (
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-5 py-3 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-all shrink-0"
+                    >
+                        <Icon name="add_circle" size="18" /> Add Event
+                    </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
@@ -271,6 +351,186 @@ const Events: React.FC = () => {
                                     Dismiss Details
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Event Modal */}
+            {showAddModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="glass-panel w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
+                        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-primary/10 to-transparent shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-primary/20 rounded-lg text-primary">
+                                    <Icon name="add_circle" size="24" />
+                                </div>
+                                <h2 className="text-xl font-bold text-white">Add Event</h2>
+                            </div>
+                            <button onClick={resetAndClose} className="text-slate-400 hover:text-white transition-colors">
+                                <Icon name="close" size="24" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4 overflow-y-auto">
+                            <div>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Title</label>
+                                <input
+                                    value={form.title}
+                                    onChange={e => setForm({ ...form, title: e.target.value })}
+                                    placeholder="e.g. Inter-House Football Final"
+                                    className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Sport</label>
+                                    <input
+                                        value={form.sport}
+                                        onChange={e => setForm({ ...form, sport: e.target.value })}
+                                        placeholder="Football"
+                                        className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Icon Name</label>
+                                    <input
+                                        value={form.sportIcon}
+                                        onChange={e => setForm({ ...form, sportIcon: e.target.value })}
+                                        placeholder="sports_soccer"
+                                        className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Subtext / Age Category</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <input
+                                        value={form.subtext}
+                                        onChange={e => setForm({ ...form, subtext: e.target.value })}
+                                        placeholder="Subtext, e.g. Final"
+                                        className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                    />
+                                    <input
+                                        value={form.ageCategory}
+                                        onChange={e => setForm({ ...form, ageCategory: e.target.value })}
+                                        placeholder="Age Category, e.g. U16"
+                                        className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Date</label>
+                                    <input
+                                        type="date"
+                                        value={form.date}
+                                        onChange={e => setForm({ ...form, date: e.target.value })}
+                                        className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Time</label>
+                                    <input
+                                        value={form.time}
+                                        onChange={e => setForm({ ...form, time: e.target.value })}
+                                        placeholder="4:00 PM"
+                                        className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Venue</label>
+                                    <input
+                                        value={form.venue}
+                                        onChange={e => setForm({ ...form, venue: e.target.value })}
+                                        placeholder="Main Ground"
+                                        className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">In-Charge</label>
+                                    <input
+                                        value={form.teachers}
+                                        onChange={e => setForm({ ...form, teachers: e.target.value })}
+                                        placeholder="Staff name(s)"
+                                        className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Participation Type</label>
+                                <select
+                                    value={form.participation}
+                                    onChange={e => setForm({ ...form, participation: e.target.value as Event['participation'], houses: [] })}
+                                    className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                >
+                                    <option value="houses">Houses</option>
+                                    <option value="whole_school">Whole School</option>
+                                    <option value="inter_school">Inter-School</option>
+                                    <option value="individual">Individual</option>
+                                </select>
+                            </div>
+
+                            {form.participation === 'houses' && (
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Competing Houses (pick 2)</label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {['H', 'N', 'S', 'V'].map(code => {
+                                            const cfg = getHouseConfig(code);
+                                            const active = form.houses.includes(code);
+                                            return (
+                                                <button
+                                                    key={code}
+                                                    type="button"
+                                                    onClick={() => toggleHouse(code)}
+                                                    className={`rounded-xl border px-3 py-2.5 text-xs font-bold uppercase transition-all ${active ? `${cfg?.config.bg} text-white border-transparent` : 'border-white/10 bg-white/[0.02] text-slate-400'}`}
+                                                >
+                                                    {cfg?.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {form.participation === 'inter_school' && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Home School</label>
+                                        <input
+                                            value={form.homeSchool}
+                                            onChange={e => setForm({ ...form, homeSchool: e.target.value })}
+                                            placeholder="Sanawar"
+                                            className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-400 uppercase mb-1.5 block">Opponent School</label>
+                                        <input
+                                            value={form.opponentSchool}
+                                            onChange={e => setForm({ ...form, opponentSchool: e.target.value })}
+                                            placeholder="Opponent"
+                                            className="royal-input w-full rounded-xl py-2.5 px-3.5 text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 pt-2 shrink-0">
+                            <button
+                                onClick={handleAddEvent}
+                                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-black py-3 rounded-xl transition-all uppercase tracking-widest text-xs"
+                            >
+                                Save Event
+                            </button>
                         </div>
                     </div>
                 </div>
