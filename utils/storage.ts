@@ -104,7 +104,26 @@ const syncToFirebase = async (data: Record<string, any>) => {
 
 export const getEvents = (): Event[] => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    const events: Event[] = stored ? JSON.parse(stored) : [];
+
+    // Older inter-school events sometimes stored the matchup title as
+    // "vs TBD" (or left it blank). Normalize that shape for public displays
+    // while leaving the persisted event data untouched.
+    return events.map((event) => {
+        if (event.participation !== 'inter_school') return event;
+
+        const home = event.homeSchool?.trim();
+        const opponent = event.opponentSchool?.trim() || 'TBD';
+        const title = event.title?.trim() || '';
+        const titleLooksLikeVsOnly = !title || /^vs\b/i.test(title);
+
+        if (!home || !titleLooksLikeVsOnly) return event;
+
+        return {
+            ...event,
+            title: event.completed ? `${home} vs ${opponent}` : home,
+        };
+    });
 };
 
 export const updateEvent = (updatedEvent: Event) => {
