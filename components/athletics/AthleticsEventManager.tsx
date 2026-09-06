@@ -153,6 +153,8 @@ const AthleticsEventManager: React.FC<Props> = ({
 
     return students
       .filter((student) => {
+        const matchesCategory = student.category === category;
+
         const matchesSearch =
           !query ||
           student.id.toLowerCase().includes(query) ||
@@ -161,10 +163,10 @@ const AthleticsEventManager: React.FC<Props> = ({
 
         const matchesHouse = houseFilter === 'All' || student.house === houseFilter;
 
-        return matchesSearch && matchesHouse;
+        return matchesCategory && matchesSearch && matchesHouse;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [students, search, houseFilter]);
+  }, [students, category, search, houseFilter]);
 
   const getResult = (studentId: string, resultStage: AthleticsStage): AthleticsResult => {
     return (
