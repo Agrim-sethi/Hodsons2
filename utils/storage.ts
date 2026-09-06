@@ -106,18 +106,21 @@ export const getEvents = (): Event[] => {
     const stored = localStorage.getItem(STORAGE_KEY);
     const events: Event[] = stored ? JSON.parse(stored) : [];
 
-    // Older inter-school events sometimes stored the matchup title as
-    // "vs TBD" (or left it blank). Normalize that shape for public displays
-    // while leaving the persisted event data untouched.
+    // Inter-school fixtures have historically been stored in a few slightly
+    // different shapes. Use the school fields themselves as the source of
+    // truth for the public matchup label, so the Overview never loses the
+    // Sanawar team name when the title is blank or only contains "vs ...".
     return events.map((event) => {
-        if (event.participation !== 'inter_school') return event;
-
         const home = event.homeSchool?.trim();
         const opponent = event.opponentSchool?.trim() || 'TBD';
         const title = event.title?.trim() || '';
+        const looksLikeInterSchool =
+            event.participation === 'inter_school' ||
+            Boolean(home) ||
+            Boolean(event.opponentSchool?.trim());
         const titleLooksLikeVsOnly = !title || /^vs\b/i.test(title);
 
-        if (!home || !titleLooksLikeVsOnly) return event;
+        if (!looksLikeInterSchool || !home || !titleLooksLikeVsOnly) return event;
 
         return {
             ...event,
