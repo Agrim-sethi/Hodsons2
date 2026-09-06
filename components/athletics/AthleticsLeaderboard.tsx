@@ -33,10 +33,10 @@ const eventAllowedForCategory = (event: AthleticsEvent, category: string) => {
 
 const eventPoints = (snapshot: AthleticsSnapshot, student: AthleticsStudent, event: AthleticsEvent) => {
   if (!eventAllowedForCategory(event, student.category)) return 0;
-  const qualifying = snapshot.results.find(r => r.eventId === event.id && r.studentId === student.id && (r.stage || 'qualifying') === 'qualifying');
-  const finalsConfig = snapshot.finals.find(f => f.eventId === event.id);
+  const qualifying = snapshot.results.find(r => r.eventId === event.id && r.category === student.category && r.studentId === student.id && (r.stage || 'qualifying') === 'qualifying');
+  const finalsConfig = snapshot.finals.find(f => f.eventId === event.id && f.category === student.category);
   const finalsEnabled = Boolean(finalsConfig?.enabled);
-  const finals = finalsEnabled ? snapshot.results.find(r => r.eventId === event.id && r.studentId === student.id && (r.stage || 'qualifying') === 'finals') : undefined;
+  const finals = finalsEnabled ? snapshot.results.find(r => r.eventId === event.id && r.category === student.category && r.studentId === student.id && (r.stage || 'qualifying') === 'finals') : undefined;
   let points = qualifying && (qualifying.qualified || qualifying.status === 'finished') ? 1 : 0;
   if (finalsEnabled) {
     if (finals?.status === 'finished') points += placementPoints(finals.position);
