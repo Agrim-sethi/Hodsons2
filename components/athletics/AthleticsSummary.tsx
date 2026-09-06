@@ -34,8 +34,8 @@ const eventAllowedForCategory = (event: AthleticsEvent, category: AthleticsCateg
   return !allowed || allowed.includes(category);
 };
 
-const resultForStage = (snapshot: AthleticsSnapshot, eventId: string, studentId: string, stage: 'qualifying' | 'finals') => {
-  return snapshot.results.find(result => result.eventId === eventId && result.studentId === studentId && (result.stage || 'qualifying') === stage);
+const resultForStage = (snapshot: AthleticsSnapshot, eventId: string, category: AthleticsCategory, studentId: string, stage: 'qualifying' | 'finals') => {
+  return snapshot.results.find(result => result.eventId === eventId && result.category === category && result.studentId === studentId && (result.stage || 'qualifying') === stage);
 };
 
 type PodiumEntry = {
@@ -52,16 +52,16 @@ type EventSummary = {
 
 const buildEventSummary = (category: AthleticsCategory, event: AthleticsEvent, students: AthleticsStudent[], snapshot: AthleticsSnapshot): EventSummary => {
   const categoryStudents = students.filter(student => student.category === category);
-  const finalsConfig = snapshot.finals.find(finals => finals.eventId === event.id);
+  const finalsConfig = snapshot.finals.find(finals => finals.eventId === event.id && finals.category === category);
   const finalsEnabled = Boolean(finalsConfig?.enabled);
   const stage: 'qualifying' | 'finals' = finalsEnabled ? 'finals' : 'qualifying';
-  const eligibleIds = new Set(stage === 'finals' ? (finalsConfig?.studentIds || []) : (snapshot.enrollments.find(enrollment => enrollment.eventId === event.id)?.studentIds || []));
+  const eligibleIds = new Set(stage === 'finals' ? (finalsConfig?.studentIds || []) : (snapshot.enrollments.find(enrollment => enrollment.eventId === event.id && enrollment.category === category)?.studentIds || []));
   const studentMap = new Map(categoryStudents.map(student => [student.id, student]));
 
   const candidates = Array.from(eligibleIds)
     .map(id => {
       const student = studentMap.get(id);
-      const result = student ? resultForStage(snapshot, event.id, id, stage) : undefined;
+      const result = student ? resultForStage(snapshot, event.id, category, id, stage) : undefined;
       if (!student || !result || result.status !== 'finished' || !result.timing) return null;
       return { student, result, performance: event.kind === 'track' ? parseTrackTiming(result.timing) : parseFieldDistance(result.timing) };
     })
