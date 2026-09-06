@@ -102,11 +102,8 @@ const Layout: React.FC = () => {
 
         <nav className="flex-1 px-4 py-4 flex flex-col gap-2 overflow-y-auto">
           <SidebarItem to="/dashboard" icon="dashboard" label="Overview" />
-          <SidebarItem to="/standings" icon="emoji_events" label="Standings" />
           <SidebarItem to="/events" icon="calendar_month" label="Events" />
           <SidebarItem to="/archive" icon="history" label="Archive" />
-          <SidebarItem to="/attendance" icon="fact_check" label="Attendance" />
-          <SidebarItem to="/teams" icon="groups" label="School Teams" />
           <SidebarItem to="/hodsons" icon="directions_run" label="Hodsons 2026" />
           <SidebarItem to="/athletics" icon="sprint" label="Athletics 2026" />
           <SidebarItem to="/staff-login" icon="lock_person" label="Staff Login" />
