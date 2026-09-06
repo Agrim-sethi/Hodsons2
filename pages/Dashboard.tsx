@@ -6,6 +6,7 @@ import { useToast } from '../components/ui/ToastProvider';
 import { HOUSE_COLORS, IMAGES } from '../constants';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { getEvents, Event, getSessions, saveSession, deleteSession, Session, getAttendance, saveAttendance, replaceAttendance, AttendanceRecord, InjuryRecord, getInjuries, saveInjury, deleteInjury, subscribeToGeneralData } from '../utils/storage';
+import { combineEventDateTime, formatEventTime } from '../utils/eventTime';
 import studentClasses from '../utils/studentClasses.json';
 import { getAllHodsonsClasses, getAllHodsonsStudents } from '../utils/hodsonsStorage';
 
@@ -147,25 +148,20 @@ const Dashboard: React.FC = () => {
         const upcoming = events
           .filter(e => !e.completed)
           .filter(e => {
+            // Use the precise date+time when available so an event earlier
+            // today doesn't still show as "upcoming" once it has passed.
+            const preciseStart = combineEventDateTime(e.date, e.time);
+            if (preciseStart) return preciseStart.getTime() >= now.getTime();
             const eventDate = new Date(e.date);
-            return eventDate >= today; // Include today
+            return eventDate >= today; // Legacy fallback: date-only comparison
           })
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          .sort((a, b) => {
+            const aTime = combineEventDateTime(a.date, a.time)?.getTime() ?? new Date(a.date).getTime();
+            const bTime = combineEventDateTime(b.date, b.time)?.getTime() ?? new Date(b.date).getTime();
+            return aTime - bTime;
+          });
 
-        if (upcoming.length > 0) {
-          setUpcomingEvent(upcoming[0]);
-
-          // Simple countdown based on date only
-          const eventDate = new Date(upcoming[0].date);
-          const diff = eventDate.getTime() - today.getTime();
-          const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-          setDays(d.toString().padStart(2, '0'));
-          setHrs('00'); // Keep hrs/min 00 for simplicity as time parsing was problematic
-          setMin('00');
-        } else {
-          setUpcomingEvent(null);
-        }
+        setUpcomingEvent(upcoming.length > 0 ? upcoming[0] : null);
       }
     };
 
@@ -178,6 +174,46 @@ const Dashboard: React.FC = () => {
 
     return () => unsubscribe();
   }, []);
+
+  // Live countdown: recompute every second from whichever event is upcoming.
+  // Falls back to a date-only day count for events saved before the precise
+  // time field existed.
+  useEffect(() => {
+    if (!upcomingEvent) {
+      setDays('00');
+      setHrs('00');
+      setMin('00');
+      return;
+    }
+
+    const tick = () => {
+      const now = new Date();
+      const preciseStart = combineEventDateTime(upcomingEvent.date, upcomingEvent.time);
+
+      if (preciseStart) {
+        const diffMs = Math.max(0, preciseStart.getTime() - now.getTime());
+        const d = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+        const m = Math.floor((diffMs / (1000 * 60)) % 60);
+        setDays(d.toString().padStart(2, '0'));
+        setHrs(h.toString().padStart(2, '0'));
+        setMin(m.toString().padStart(2, '0'));
+      } else {
+        // Legacy event with no parseable time: date-only day count.
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const eventDate = new Date(upcomingEvent.date);
+        const diff = eventDate.getTime() - today.getTime();
+        const d = Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+        setDays(d.toString().padStart(2, '0'));
+        setHrs('00');
+        setMin('00');
+      }
+    };
+
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    return () => window.clearInterval(interval);
+  }, [upcomingEvent]);
 
   const handleAddSession = () => {
     if (newSession.startTime && newSession.endTime && newSession.description) {
@@ -329,7 +365,7 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Icon name="schedule" size="16" />
-                      <span>{upcomingEvent.time}</span>
+                      <span>{formatEventTime(upcomingEvent.time)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Icon name="location_on" size="16" />
