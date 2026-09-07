@@ -24,6 +24,14 @@ service cloud.firestore {
       allow create, update, delete: if activeStaff();
     }
 
+    // General sports/event data used by the Events and Overview pages.
+    // Anyone may read fixtures and results; only an active staff account may
+    // create, edit, or delete them.
+    match /sanawar_general_v1/data {
+      allow read: if true;
+      allow create, update, delete: if activeStaff();
+    }
+
     // Staff profiles are provisioned manually from the Firebase Console.
     // A signed-in user may read only their own profile. Clients can never
     // grant, revoke, or edit staff permissions.
