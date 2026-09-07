@@ -43,6 +43,16 @@ const TRACK_EVENTS = new Set([
   '3000m',
 ]);
 
+// High Jump uses its own height-ladder rules (handled separately) rather than
+// the standard 3-attempt best-distance model used by the other field events.
+const THREE_ATTEMPT_FIELD_EVENTS = new Set([
+  'long-jump',
+  'shot-put',
+  'discus-throw',
+  'javelin-throw',
+  'triple-jump',
+]);
+
 const houseConfig = (house: string) => {
   const key = house.toLowerCase() as keyof typeof HOUSE_COLORS;
   return HOUSE_COLORS[key] ?? HOUSE_COLORS.nilgiri;
@@ -104,6 +114,27 @@ const splitFieldDistance = (value?: string) => {
     metres: metres || '',
     centimetres: centimetres.slice(0, 2),
   };
+};
+
+/** Picks the best (farthest) valid attempt among up to 3 recorded field-event attempts. */
+const bestFieldAttempt = (attempts: (string | undefined)[]): string => {
+  let best = '';
+  let bestValue = Number.NEGATIVE_INFINITY;
+
+  attempts.forEach((attempt) => {
+    if (!attempt) {
+      return;
+    }
+
+    const value = parseFieldDistance(attempt);
+
+    if (value > bestValue) {
+      bestValue = value;
+      best = attempt;
+    }
+  });
+
+  return best;
 };
 
 const clampNumber = (value: string, max: number) => {
@@ -323,6 +354,7 @@ const AthleticsEventManager: React.FC<Props> = ({
       stage: resultStage,
       status: existing?.status || 'pending',
       timing: existing?.timing || '',
+      attempts: existing?.attempts,
       position: existing?.position,
       qualified: existing?.qualified || false,
       ...patch,
@@ -396,6 +428,40 @@ const AthleticsEventManager: React.FC<Props> = ({
         next.metres === '' && next.centimetres === ''
           ? ''
           : `${next.metres || '0'}.${(next.centimetres || '0').padStart(2, '0')}`,
+    });
+  };
+
+  /**
+   * Updates one of a student's 3 recorded attempts for a 3-attempt field
+   * event, then recomputes `timing` as the best (farthest) valid attempt so
+   * every existing consumer (auto-rank, leaderboards, summaries) keeps
+   * reading a single best-attempt value without any changes on their end.
+   */
+  const updateFieldAttempt = (
+    studentId: string,
+    resultStage: AthleticsStage,
+    attemptIndex: 0 | 1 | 2,
+    key: 'metres' | 'centimetres',
+    value: string,
+  ) => {
+    const existing = getResult(studentId, resultStage);
+    const attempts = [existing.attempts?.[0] || '', existing.attempts?.[1] || '', existing.attempts?.[2] || ''];
+
+    const current = splitFieldDistance(attempts[attemptIndex]);
+    const nextValue = value.replace(/\D/g, '').slice(0, key === 'metres' ? 3 : 2);
+    const nextPart = {
+      ...current,
+      [key]: nextValue,
+    };
+
+    attempts[attemptIndex] =
+      nextPart.metres === '' && nextPart.centimetres === ''
+        ? ''
+        : `${nextPart.metres || '0'}.${(nextPart.centimetres || '0').padStart(2, '0')}`;
+
+    updateResult(studentId, resultStage, {
+      attempts,
+      timing: bestFieldAttempt(attempts),
     });
   };
 
@@ -765,7 +831,9 @@ const AthleticsEventManager: React.FC<Props> = ({
                 <p className="mt-1 text-xs text-slate-400">
                   {event.kind === 'track'
                     ? 'Enter minutes, seconds and milliseconds separately.'
-                    : 'Enter metres and centimetres separately.'}
+                    : THREE_ATTEMPT_FIELD_EVENTS.has(event.id)
+                      ? 'Record all 3 attempts per competitor — the best valid attempt is used for ranking.'
+                      : 'Enter metres and centimetres separately.'}
                 </p>
               </div>
 
@@ -786,7 +854,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                     <th>Competitor</th>
                     <th>House</th>
                     <th>Status</th>
-                    <th>{event.kind === 'track' ? 'Time' : 'Distance'}</th>
+                    <th>{event.kind === 'track' ? 'Time' : THREE_ATTEMPT_FIELD_EVENTS.has(event.id) ? 'Attempts (Best)' : 'Distance'}</th>
                     <th>Position</th>
                     {stage === 'qualifying' && <th>Qualification</th>}
                     {stage === 'qualifying' && finalsEnabled && <th>Finals</th>}
@@ -809,6 +877,8 @@ const AthleticsEventManager: React.FC<Props> = ({
 
                     const track = splitTrackTiming(result.timing);
                     const field = splitFieldDistance(result.timing);
+                    const isThreeAttemptField = THREE_ATTEMPT_FIELD_EVENTS.has(event.id);
+                    const attempts = [result.attempts?.[0] || '', result.attempts?.[1] || '', result.attempts?.[2] || ''];
 
                     return (
                       <tr
@@ -917,6 +987,58 @@ const AthleticsEventManager: React.FC<Props> = ({
                                 }
                                 className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm"
                               />
+                            </div>
+                          ) : isThreeAttemptField ? (
+                            <div className="flex min-w-[260px] flex-col gap-1.5">
+                              {[0, 1, 2].map((attemptIndex) => {
+                                const attemptSplit = splitFieldDistance(attempts[attemptIndex]);
+                                const isBest = Boolean(attempts[attemptIndex]) && attempts[attemptIndex] === result.timing;
+
+                                return (
+                                  <div key={attemptIndex} className="flex items-center gap-2">
+                                    <span className={`w-14 shrink-0 text-[9px] font-black uppercase ${isBest ? 'text-emerald-300' : 'text-slate-500'}`}>
+                                      Try {attemptIndex + 1}{isBest ? ' ★' : ''}
+                                    </span>
+                                    <input
+                                      disabled={!isLoggedIn}
+                                      type="number"
+                                      min="0"
+                                      value={attemptSplit.metres}
+                                      onChange={(eventObject) =>
+                                        updateFieldAttempt(
+                                          student.id,
+                                          stage,
+                                          attemptIndex as 0 | 1 | 2,
+                                          'metres',
+                                          eventObject.target.value,
+                                        )
+                                      }
+                                      className={`royal-input w-full rounded-lg px-2 py-1.5 text-center font-mono text-sm ${isBest ? 'border-emerald-500/40' : ''}`}
+                                    />
+                                    <span>.</span>
+                                    <input
+                                      disabled={!isLoggedIn}
+                                      type="number"
+                                      min="0"
+                                      max="99"
+                                      value={attemptSplit.centimetres}
+                                      onChange={(eventObject) =>
+                                        updateFieldAttempt(
+                                          student.id,
+                                          stage,
+                                          attemptIndex as 0 | 1 | 2,
+                                          'centimetres',
+                                          eventObject.target.value,
+                                        )
+                                      }
+                                      className={`royal-input w-full rounded-lg px-2 py-1.5 text-center font-mono text-sm ${isBest ? 'border-emerald-500/40' : ''}`}
+                                    />
+                                  </div>
+                                );
+                              })}
+                              <div className="mt-0.5 text-[10px] font-bold text-slate-400">
+                                Best: <span className={result.timing ? 'text-emerald-300' : 'text-slate-600'}>{result.timing ? `${result.timing}m` : '—'}</span>
+                              </div>
                             </div>
                           ) : (
                             <div className="flex min-w-[220px] items-center gap-2">
