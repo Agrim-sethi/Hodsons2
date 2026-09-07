@@ -15,7 +15,12 @@ export interface AthleticsEvent { id:string; name:string; type:AthleticsTrackTyp
 // keyed by (eventId, category) together — never eventId alone.
 export interface AthleticsEnrollment { eventId:string; category:AthleticsCategory; studentIds:string[]; }
 export interface AthleticsFinalsConfig { eventId:string; category:AthleticsCategory; enabled:boolean; studentIds:string[]; }
-export interface AthleticsResult { eventId:string; category:AthleticsCategory; studentId:string; stage?:AthleticsStage; status:AthleticsResultStatus; timing?:string; position?:number; qualified?:boolean; }
+// `attempts` holds up to 3 recorded attempts for field events (long jump, shot
+// put, discus, javelin, triple jump — NOT high jump, which uses its own
+// height-ladder rules). `timing` is always kept as the best valid attempt for
+// that event's scoring direction, so every existing consumer that reads
+// `timing` (ranking, leaderboards, summaries) keeps working unmodified.
+export interface AthleticsResult { eventId:string; category:AthleticsCategory; studentId:string; stage?:AthleticsStage; status:AthleticsResultStatus; timing?:string; attempts?:string[]; position?:number; qualified?:boolean; }
 export interface AthleticsStudent { id:string; name:string; house:AthleticsHouse; category:AthleticsCategory; className:string; department:AthleticsDepartment; }
 export interface AthleticsSnapshot { enrollments:AthleticsEnrollment[]; results:AthleticsResult[]; finals:AthleticsFinalsConfig[]; }
 
