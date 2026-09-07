@@ -347,9 +347,9 @@ const Dashboard: React.FC = () => {
                   <>
                     {upcomingEvent.participation === 'inter_school' && upcomingEvent.homeSchool ? (
                       <>
-                        {upcomingEvent.homeSchool}
+                        {upcomingEvent.title || upcomingEvent.sport}
                         <br />
-                        <span className="text-2xl text-slate-300">VS {upcomingEvent.opponentSchool || 'TBD'}</span>
+                        <span className="text-2xl text-slate-300">{upcomingEvent.homeSchool} vs {upcomingEvent.opponentSchool || 'TBD'}</span>
                       </>
                     ) : upcomingEvent.participation === 'houses' && upcomingEvent.houses ? (
                       <span>{upcomingEvent.houses.join(' vs ')}</span>
