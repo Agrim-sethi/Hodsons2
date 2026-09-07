@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { useToast } from '../ui/ToastProvider';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage } from '../../utils/athleticsStorage';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
 
 type AthleticsStudent = {
@@ -178,6 +178,15 @@ const AthleticsEventManager: React.FC<Props> = ({
   const finalsEnabled = Boolean(finalsConfig?.enabled);
   const finalistIds = finalsConfig?.studentIds || [];
   const currentIds = stage === 'finals' ? finalistIds : enrollment;
+
+  const isHighJump = event.id === 'high-jump';
+
+  const highJumpConfig = React.useMemo(() => {
+    return snapshot.highJump?.find((entry) => entry.category === category && entry.stage === stage);
+  }, [snapshot.highJump, category, stage]);
+
+  const highJumpHeights = highJumpConfig?.heights || [];
+  const highJumpAttemptRows = highJumpConfig?.attempts || [];
 
   const filteredStudents = React.useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -464,6 +473,178 @@ const AthleticsEventManager: React.FC<Props> = ({
       timing: bestFieldAttempt(attempts),
     });
   };
+
+  const saveHighJumpConfig = (
+    nextHeights: string[],
+    nextAttempts: AthleticsHighJumpAttempt[],
+    title: string,
+    description: string,
+  ) => {
+    const highJump = (snapshot.highJump || []).map((entry) => {
+      if (entry.category !== category || entry.stage !== stage) {
+        return entry;
+      }
+
+      return {
+        ...entry,
+        heights: nextHeights,
+        attempts: nextAttempts,
+      };
+    });
+
+    saveSnapshot({ ...snapshot, highJump }, title, description);
+  };
+
+  const addHighJumpHeight = (height: string) => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const trimmed = height.trim();
+
+    if (!trimmed || highJumpHeights.includes(trimmed)) {
+      showToast({
+        title: 'Cannot add height',
+        description: trimmed ? 'That height layer already exists.' : 'Enter a height first.',
+      });
+      return;
+    }
+
+    // Keep the ladder sorted lowest to highest, regardless of the order layers were typed in.
+    const nextHeights = [...highJumpHeights, trimmed].sort(
+      (a, b) => parseFieldDistance(a) - parseFieldDistance(b),
+    );
+
+    saveHighJumpConfig(nextHeights, highJumpAttemptRows, 'Height Added', `${trimmed}m added to the high jump bar.`);
+  };
+
+  const removeHighJumpHeight = (height: string) => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const nextHeights = highJumpHeights.filter((h) => h !== height);
+    const nextAttempts = highJumpAttemptRows.filter((row) => row.height !== height);
+
+    saveHighJumpConfig(nextHeights, nextAttempts, 'Height Removed', `${height}m removed from the bar.`);
+  };
+
+  const setHighJumpAttempt = (
+    studentId: string,
+    height: string,
+    attemptIndex: 0 | 1 | 2,
+    result: AthleticsHighJumpAttemptResult,
+  ) => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const existingRow = highJumpAttemptRows.find((row) => row.studentId === studentId && row.height === height);
+    const attempts: AthleticsHighJumpAttemptResult[] = [
+      existingRow?.attempts?.[0] || 'pending',
+      existingRow?.attempts?.[1] || 'pending',
+      existingRow?.attempts?.[2] || 'pending',
+    ];
+
+    // Toggle: clicking the same mark again clears it back to pending.
+    attempts[attemptIndex] = attempts[attemptIndex] === result ? 'pending' : result;
+
+    const nextRow: AthleticsHighJumpAttempt = { studentId, height, attempts };
+    const nextAttempts = existingRow
+      ? highJumpAttemptRows.map((row) => (row.studentId === studentId && row.height === height ? nextRow : row))
+      : [...highJumpAttemptRows, nextRow];
+
+    saveHighJumpConfig(highJumpHeights, nextAttempts, 'Attempt Recorded', `${studentMap.get(studentId)?.name || 'Student'} — ${height}m.`);
+  };
+
+  /**
+   * Standard high jump ranking: highest height cleared wins; ties are broken
+   * by fewer failures at that cleared height, then fewer total failures
+   * across the whole competition. Writes into the normal AthleticsResult
+   * rows (position + timing = best height cleared) so every existing
+   * consumer — Auto-Rank display, leaderboards, summaries — keeps working
+   * exactly as it does for every other event, with no changes on their end.
+   */
+  const computeHighJumpRanking = () => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const heightsAscending = [...highJumpHeights].sort(
+      (a, b) => parseFieldDistance(a) - parseFieldDistance(b),
+    );
+
+    const summaries = currentIds
+      .map((studentId) => {
+        const rows = highJumpAttemptRows.filter((row) => row.studentId === studentId);
+
+        let bestHeight = '';
+        let bestHeightValue = Number.NEGATIVE_INFINITY;
+        let failuresAtBest = 0;
+        let totalFailures = 0;
+
+        heightsAscending.forEach((height) => {
+          const row = rows.find((r) => r.height === height);
+          const attempts = row?.attempts || [];
+          const failures = attempts.filter((a) => a === 'failed').length;
+          const cleared = attempts.includes('cleared');
+
+          totalFailures += failures;
+
+          if (cleared) {
+            const value = parseFieldDistance(height);
+            if (value > bestHeightValue) {
+              bestHeightValue = value;
+              bestHeight = height;
+              failuresAtBest = failures;
+            }
+          }
+        });
+
+        return { studentId, bestHeight, bestHeightValue, failuresAtBest, totalFailures };
+      })
+      .filter((summary) => summary.bestHeight);
+
+    summaries.sort((a, b) => {
+      if (a.bestHeightValue !== b.bestHeightValue) {
+        return b.bestHeightValue - a.bestHeightValue;
+      }
+      if (a.failuresAtBest !== b.failuresAtBest) {
+        return a.failuresAtBest - b.failuresAtBest;
+      }
+      return a.totalFailures - b.totalFailures;
+    });
+
+    const rankMap = new Map(summaries.map((summary, index) => [summary.studentId, index + 1]));
+    const heightMap = new Map(summaries.map((summary) => [summary.studentId, summary.bestHeight]));
+
+    const resultsForOtherStudents = snapshot.results.filter(
+      (result) => !(result.eventId === event.id && result.category === category && resultStageOf(result) === stage),
+    );
+
+    const resultsForCurrentIds = currentIds.map((studentId) => {
+      const existing = getResult(studentId, stage);
+      const cleared = heightMap.get(studentId);
+
+      return {
+        ...existing,
+        status: cleared ? ('finished' as AthleticsResultStatus) : existing.status,
+        timing: cleared || existing.timing,
+        position: rankMap.get(studentId),
+      };
+    });
+
+    saveSnapshot(
+      {
+        ...snapshot,
+        results: [...resultsForOtherStudents, ...resultsForCurrentIds],
+      },
+      'Positions Calculated',
+      `${summaries.length} ${stage} high jumpers ranked by best height cleared.`,
+    );
+  };
+
+  const [newHeightInput, setNewHeightInput] = React.useState('');
 
   const toggleFinals = () => {
     if (!isLoggedIn) {
@@ -829,24 +1010,205 @@ const AthleticsEventManager: React.FC<Props> = ({
                   {stage === 'qualifying' ? 'Qualifying Results' : 'Finals Results'}
                 </h3>
                 <p className="mt-1 text-xs text-slate-400">
-                  {event.kind === 'track'
-                    ? 'Enter minutes, seconds and milliseconds separately.'
-                    : THREE_ATTEMPT_FIELD_EVENTS.has(event.id)
-                      ? 'Record all 3 attempts per competitor — the best valid attempt is used for ranking.'
-                      : 'Enter metres and centimetres separately.'}
+                  {isHighJump
+                    ? 'Add a height layer, then mark each attempt as clear or fail. A competitor who clears a height can skip its remaining attempts.'
+                    : event.kind === 'track'
+                      ? 'Enter minutes, seconds and milliseconds separately.'
+                      : THREE_ATTEMPT_FIELD_EVENTS.has(event.id)
+                        ? 'Record all 3 attempts per competitor — the best valid attempt is used for ranking.'
+                        : 'Enter metres and centimetres separately.'}
                 </p>
               </div>
 
               <button
                 type="button"
                 disabled={!isLoggedIn}
-                onClick={autoRank}
+                onClick={isHighJump ? computeHighJumpRanking : autoRank}
                 className="royal-primary-btn rounded-xl px-4 py-2 text-xs font-black uppercase disabled:opacity-50"
               >
                 Auto-Rank
               </button>
             </div>
 
+            {isHighJump && (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-primary">Bar Heights</h4>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <input
+                          disabled={!isLoggedIn}
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="e.g. 1.35"
+                          value={newHeightInput}
+                          onChange={(eventObject) => setNewHeightInput(eventObject.target.value.replace(/[^0-9.]/g, ''))}
+                          onKeyDown={(eventObject) => {
+                            if (eventObject.key === 'Enter') {
+                              addHighJumpHeight(newHeightInput);
+                              setNewHeightInput('');
+                            }
+                          }}
+                          className="royal-input w-28 rounded-lg px-2 py-2 text-center font-mono text-sm"
+                        />
+                        <span className="text-xs text-slate-500">m</span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!isLoggedIn}
+                        onClick={() => {
+                          addHighJumpHeight(newHeightInput);
+                          setNewHeightInput('');
+                        }}
+                        className="royal-secondary-btn rounded-lg px-3 py-2 text-xs font-black uppercase disabled:opacity-50"
+                      >
+                        Add Layer
+                      </button>
+                    </div>
+                  </div>
+
+                  {highJumpHeights.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-white/10 bg-black/10 px-4 py-6 text-center text-xs text-slate-500">
+                      No height layers added yet — add the opening height to begin.
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {highJumpHeights.map((height) => (
+                        <div
+                          key={height}
+                          className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.06] px-3 py-1.5"
+                        >
+                          <span className="font-mono text-sm font-black text-primary">{height}m</span>
+                          <button
+                            type="button"
+                            disabled={!isLoggedIn}
+                            onClick={() => removeHighJumpHeight(height)}
+                            className="text-slate-500 hover:text-rose-400 disabled:opacity-40"
+                            title="Remove this height layer"
+                          >
+                            <Icon name="close" className="text-[14px]" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {currentIds.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-12 text-center text-sm text-slate-500">
+                    No competitors to show yet.
+                  </div>
+                ) : highJumpHeights.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-12 text-center text-sm text-slate-500">
+                    Add a height layer above to start recording attempts.
+                  </div>
+                ) : (
+                  <div className="max-h-[52vh] overflow-auto rounded-xl border border-white/10">
+                    <table className="royal-data-table min-w-[900px]">
+                      <thead>
+                        <tr>
+                          <th className="sticky left-0 z-10 bg-[#0b1220]">Competitor</th>
+                          <th>House</th>
+                          {highJumpHeights.map((height) => (
+                            <th key={height} className="text-center">{height}m</th>
+                          ))}
+                          <th>Best</th>
+                          <th>Position</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentIds.map((studentId) => {
+                          const student = studentMap.get(studentId);
+                          if (!student) return null;
+
+                          const config = houseConfig(student.house);
+                          const result = getResult(studentId, stage);
+
+                          return (
+                            <tr key={studentId}>
+                              <td className="sticky left-0 z-10 bg-[#0b1220]">
+                                <div className="font-black text-white">{student.name}</div>
+                                <div className="text-[10px] text-slate-500">#{student.id} • {category}</div>
+                              </td>
+                              <td>
+                                <span className={`inline-flex items-center rounded-full border px-2 py-1 text-[9px] font-bold ${config.bg}/20 ${config.text} ${config.border}/30`}>
+                                  {student.house}
+                                </span>
+                              </td>
+                              {highJumpHeights.map((height) => {
+                                const row = highJumpAttemptRows.find((r) => r.studentId === studentId && r.height === height);
+                                const attempts: AthleticsHighJumpAttemptResult[] = [
+                                  row?.attempts?.[0] || 'pending',
+                                  row?.attempts?.[1] || 'pending',
+                                  row?.attempts?.[2] || 'pending',
+                                ];
+                                const clearedIndex = attempts.findIndex((a) => a === 'cleared');
+                                const hasCleared = clearedIndex !== -1;
+
+                                return (
+                                  <td key={height} className="text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      {[0, 1, 2].map((attemptIndex) => {
+                                        const value = attempts[attemptIndex];
+                                        // Once a competitor has cleared this height, later attempts are moot —
+                                        // shown dimmed and left click-through disabled to avoid confusing entry.
+                                        const moot = hasCleared && attemptIndex > clearedIndex;
+
+                                        return (
+                                          <div key={attemptIndex} className="flex flex-col items-center gap-0.5">
+                                            <button
+                                              type="button"
+                                              disabled={!isLoggedIn || moot}
+                                              onClick={() => setHighJumpAttempt(studentId, height, attemptIndex as 0 | 1 | 2, 'cleared')}
+                                              className={`flex size-6 items-center justify-center rounded border text-xs font-black transition-all disabled:opacity-30 ${
+                                                value === 'cleared'
+                                                  ? 'border-emerald-400/50 bg-emerald-400/20 text-emerald-300'
+                                                  : 'border-white/10 bg-white/[0.02] text-slate-600 hover:border-emerald-500/30 hover:text-emerald-400'
+                                              }`}
+                                              title={`Attempt ${attemptIndex + 1}: mark cleared`}
+                                            >
+                                              ✓
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={!isLoggedIn || moot}
+                                              onClick={() => setHighJumpAttempt(studentId, height, attemptIndex as 0 | 1 | 2, 'failed')}
+                                              className={`flex size-6 items-center justify-center rounded border text-xs font-black transition-all disabled:opacity-30 ${
+                                                value === 'failed'
+                                                  ? 'border-rose-400/50 bg-rose-400/20 text-rose-300'
+                                                  : 'border-white/10 bg-white/[0.02] text-slate-600 hover:border-rose-500/30 hover:text-rose-400'
+                                              }`}
+                                              title={`Attempt ${attemptIndex + 1}: mark failed`}
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                              <td>
+                                <span className={`font-mono text-sm font-black ${result.timing ? 'text-emerald-300' : 'text-slate-600'}`}>
+                                  {result.timing ? `${result.timing}m` : '—'}
+                                </span>
+                              </td>
+                              <td>
+                                <span className="font-black text-white">{result.position || '—'}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!isHighJump && (
             <div className="max-h-[48vh] overflow-auto rounded-xl border border-white/10">
               <table className="royal-data-table min-w-[1100px]">
                 <thead>
@@ -1139,6 +1501,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                 </tbody>
               </table>
             </div>
+            )}
           </>
         )}
       </div>
