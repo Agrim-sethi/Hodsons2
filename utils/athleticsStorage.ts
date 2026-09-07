@@ -22,7 +22,22 @@ export interface AthleticsFinalsConfig { eventId:string; category:AthleticsCateg
 // `timing` (ranking, leaderboards, summaries) keeps working unmodified.
 export interface AthleticsResult { eventId:string; category:AthleticsCategory; studentId:string; stage?:AthleticsStage; status:AthleticsResultStatus; timing?:string; attempts?:string[]; position?:number; qualified?:boolean; }
 export interface AthleticsStudent { id:string; name:string; house:AthleticsHouse; category:AthleticsCategory; className:string; department:AthleticsDepartment; }
-export interface AthleticsSnapshot { enrollments:AthleticsEnrollment[]; results:AthleticsResult[]; finals:AthleticsFinalsConfig[]; }
+
+// High Jump uses a height-ladder format instead of the standard 3-attempt
+// best-distance model: staff manually add height "layers" (e.g. 1.30, 1.35,
+// 1.40...) one at a time as the competition progresses. At each height every
+// competitor gets up to 3 attempts, each marked pass ('cleared'), fail
+// ('failed'), or not yet attempted ('pending'). Once a competitor clears a
+// height they stop attempting further tries at that height (though the UI
+// doesn't need to enforce that — it's a scoring convention, not a hard rule,
+// since a competitor could legitimately choose to pass on remaining tries).
+export type AthleticsHighJumpAttemptResult = 'pending' | 'cleared' | 'failed';
+export interface AthleticsHighJumpAttempt { studentId:string; height:string; attempts:AthleticsHighJumpAttemptResult[]; }
+// One config per (category, stage) — always for eventId 'high-jump'. `heights`
+// is the ordered list of layers staff have added so far (lowest to highest).
+export interface AthleticsHighJumpConfig { eventId:string; category:AthleticsCategory; stage:AthleticsStage; heights:string[]; attempts:AthleticsHighJumpAttempt[]; }
+
+export interface AthleticsSnapshot { enrollments:AthleticsEnrollment[]; results:AthleticsResult[]; finals:AthleticsFinalsConfig[]; highJump:AthleticsHighJumpConfig[]; }
 
 const ALL_DEPARTMENTS:AthleticsDepartment[]=['PDB','PDG','BD','GD'];
 export const ATHLETICS_EVENTS:AthleticsEvent[]=[
@@ -43,12 +58,16 @@ export const ATHLETICS_EVENTS:AthleticsEvent[]=[
 const STORAGE_KEY='sanawar_athletics_2026';
 const FIRESTORE_COLLECTION='athletics_2026_v1';
 const FIRESTORE_DOC_PATH='data';
+const HIGH_JUMP_EVENT_ID='high-jump';
+const STAGES:AthleticsStage[]=['qualifying','finals'];
 const sanitizeForFirebase=(obj:any):any=>{if(obj===undefined)return null;if(obj===null||typeof obj!=='object')return obj;if(Array.isArray(obj))return obj.map(sanitizeForFirebase);const out:any={};Object.keys(obj).forEach(k=>out[k]=sanitizeForFirebase(obj[k]));return out;};
 const enrollmentKey=(eventId:string,category:string)=>`${eventId}|${category}`;
+const highJumpKey=(category:string,stage:string)=>`${category}|${stage}`;
 const emptySnapshot=():AthleticsSnapshot=>({
   enrollments:ATHLETICS_EVENTS.flatMap(e=>ATHLETICS_CATEGORIES.map(category=>({eventId:e.id,category,studentIds:[]}))),
   results:[],
-  finals:ATHLETICS_EVENTS.flatMap(e=>ATHLETICS_CATEGORIES.map(category=>({eventId:e.id,category,enabled:false,studentIds:[]})))
+  finals:ATHLETICS_EVENTS.flatMap(e=>ATHLETICS_CATEGORIES.map(category=>({eventId:e.id,category,enabled:false,studentIds:[]}))),
+  highJump:ATHLETICS_CATEGORIES.flatMap(category=>STAGES.map(stage=>({eventId:HIGH_JUMP_EVENT_ID,category,stage,heights:[],attempts:[]})))
 });
 // Migrates snapshots saved before category-scoping existed: a legacy entry (no
 // `category` field) is keyed by eventId alone and mixed students from every
@@ -103,10 +122,21 @@ const normalizeSnapshot=(raw:Partial<AthleticsSnapshot>|null|undefined):Athletic
     return{...r,category,stage:r.stage==='finals'?'finals':'qualifying',qualified:r.qualified===true};
   }).filter((r:AthleticsResult)=>Boolean(r.category));
 
+  const rawHighJump=Array.isArray(raw?.highJump)?raw!.highJump!:[];
+  const highJumpMap=new Map<string,{heights:string[];attempts:AthleticsHighJumpAttempt[]}>();
+  rawHighJump.forEach((entry:any)=>{
+    if(!entry.category||!entry.stage)return;
+    highJumpMap.set(highJumpKey(entry.category,entry.stage),{
+      heights:Array.isArray(entry.heights)?entry.heights:[],
+      attempts:Array.isArray(entry.attempts)?entry.attempts:[]
+    });
+  });
+
   return{
     enrollments:ATHLETICS_EVENTS.flatMap(e=>ATHLETICS_CATEGORIES.map(category=>({eventId:e.id,category,studentIds:enrollmentMap.get(enrollmentKey(e.id,category))||[]}))),
     finals:ATHLETICS_EVENTS.flatMap(e=>ATHLETICS_CATEGORIES.map(category=>{const x=finalsMap.get(enrollmentKey(e.id,category));return{eventId:e.id,category,enabled:Boolean(x?.enabled),studentIds:x?.studentIds||[]};})),
-    results
+    results,
+    highJump:ATHLETICS_CATEGORIES.flatMap(category=>STAGES.map(stage=>{const x=highJumpMap.get(highJumpKey(category,stage));return{eventId:HIGH_JUMP_EVENT_ID,category,stage,heights:x?.heights||[],attempts:x?.attempts||[]};}))
   };
 };
 export const getAthleticsSnapshot=():AthleticsSnapshot=>{const stored=localStorage.getItem(STORAGE_KEY);if(!stored)return emptySnapshot();try{return normalizeSnapshot(JSON.parse(stored));}catch{return emptySnapshot();}};
