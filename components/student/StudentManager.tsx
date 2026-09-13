@@ -3,6 +3,7 @@ import { Icon } from '../Icon';
 import { useStaffAuth } from '../auth/StaffAuthProvider';
 import { useToast } from '../ui/ToastProvider';
 import {
+  deleteManagedStudent,
   getAthleticsCategoryForStudent,
   getManagedStudentById,
   getManagedStudents,
@@ -39,6 +40,7 @@ export default function StudentManager() {
   const [search, setSearch] = React.useState('');
   const [message, setMessage] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
 
   const managedStudents = React.useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -52,6 +54,7 @@ export default function StudentManager() {
     ? getAthleticsCategoryForStudent(form.department, form.dob)
     : null;
   const age = form.dob ? getStudentAgeOnAthleticsDate(form.dob) : null;
+  const existingStudent = form.id ? getManagedStudentById(form.id) : null;
 
   if (!isLoggedIn) return null;
 
@@ -135,6 +138,30 @@ export default function StudentManager() {
       setSaving(false);
       console.error(error);
       showToast({ title: 'Save Failed', description: 'The student could not be saved to Firebase.' });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!existingStudent) return;
+
+    const confirmed = window.confirm(
+      `Delete ${existingStudent.name} (${existingStudent.id}) from the managed student dataset? This will remove the student from Athletics categories and cannot be undone from the app.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      await deleteManagedStudent(existingStudent.id);
+      setDeleting(false);
+      showToast({ title: 'Student Deleted', description: `${existingStudent.name} has been removed.` });
+      setForm(emptyForm);
+      setSearch('');
+      setMessage('Student deleted successfully. Reloading the app to refresh Athletics data.');
+      window.setTimeout(() => window.location.reload(), 500);
+    } catch (error) {
+      setDeleting(false);
+      console.error(error);
+      showToast({ title: 'Delete Failed', description: 'The student could not be deleted from Firebase.' });
     }
   };
 
@@ -233,9 +260,20 @@ export default function StudentManager() {
                 {message && <p className="text-xs text-slate-400 mt-3">{message}</p>}
               </div>
 
-              <div className="flex gap-3 pt-1">
-                <button onClick={() => setOpen(false)} className="flex-1 rounded-xl bg-white/5 text-white border border-white/10 py-3 text-xs font-black uppercase">Cancel</button>
-                <button disabled={saving} onClick={handleSave} className="flex-1 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-background-dark hover:brightness-110 disabled:opacity-60">{saving ? 'Saving…' : 'Save Student'}</button>
+              <div className="flex flex-col gap-3 pt-1">
+                <div className="flex gap-3">
+                  <button onClick={() => setOpen(false)} className="flex-1 rounded-xl bg-white/5 text-white border border-white/10 py-3 text-xs font-black uppercase">Cancel</button>
+                  <button disabled={saving || deleting} onClick={handleSave} className="flex-1 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-background-dark hover:brightness-110 disabled:opacity-60">{saving ? 'Saving…' : 'Save Student'}</button>
+                </div>
+                {existingStudent && (
+                  <button
+                    disabled={saving || deleting}
+                    onClick={handleDelete}
+                    className="w-full rounded-xl border border-red-500/30 bg-red-500/10 py-3 text-xs font-black uppercase tracking-widest text-red-300 hover:bg-red-500/15 disabled:opacity-60"
+                  >
+                    {deleting ? 'Deleting…' : 'Delete Student'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
