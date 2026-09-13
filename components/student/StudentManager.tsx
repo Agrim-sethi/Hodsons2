@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { Icon } from '../Icon';
 import { useStaffAuth } from '../auth/StaffAuthProvider';
 import { useToast } from '../ui/ToastProvider';
@@ -34,6 +35,7 @@ const categoryLabel = (category: StudentCategory | null) => category || 'Enter a
 export default function StudentManager() {
   const { isLoggedIn } = useStaffAuth();
   const { showToast } = useToast();
+  const location = useLocation();
   const [open, setOpen] = React.useState(false);
   const [form, setForm] = React.useState(emptyForm);
   const [search, setSearch] = React.useState('');
@@ -53,7 +55,7 @@ export default function StudentManager() {
     : null;
   const age = form.dob ? getStudentAgeOnAthleticsDate(form.dob) : null;
 
-  if (!isLoggedIn) return null;
+  if (!isLoggedIn || location.pathname !== '/events') return null;
 
   const openManager = () => {
     setForm(emptyForm);
