@@ -58,8 +58,6 @@ export const getAthleticsCategoryForStudent = (department: StudentDepartment, do
   const age = getAgeOnAthleticsDate(dob);
   if (age === null) return null;
 
-  // Prep students aged 12 or older move into the corresponding Senior
-  // Under-13 category. Prep students younger than 12 remain in Prep.
   if (department === 'PDB') {
     if (age < 11) return 'PDB Under 11';
     if (age === 11) return 'PDB Under 12';
@@ -71,8 +69,6 @@ export const getAthleticsCategoryForStudent = (department: StudentDepartment, do
     return 'GD Under 13';
   }
 
-  // Senior students remain in Senior School even when they are younger
-  // than 12. They are never routed backwards into Prep.
   const seniorPrefix = department === 'BD' ? 'BD' : 'GD';
   if (age < 13) return `${seniorPrefix} Under 13` as StudentCategory;
   if (age < 14) return `${seniorPrefix} Under 14` as StudentCategory;
@@ -106,9 +102,6 @@ const getStoredStudents = (): ManagedStudent[] | null => {
 export const getManagedStudents = (): ManagedStudent[] => {
   const stored = getStoredStudents();
   if (stored) return stored;
-
-  // Seed local storage with the complete current in-app student list so the
-  // browser always has one complete student dataset available to staff tools.
   localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(baseStudents));
   return baseStudents;
 };
@@ -122,6 +115,16 @@ export const saveManagedStudent = async (student: ManagedStudent): Promise<void>
   if (index >= 0) students[index] = student;
   else students.push(student);
 
+  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
+  await setDoc(
+    doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH),
+    sanitize({ students }),
+    { merge: true }
+  );
+};
+
+export const deleteManagedStudent = async (id: string): Promise<void> => {
+  const students = getManagedStudents().filter((student) => String(student.id) !== String(id));
   localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
   await setDoc(
     doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH),
