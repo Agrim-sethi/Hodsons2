@@ -1,5 +1,4 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
 import { Icon } from '../Icon';
 import { useStaffAuth } from '../auth/StaffAuthProvider';
 import { useToast } from '../ui/ToastProvider';
@@ -35,7 +34,6 @@ const categoryLabel = (category: StudentCategory | null) => category || 'Enter a
 export default function StudentManager() {
   const { isLoggedIn } = useStaffAuth();
   const { showToast } = useToast();
-  const location = useLocation();
   const [open, setOpen] = React.useState(false);
   const [form, setForm] = React.useState(emptyForm);
   const [search, setSearch] = React.useState('');
@@ -55,7 +53,7 @@ export default function StudentManager() {
     : null;
   const age = form.dob ? getStudentAgeOnAthleticsDate(form.dob) : null;
 
-  if (!isLoggedIn || location.pathname !== '/events') return null;
+  if (!isLoggedIn) return null;
 
   const openManager = () => {
     setForm(emptyForm);
@@ -144,9 +142,9 @@ export default function StudentManager() {
     <>
       <button
         onClick={openManager}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-xl border border-primary/30 bg-background-dark/95 px-4 py-3 text-xs font-black uppercase tracking-wider text-primary shadow-2xl backdrop-blur hover:bg-primary/10 transition-all"
+        className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-5 py-3 text-xs font-black uppercase tracking-wider text-primary shadow-lg hover:bg-primary/20 transition-all whitespace-nowrap"
       >
-        <Icon name="groups" size="18" /> Manage Students
+        <Icon name="person_add" size="18" /> Add / Manage Students
       </button>
 
       {open && (
