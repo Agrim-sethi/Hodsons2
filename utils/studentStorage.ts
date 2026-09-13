@@ -58,18 +58,21 @@ export const getAthleticsCategoryForStudent = (department: StudentDepartment, do
   const age = getAgeOnAthleticsDate(dob);
   if (age === null) return null;
 
+  // Prep students aged 12 or older move into the corresponding Senior
+  // Under-13 category. Prep students younger than 12 remain in Prep.
   if (department === 'PDB') {
     if (age < 11) return 'PDB Under 11';
     if (age === 11) return 'PDB Under 12';
     return 'BD Under 13';
   }
-
   if (department === 'PDG') {
     if (age < 11) return 'PDG Under 11';
     if (age === 11) return 'PDG Under 12';
     return 'GD Under 13';
   }
 
+  // Senior students remain in Senior School even when they are younger
+  // than 12. They are never routed backwards into Prep.
   const seniorPrefix = department === 'BD' ? 'BD' : 'GD';
   if (age < 13) return `${seniorPrefix} Under 13` as StudentCategory;
   if (age < 14) return `${seniorPrefix} Under 14` as StudentCategory;
@@ -89,43 +92,40 @@ const baseStudents: ManagedStudent[] = (ALL_STUDENTS as any[]).map((student) => 
   className: '',
 }));
 
-export const getManagedStudents = (): ManagedStudent[] => {
+const getStoredStudents = (): ManagedStudent[] | null => {
   const stored = localStorage.getItem(STUDENTS_STORAGE_KEY);
-  if (!stored) return baseStudents;
-
-  try {
-    const overrides = JSON.parse(stored) as ManagedStudent[];
-    const byId = new Map(baseStudents.map((student) => [student.id, student]));
-    overrides.forEach((student) => byId.set(String(student.id), student));
-    return Array.from(byId.values());
-  } catch {
-    return baseStudents;
-  }
-};
-
-export const getManagedStudentById = (id: string) => getManagedStudents().find((student) => student.id === id) || null;
-
-const getStoredOverrides = (): ManagedStudent[] => {
-  const stored = localStorage.getItem(STUDENTS_STORAGE_KEY);
-  if (!stored) return [];
+  if (!stored) return null;
   try {
     const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed : null;
   } catch {
-    return [];
+    return null;
   }
 };
 
-export const saveManagedStudent = async (student: ManagedStudent): Promise<void> => {
-  const overrides = getStoredOverrides();
-  const index = overrides.findIndex((existing) => String(existing.id) === String(student.id));
-  if (index >= 0) overrides[index] = student;
-  else overrides.push(student);
+export const getManagedStudents = (): ManagedStudent[] => {
+  const stored = getStoredStudents();
+  if (stored) return stored;
 
-  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(overrides));
+  // Seed local storage with the complete current in-app student list so the
+  // browser always has one complete student dataset available to staff tools.
+  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(baseStudents));
+  return baseStudents;
+};
+
+export const getManagedStudentById = (id: string) =>
+  getManagedStudents().find((student) => String(student.id) === String(id)) || null;
+
+export const saveManagedStudent = async (student: ManagedStudent): Promise<void> => {
+  const students = [...getManagedStudents()];
+  const index = students.findIndex((existing) => String(existing.id) === String(student.id));
+  if (index >= 0) students[index] = student;
+  else students.push(student);
+
+  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
   await setDoc(
     doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH),
-    sanitize({ students: overrides }),
+    sanitize({ students }),
     { merge: true }
   );
 };
