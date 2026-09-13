@@ -12,6 +12,7 @@ import Athletics from './pages/Athletics';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { StaffAuthProvider } from './components/auth/StaffAuthProvider';
 import StaffLogin from './pages/StaffLogin';
+import StudentManager from './components/student/StudentManager';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="staff-login" element={<StaffLogin />} />
             </Route>
           </Routes>
+          <StudentManager />
         </HashRouter>
       </StaffAuthProvider>
     </ToastProvider>
