@@ -20,6 +20,7 @@ import AthleticsLeaderboard from '../components/athletics/AthleticsLeaderboard';
 import AthleticsSummary from '../components/athletics/AthleticsSummary';
 import AthleticsViewEvents from '../components/athletics/AthleticsViewEvents';
 import AthleticsEventManager from '../components/athletics/AthleticsEventManager';
+import StudentManager from '../components/student/StudentManager';
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = {
   '3000m': ['BD Opens'],
@@ -187,11 +188,14 @@ const Athletics: React.FC = () => {
       {pageTab === 'manage' && (
         <>
           <section className="space-y-4">
-            <div>
-              <div className="royal-kicker mb-1">Event Management</div>
-              <h2 className="text-2xl font-black text-white">
-                Choose a department & age group
-              </h2>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="royal-kicker mb-1">Event Management</div>
+                <h2 className="text-2xl font-black text-white">
+                  Choose a department & age group
+                </h2>
+              </div>
+              <StudentManager />
             </div>
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
