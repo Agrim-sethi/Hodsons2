@@ -1,5 +1,4 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { Icon } from '../Icon';
 import { useToast } from '../ui/ToastProvider';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
@@ -8,6 +7,7 @@ import { AthleticsEvent, AthleticsSnapshot, AthleticsStage, AthleticsStudent } f
 type Props = {
   event: AthleticsEvent;
   category: AthleticsCategory;
+  stage: AthleticsStage;
   students: AthleticsStudent[];
   snapshot: AthleticsSnapshot;
   isLoggedIn: boolean;
@@ -41,7 +41,12 @@ const getWinner = (
   const ranked = ids
     .map(id => ({
       student: studentMap.get(id),
-      result: snapshot.results.find(result => result.eventId === event.id && result.category === category && result.studentId === id && (result.stage || 'qualifying') === stage),
+      result: snapshot.results.find(result =>
+        result.eventId === event.id &&
+        result.category === category &&
+        result.studentId === id &&
+        (result.stage || 'qualifying') === stage,
+      ),
     }))
     .filter((item): item is { student: AthleticsStudent; result: NonNullable<typeof item.result> } => {
       if (!item.student || !item.result || item.result.status !== 'finished' || !item.result.timing) return false;
@@ -56,66 +61,98 @@ const getWinner = (
   return ranked[0] || null;
 };
 
-const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, snapshot, isLoggedIn, onSave }) => {
+const NewResultAwardOverlay: React.FC<Props> = ({ event, category, stage, students, snapshot, isLoggedIn, onSave }) => {
   const { showToast } = useToast();
-  const finalsEnabled = Boolean(snapshot.finals.find(item => item.eventId === event.id && item.category === category)?.enabled);
-  const stages: AthleticsStage[] = finalsEnabled ? ['qualifying', 'finals'] : ['qualifying'];
+  const winner = getWinner(event, category, stage, students, snapshot);
+  const awarded = Boolean(snapshot.results.find(result =>
+    result.eventId === event.id &&
+    result.category === category &&
+    resultStageOf(result) === stage &&
+    result.newResultAwarded === true,
+  ));
 
-  if (!isLoggedIn || typeof document === 'undefined') return null;
+  if (!isLoggedIn) return null;
 
-  const award = (stage: AthleticsStage) => {
-    const winner = getWinner(event, category, stage, students, snapshot);
-    if (!winner) {
-      showToast({ title: 'No Winner Yet', description: `${stage === 'finals' ? 'Finals' : 'Qualifying'} needs a finished valid winner before a New Result can be awarded.` });
+  const toggleRecord = () => {
+    if (awarded) {
+      const awardedResult = snapshot.results.find(result =>
+        result.eventId === event.id &&
+        result.category === category &&
+        resultStageOf(result) === stage &&
+        result.newResultAwarded === true,
+      );
+      const student = students.find(item => item.id === awardedResult?.studentId);
+
+      if (!window.confirm(`Undo NEW RECORD for ${student?.name || 'this winner'}?\n\nThis removes the extra +3 championship points from the athlete and +3 from their house.`)) return;
+
+      const nextResults = snapshot.results.map(result => {
+        if (
+          result.eventId === event.id &&
+          result.category === category &&
+          resultStageOf(result) === stage
+        ) {
+          return { ...result, newResultAwarded: false };
+        }
+        return result;
+      });
+
+      onSave(
+        { ...snapshot, results: nextResults },
+        'New Record Undone',
+        `${student?.name || 'Winner'} no longer has the New Record award for ${event.name} ${stage}.`,
+      );
+      showToast({ title: 'New Record Undone', description: 'The extra 3 points have been removed.' });
       return;
     }
-    if (winner.result.newResultAwarded) return;
 
-    const confirmed = window.confirm(`Award NEW RESULT +3 to ${winner.student.name}?\n\nThis gives +3 championship points to ${winner.student.name} and +3 to ${winner.student.house}.`);
-    if (!confirmed) return;
+    if (!winner) {
+      showToast({
+        title: 'No Winner Yet',
+        description: `${stage === 'finals' ? 'Finals' : 'Qualifying'} needs a finished valid winner before a New Record can be awarded.`,
+      });
+      return;
+    }
+
+    if (!window.confirm(`Award NEW RECORD to ${winner.student.name}?\n\nThis gives +3 championship points to ${winner.student.name} and +3 to ${winner.student.house}.`)) return;
 
     const nextResults = snapshot.results.map(result => {
-      if (result.eventId !== event.id || result.category !== category || result.studentId !== winner.student.id || (result.stage || 'qualifying') !== stage) return result;
-      return { ...result, newResultAwarded: true };
+      if (
+        result.eventId === event.id &&
+        result.category === category &&
+        result.studentId === winner.student.id &&
+        resultStageOf(result) === stage
+      ) {
+        return { ...result, newResultAwarded: true };
+      }
+      return result;
     });
 
-    onSave({ ...snapshot, results: nextResults }, 'New Result Awarded', `${winner.student.name} receives +3 points and ${winner.student.house} receives +3 for ${event.name} ${stage}.`);
-    showToast({ title: 'New Result Awarded', description: `${winner.student.name}: +3 • ${winner.student.house}: +3` });
+    onSave(
+      { ...snapshot, results: nextResults },
+      'New Record Awarded',
+      `${winner.student.name} receives +3 points and ${winner.student.house} receives +3 for ${event.name} ${stage}.`,
+    );
+    showToast({ title: 'New Record Awarded', description: `${winner.student.name}: +3 • ${winner.student.house}: +3` });
   };
 
-  return createPortal(
-    <div className="fixed bottom-6 right-6 z-[11000] w-[min(430px,calc(100vw-2rem))] rounded-2xl border border-primary/25 bg-[#0b121e]/98 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.65)] backdrop-blur-xl">
-      <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary"><Icon name="emoji_events" size="18" /></div>
-        <div className="min-w-0 flex-1">
-          <div className="royal-kicker">Championship Award</div>
-          <div className="mt-0.5 text-sm font-black text-white">New Result • +3</div>
-          <div className="mt-1 text-[10px] leading-relaxed text-slate-500">Adds +3 to the stage winner and +3 to the winner's house.</div>
-        </div>
-      </div>
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {stages.map(stage => {
-          const winner = getWinner(event, category, stage, students, snapshot);
-          const awarded = Boolean(winner?.result.newResultAwarded);
-          const label = stage === 'finals' ? 'Finals' : 'Qualifying';
-          return (
-            <button
-              key={stage}
-              type="button"
-              disabled={!winner || awarded}
-              onClick={() => award(stage)}
-              className={`rounded-xl border px-3 py-2.5 text-left transition ${awarded ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' : 'border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'}`}
-            >
-              <div className="text-[8px] font-black uppercase tracking-[0.18em] opacity-70">{label}</div>
-              <div className="mt-1 truncate text-xs font-black">{winner?.student.name || 'No valid winner yet'}</div>
-              <div className="mt-1 text-[9px] font-bold uppercase tracking-wider opacity-70">{awarded ? '✓ Awarded +3' : 'Award New Result +3'}</div>
-            </button>
-          );
-        })}
-      </div>
-    </div>,
-    document.body,
+  return (
+    <button
+      type="button"
+      onClick={toggleRecord}
+      disabled={!awarded && !winner}
+      title={awarded ? 'Undo New Record' : 'Award New Record'}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] transition ${
+        awarded
+          ? 'border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15'
+          : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'
+      }`}
+    >
+      <Icon name={awarded ? 'undo' : 'add_circle'} size="13" />
+      {awarded ? 'Undo New Record' : 'New Record +3'}
+    </button>
   );
 };
+
+const resultStageOf = (result: { stage?: AthleticsStage }) => result.stage || 'qualifying';
 
 export default NewResultAwardOverlay;
