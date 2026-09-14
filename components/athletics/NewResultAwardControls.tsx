@@ -75,9 +75,21 @@ const getAwardedResult = (
 
 const findModalPanel = () => {
   if (typeof document === 'undefined') return null;
-  const overlay = document.querySelector<HTMLElement>('[class*="z-[10000]"]');
+  const overlays = Array.from(document.querySelectorAll<HTMLElement>('[class*="z-[10000]"]'));
+  const overlay = overlays[overlays.length - 1];
   if (!overlay) return null;
   return (overlay.firstElementChild as HTMLElement | null) || null;
+};
+
+const findActiveStageButton = (panel: HTMLElement | null) => {
+  if (!panel) return null;
+  const buttons = Array.from(panel.querySelectorAll<HTMLButtonElement>('button'));
+
+  return buttons.find((button) => {
+    const text = button.textContent?.trim() || '';
+    const isStageButton = text.startsWith('Qualifying') || text.startsWith('Finals');
+    return isStageButton && button.className.includes('bg-primary/15');
+  }) || null;
 };
 
 const getActiveResultsTab = (panel: HTMLElement | null) => {
@@ -89,11 +101,8 @@ const getActiveResultsTab = (panel: HTMLElement | null) => {
 };
 
 const getActiveStage = (panel: HTMLElement | null): AthleticsStage => {
-  if (!panel) return 'qualifying';
-  const buttons = Array.from(panel.querySelectorAll('button')) as HTMLElement[];
-  const finals = buttons.find((button) => button.textContent?.trim().startsWith('Finals'));
-  if (finals?.className.includes('bg-primary/15')) return 'finals';
-  return 'qualifying';
+  const active = findActiveStageButton(panel);
+  return active?.textContent?.trim().startsWith('Finals') ? 'finals' : 'qualifying';
 };
 
 const NewResultAwardControls: React.FC<Props> = ({ event, category, students, snapshot, isLoggedIn, onSave }) => {
@@ -115,9 +124,15 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
 
     refresh();
     interval = window.setInterval(refresh, 250);
+
     if (typeof MutationObserver !== 'undefined') {
       observer = new MutationObserver(refresh);
-      observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+      observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['class'],
+      });
     }
 
     return () => {
@@ -126,7 +141,9 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
     };
   }, []);
 
-  const finalsEnabled = Boolean(snapshot.finals.find(item => item.eventId === event.id && item.category === category)?.enabled);
+  const finalsEnabled = Boolean(
+    snapshot.finals.find(item => item.eventId === event.id && item.category === category)?.enabled,
+  );
   const effectiveStage: AthleticsStage = stage === 'finals' && finalsEnabled ? 'finals' : 'qualifying';
   const winner = getWinner(event, category, effectiveStage, students, snapshot);
   const awarded = getAwardedResult(event, category, effectiveStage, snapshot);
@@ -192,13 +209,16 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
 
   if (!isLoggedIn || !resultsTabOpen || !modalPanel) return null;
 
+  const activeStageButton = findActiveStageButton(modalPanel);
+  if (!activeStageButton?.parentElement) return null;
+
   const button = (
     <button
       type="button"
       onClick={toggleAward}
       disabled={!hasAward && !winner}
       title={hasAward ? 'Undo New Result award' : 'Award New Result'}
-      className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] shadow-lg backdrop-blur-sm transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
         hasAward
           ? 'border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15'
           : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
@@ -209,12 +229,7 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
     </button>
   );
 
-  return createPortal(
-    <div className="pointer-events-none absolute right-[160px] top-[230px] z-[10001] flex justify-end">
-      {button}
-    </div>,
-    modalPanel,
-  );
+  return createPortal(button, activeStageButton.parentElement);
 };
 
 export default NewResultAwardControls;
