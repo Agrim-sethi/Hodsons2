@@ -30,13 +30,19 @@ const getWinner = (event: AthleticsEvent, category: AthleticsCategory, stage: At
     ? snapshot.finals.find(item => item.eventId === event.id && item.category === category)
     : snapshot.enrollments.find(item => item.eventId === event.id && item.category === category);
 
-  const ids = stage === 'finals' ? (entry && 'studentIds' in entry ? entry.studentIds : []) : (entry?.studentIds || []);
+  const ids = entry?.studentIds || [];
   const ranked = ids
     .map(id => ({
       student: studentMap.get(id),
       result: snapshot.results.find(result => result.eventId === event.id && result.category === category && result.studentId === id && (result.stage || 'qualifying') === stage),
     }))
-    .filter((item): item is { student: AthleticsStudent; result: NonNullable<typeof item.result> } => Boolean(item.student && item.result && item.result.status === 'finished' && item.result.timing));
+    .filter((item): item is { student: AthleticsStudent; result: NonNullable<typeof item.result> } => Boolean(
+      item.student &&
+      item.result &&
+      item.result.status === 'finished' &&
+      item.result.timing &&
+      (stage === 'finals' || item.result.qualified === true)
+    ));
 
   ranked.sort((a, b) => event.kind === 'track'
     ? parseTrackTiming(a.result.timing) - parseTrackTiming(b.result.timing)
@@ -53,7 +59,7 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
   const award = (stage: AthleticsStage) => {
     const winner = getWinner(event, category, stage, students, snapshot);
     if (!winner) {
-      showToast({ title: 'No Winner Yet', description: `${stage === 'finals' ? 'Finals' : 'Qualifying'} needs a finished result before a New Result can be awarded.` });
+      showToast({ title: 'No Winner Yet', description: `${stage === 'finals' ? 'Finals' : 'Qualifying'} needs a finished${stage === 'qualifying' ? ' qualified' : ''} result before a New Result can be awarded.` });
       return;
     }
 
@@ -99,14 +105,8 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
               <div className="mt-1 min-h-[20px] text-sm font-black text-white">{winner?.student.name || 'No finished winner yet'}</div>
               {winner && <div className="mt-0.5 text-[10px] text-slate-500">{winner.student.house} • {winner.result.timing}</div>}
               {isLoggedIn ? (
-                <button
-                  type="button"
-                  disabled={!winner || awarded}
-                  onClick={() => award(stage)}
-                  className={`mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-wider transition ${awarded ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' : 'border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'}`}
-                >
-                  <Icon name={awarded ? 'verified' : 'add_circle'} size="13" />
-                  {awarded ? 'New Result Awarded' : 'New Result +3'}
+                <button type="button" disabled={!winner || awarded} onClick={() => award(stage)} className={`mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-wider transition ${awarded ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' : 'border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'}`}>
+                  <Icon name={awarded ? 'verified' : 'add_circle'} size="13" /> {awarded ? 'New Result Awarded' : 'New Result +3'}
                 </button>
               ) : (
                 awarded && <span className="mt-3 inline-flex items-center gap-1 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-2 text-[9px] font-black uppercase tracking-wider text-emerald-300"><Icon name="verified" size="13" /> +3 Awarded</span>
