@@ -20,7 +20,9 @@ export interface AthleticsFinalsConfig { eventId:string; category:AthleticsCateg
 // height-ladder rules). `timing` is always kept as the best valid attempt for
 // that event's scoring direction, so every existing consumer that reads
 // `timing` (ranking, leaderboards, summaries) keeps working unmodified.
-export interface AthleticsResult { eventId:string; category:AthleticsCategory; studentId:string; stage?:AthleticsStage; status:AthleticsResultStatus; timing?:string; attempts?:string[]; position?:number; qualified?:boolean; }
+// `newResultAwarded` is a one-time +3 championship-point award attached to this
+// exact event/category/stage result. It never changes the recorded performance.
+export interface AthleticsResult { eventId:string; category:AthleticsCategory; studentId:string; stage?:AthleticsStage; status:AthleticsResultStatus; timing?:string; attempts?:string[]; position?:number; qualified?:boolean; newResultAwarded?:boolean; }
 export interface AthleticsStudent { id:string; name:string; house:AthleticsHouse; category:AthleticsCategory; className:string; department:AthleticsDepartment; }
 
 // High Jump uses a height-ladder format instead of the standard 3-attempt
@@ -84,7 +86,6 @@ const normalizeSnapshot=(raw:Partial<AthleticsSnapshot>|null|undefined):Athletic
     if(entry.category){
       enrollmentMap.set(enrollmentKey(entry.eventId,entry.category),Array.isArray(entry.studentIds)?entry.studentIds:[]);
     }else{
-      // Legacy entry: split its studentIds by each student's actual category.
       (Array.isArray(entry.studentIds)?entry.studentIds:[]).forEach((studentId:string)=>{
         const student=ATHLETICS_STUDENT_BY_ID.get(studentId);
         if(!student)return;
@@ -111,15 +112,12 @@ const normalizeSnapshot=(raw:Partial<AthleticsSnapshot>|null|undefined):Athletic
         existing.enabled=existing.enabled||enabled;
         finalsMap.set(key,existing);
       });
-      // Legacy events with finals enabled but zero finalists still need the
-      // "enabled" flag preserved per category; without student ids to infer
-      // category from, leave those to the per-category emptySnapshot default.
     }
   });
 
   const results=rawResults.map((r:any)=>{
     const category=r.category||ATHLETICS_STUDENT_BY_ID.get(r.studentId)?.category;
-    return{...r,category,stage:r.stage==='finals'?'finals':'qualifying',qualified:r.qualified===true};
+    return{...r,category,stage:r.stage==='finals'?'finals':'qualifying',qualified:r.qualified===true,newResultAwarded:r.newResultAwarded===true};
   }).filter((r:AthleticsResult)=>Boolean(r.category));
 
   const rawHighJump=Array.isArray(raw?.highJump)?raw!.highJump!:[];
@@ -143,6 +141,6 @@ export const getAthleticsSnapshot=():AthleticsSnapshot=>{const stored=localStora
 export const saveAthleticsSnapshot=async(snapshot:AthleticsSnapshot)=>{const normalized=normalizeSnapshot(snapshot);localStorage.setItem(STORAGE_KEY,JSON.stringify(normalized));try{await setDoc(doc(db,FIRESTORE_COLLECTION,FIRESTORE_DOC_PATH),sanitizeForFirebase(normalized),{merge:true});}catch(e){console.error('Athletics Firebase save error:',e);}};
 export const subscribeToAthleticsData=(callback:(snapshot:AthleticsSnapshot)=>void)=>onSnapshot(doc(db,FIRESTORE_COLLECTION,FIRESTORE_DOC_PATH),s=>{if(!s.exists()){callback(getAthleticsSnapshot());return;}const next=normalizeSnapshot(s.data() as Partial<AthleticsSnapshot>);localStorage.setItem(STORAGE_KEY,JSON.stringify(next));callback(next);},e=>console.error('Athletics snapshot listener error:',e));
 
-export const getAthleticsStudents=(baseClasses:Record<string,string>={}):AthleticsStudent[]=>{const classes=getAllHodsonsClasses(baseClasses);const byKey=new Map(ATHLETICS_CATEGORY_STUDENTS.map(s=>[`${s.id}|${s.name.trim()}`,s]));return ATHLETICS_CATEGORY_STUDENTS.map(s=>({...s,className:classes[s.id]||'N/A',department:s.department})).filter((s,i,a)=>a.findIndex(x=>`${x.id}|${x.name.trim()}`===`${s.id}|${s.name.trim()}`)===i);};
+export const getAthleticsStudents=(baseClasses:Record<string,string>={}):AthleticsStudent[]=>{const classes=getAllHodsonsClasses(baseClasses);return ATHLETICS_CATEGORY_STUDENTS.map(s=>({...s,className:classes[s.id]||'N/A',department:s.department})).filter((s,i,a)=>a.findIndex(x=>`${x.id}|${x.name.trim()}`===`${s.id}|${s.name.trim()}`)===i);};
 export const getPrepAthleticsStudents=getAthleticsStudents;
 export const getAthleticsDepartment=(category:AthleticsCategory):AthleticsDepartment=>category.startsWith('PDB')?'PDB':category.startsWith('PDG')?'PDG':category.startsWith('BD')?'BD':'GD';
