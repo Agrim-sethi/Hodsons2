@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../Icon';
 import { useToast } from '../ui/ToastProvider';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
@@ -7,7 +8,6 @@ import { AthleticsEvent, AthleticsSnapshot, AthleticsStage, AthleticsStudent } f
 type Props = {
   event: AthleticsEvent;
   category: AthleticsCategory;
-  stage: AthleticsStage;
   students: AthleticsStudent[];
   snapshot: AthleticsSnapshot;
   isLoggedIn: boolean;
@@ -24,6 +24,8 @@ const parseFieldDistance = (value = '') => {
   const number = Number(value.trim().replace(',', '.'));
   return Number.isFinite(number) ? number : Number.NEGATIVE_INFINITY;
 };
+
+const resultStageOf = (result: { stage?: AthleticsStage }) => result.stage || 'qualifying';
 
 const getWinner = (
   event: AthleticsEvent,
@@ -45,7 +47,7 @@ const getWinner = (
         result.eventId === event.id &&
         result.category === category &&
         result.studentId === id &&
-        (result.stage || 'qualifying') === stage,
+        resultStageOf(result) === stage,
       ),
     }))
     .filter((item): item is { student: AthleticsStudent; result: NonNullable<typeof item.result> } => {
@@ -61,98 +63,126 @@ const getWinner = (
   return ranked[0] || null;
 };
 
-const NewResultAwardOverlay: React.FC<Props> = ({ event, category, stage, students, snapshot, isLoggedIn, onSave }) => {
+const findResultsRow = () => {
+  if (typeof document === 'undefined') return null;
+  const modal = document.querySelector<HTMLElement>('[class*="z-[10000]"]');
+  if (!modal) return null;
+  const heading = Array.from(modal.querySelectorAll('h3')).find(node => {
+    const text = node.textContent?.trim() || '';
+    return text === 'Qualifying Results' || text === 'Finals Results';
+  });
+  if (!heading) return null;
+  let row: HTMLElement | null = heading.parentElement;
+  while (row && row !== modal) {
+    if (row.className.includes('xl:flex-row') && row.className.includes('xl:justify-between')) return row;
+    row = row.parentElement;
+  }
+  return heading.parentElement as HTMLElement | null;
+};
+
+const getActiveStage = (row: HTMLElement | null): AthleticsStage => {
+  if (!row) return 'qualifying';
+  const heading = row.querySelector('h3')?.textContent?.trim();
+  return heading === 'Finals Results' ? 'finals' : 'qualifying';
+};
+
+const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, snapshot, isLoggedIn, onSave }) => {
   const { showToast } = useToast();
-  const winner = getWinner(event, category, stage, students, snapshot);
-  const awarded = Boolean(snapshot.results.find(result =>
+  const [resultsRow, setResultsRow] = React.useState<HTMLElement | null>(null);
+  const [stage, setStage] = React.useState<AthleticsStage>('qualifying');
+
+  React.useEffect(() => {
+    let observer: MutationObserver | null = null;
+    let interval: number | null = null;
+    let previousPosition = '';
+
+    const refresh = () => {
+      const row = findResultsRow();
+      if (row && previousPosition === '') previousPosition = row.style.position;
+      if (row) row.style.position = 'relative';
+      setResultsRow(row);
+      setStage(getActiveStage(row));
+    };
+
+    refresh();
+    interval = window.setInterval(refresh, 250);
+    if (typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(refresh);
+      observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    }
+
+    return () => {
+      if (interval) window.clearInterval(interval);
+      observer?.disconnect();
+      if (resultsRow && previousPosition) resultsRow.style.position = previousPosition;
+    };
+  }, [resultsRow]);
+
+  const finalsEnabled = Boolean(snapshot.finals.find(item => item.eventId === event.id && item.category === category)?.enabled);
+  const effectiveStage: AthleticsStage = stage === 'finals' && finalsEnabled ? 'finals' : 'qualifying';
+  const winner = getWinner(event, category, effectiveStage, students, snapshot);
+  const awardedResult = snapshot.results.find(result =>
     result.eventId === event.id &&
     result.category === category &&
-    resultStageOf(result) === stage &&
+    resultStageOf(result) === effectiveStage &&
     result.newResultAwarded === true,
-  ));
-
-  if (!isLoggedIn) return null;
+  );
+  const awarded = Boolean(awardedResult);
 
   const toggleRecord = () => {
-    if (awarded) {
-      const awardedResult = snapshot.results.find(result =>
-        result.eventId === event.id &&
-        result.category === category &&
-        resultStageOf(result) === stage &&
-        result.newResultAwarded === true,
-      );
-      const student = students.find(item => item.id === awardedResult?.studentId);
+    if (!isLoggedIn) return;
 
+    if (awarded && awardedResult) {
+      const student = students.find(item => item.id === awardedResult.studentId);
       if (!window.confirm(`Undo NEW RECORD for ${student?.name || 'this winner'}?\n\nThis removes the extra +3 championship points from the athlete and +3 from their house.`)) return;
 
       const nextResults = snapshot.results.map(result => {
-        if (
-          result.eventId === event.id &&
-          result.category === category &&
-          resultStageOf(result) === stage
-        ) {
+        if (result.eventId === event.id && result.category === category && resultStageOf(result) === effectiveStage) {
           return { ...result, newResultAwarded: false };
         }
         return result;
       });
 
-      onSave(
-        { ...snapshot, results: nextResults },
-        'New Record Undone',
-        `${student?.name || 'Winner'} no longer has the New Record award for ${event.name} ${stage}.`,
-      );
+      onSave({ ...snapshot, results: nextResults }, 'New Record Undone', `${student?.name || 'Winner'} no longer has the New Record award for ${event.name} ${effectiveStage}.`);
       showToast({ title: 'New Record Undone', description: 'The extra 3 points have been removed.' });
       return;
     }
 
     if (!winner) {
-      showToast({
-        title: 'No Winner Yet',
-        description: `${stage === 'finals' ? 'Finals' : 'Qualifying'} needs a finished valid winner before a New Record can be awarded.`,
-      });
+      showToast({ title: 'No Winner Yet', description: `${effectiveStage === 'finals' ? 'Finals' : 'Qualifying'} needs a finished valid winner before a New Record can be awarded.` });
       return;
     }
 
     if (!window.confirm(`Award NEW RECORD to ${winner.student.name}?\n\nThis gives +3 championship points to ${winner.student.name} and +3 to ${winner.student.house}.`)) return;
 
     const nextResults = snapshot.results.map(result => {
-      if (
-        result.eventId === event.id &&
-        result.category === category &&
-        result.studentId === winner.student.id &&
-        resultStageOf(result) === stage
-      ) {
+      if (result.eventId === event.id && result.category === category && result.studentId === winner.student.id && resultStageOf(result) === effectiveStage) {
         return { ...result, newResultAwarded: true };
       }
       return result;
     });
 
-    onSave(
-      { ...snapshot, results: nextResults },
-      'New Record Awarded',
-      `${winner.student.name} receives +3 points and ${winner.student.house} receives +3 for ${event.name} ${stage}.`,
-    );
+    onSave({ ...snapshot, results: nextResults }, 'New Record Awarded', `${winner.student.name} receives +3 points and ${winner.student.house} receives +3 for ${event.name} ${effectiveStage}.`);
     showToast({ title: 'New Record Awarded', description: `${winner.student.name}: +3 • ${winner.student.house}: +3` });
   };
 
-  return (
-    <button
-      type="button"
-      onClick={toggleRecord}
-      disabled={!awarded && !winner}
-      title={awarded ? 'Undo New Record' : 'Award New Record'}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] transition ${
-        awarded
-          ? 'border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15'
-          : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'
-      }`}
-    >
-      <Icon name={awarded ? 'undo' : 'add_circle'} size="13" />
-      {awarded ? 'Undo New Record' : 'New Record +3'}
-    </button>
+  if (!isLoggedIn || !resultsRow) return null;
+
+  return createPortal(
+    <div className="pointer-events-none absolute right-[118px] top-1/2 -translate-y-1/2 z-10">
+      <button
+        type="button"
+        onClick={toggleRecord}
+        disabled={!awarded && !winner}
+        title={awarded ? 'Undo New Record' : 'Award New Record'}
+        className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] transition ${awarded ? 'border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15' : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'}`}
+      >
+        <Icon name={awarded ? 'undo' : 'add_circle'} size="13" />
+        {awarded ? 'Undo New Record' : 'New Record'}
+      </button>
+    </div>,
+    resultsRow,
   );
 };
-
-const resultStageOf = (result: { stage?: AthleticsStage }) => result.stage || 'qualifying';
 
 export default NewResultAwardOverlay;
