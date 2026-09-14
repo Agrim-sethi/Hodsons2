@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '../Icon';
 import { useToast } from '../ui/ToastProvider';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
-import { AthleticsEvent, AthleticsSnapshot, AthleticsStage, AthleticsStudent } from '../../utils/athleticsStorage';
+import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStage, AthleticsStudent } from '../../utils/athleticsStorage';
 
 type Props = {
   event: AthleticsEvent;
@@ -24,25 +24,34 @@ const parseFieldDistance = (value = '') => {
   return Number.isFinite(number) ? number : Number.NEGATIVE_INFINITY;
 };
 
-const getWinner = (event: AthleticsEvent, category: AthleticsCategory, stage: AthleticsStage, students: AthleticsStudent[], snapshot: AthleticsSnapshot) => {
+const resultStageOf = (result: AthleticsResult): AthleticsStage => result.stage || 'qualifying';
+
+const getWinner = (
+  event: AthleticsEvent,
+  category: AthleticsCategory,
+  stage: AthleticsStage,
+  students: AthleticsStudent[],
+  snapshot: AthleticsSnapshot,
+) => {
   const studentMap = new Map(students.map(student => [student.id, student]));
-  const entry = stage === 'finals'
+  const source = stage === 'finals'
     ? snapshot.finals.find(item => item.eventId === event.id && item.category === category)
     : snapshot.enrollments.find(item => item.eventId === event.id && item.category === category);
 
-  const ids = entry?.studentIds || [];
+  const ids = source?.studentIds || [];
   const ranked = ids
     .map(id => ({
       student: studentMap.get(id),
-      result: snapshot.results.find(result => result.eventId === event.id && result.category === category && result.studentId === id && (result.stage || 'qualifying') === stage),
+      result: snapshot.results.find(result =>
+        result.eventId === event.id &&
+        result.category === category &&
+        result.studentId === id &&
+        resultStageOf(result) === stage,
+      ),
     }))
-    .filter((item): item is { student: AthleticsStudent; result: NonNullable<typeof item.result> } => Boolean(
-      item.student &&
-      item.result &&
-      item.result.status === 'finished' &&
-      item.result.timing &&
-      (stage === 'finals' || item.result.qualified === true)
-    ));
+    .filter((item): item is { student: AthleticsStudent; result: AthleticsResult } =>
+      Boolean(item.student && item.result && item.result.status === 'finished' && item.result.timing),
+    );
 
   ranked.sort((a, b) => event.kind === 'track'
     ? parseTrackTiming(a.result.timing) - parseTrackTiming(b.result.timing)
@@ -51,70 +60,155 @@ const getWinner = (event: AthleticsEvent, category: AthleticsCategory, stage: At
   return ranked[0] || null;
 };
 
+const getAwardedResult = (
+  event: AthleticsEvent,
+  category: AthleticsCategory,
+  stage: AthleticsStage,
+  snapshot: AthleticsSnapshot,
+) => snapshot.results.find(result =>
+  result.eventId === event.id &&
+  result.category === category &&
+  resultStageOf(result) === stage &&
+  result.newResultAwarded === true,
+);
+
+const findModalRoot = () => {
+  if (typeof document === 'undefined') return null;
+  return document.querySelector<HTMLElement>('[class*="z-[10000]"]');
+};
+
+const getActiveResultsTab = (modal: HTMLElement | null) => {
+  if (!modal) return false;
+  const button = Array.from(modal.querySelectorAll('button')).find((item) =>
+    item.textContent?.trim() === 'Qualifying / Finals',
+  ) as HTMLElement | undefined;
+  return Boolean(button?.className.includes('bg-primary/15'));
+};
+
+const getActiveStage = (modal: HTMLElement | null): AthleticsStage => {
+  if (!modal) return 'qualifying';
+  const buttons = Array.from(modal.querySelectorAll('button')) as HTMLElement[];
+  const finals = buttons.find((button) => button.textContent?.trim().startsWith('Finals'));
+  if (finals?.className.includes('bg-primary/15')) return 'finals';
+  return 'qualifying';
+};
+
 const NewResultAwardControls: React.FC<Props> = ({ event, category, students, snapshot, isLoggedIn, onSave }) => {
   const { showToast } = useToast();
-  const finalsEnabled = Boolean(snapshot.finals.find(item => item.eventId === event.id && item.category === category)?.enabled);
-  const stages: AthleticsStage[] = finalsEnabled ? ['qualifying', 'finals'] : ['qualifying'];
+  const [modalRoot, setModalRoot] = React.useState<HTMLElement | null>(null);
+  const [resultsTabOpen, setResultsTabOpen] = React.useState(false);
+  const [stage, setStage] = React.useState<AthleticsStage>('qualifying');
 
-  const award = (stage: AthleticsStage) => {
-    const winner = getWinner(event, category, stage, students, snapshot);
-    if (!winner) {
-      showToast({ title: 'No Winner Yet', description: `${stage === 'finals' ? 'Finals' : 'Qualifying'} needs a finished${stage === 'qualifying' ? ' qualified' : ''} result before a New Result can be awarded.` });
+  React.useEffect(() => {
+    let observer: MutationObserver | null = null;
+    let interval: number | null = null;
+
+    const refresh = () => {
+      const root = findModalRoot();
+      setModalRoot(root);
+      setResultsTabOpen(getActiveResultsTab(root));
+      setStage(getActiveStage(root));
+    };
+
+    refresh();
+    interval = window.setInterval(refresh, 250);
+    if (typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(refresh);
+      observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    }
+
+    return () => {
+      if (interval) window.clearInterval(interval);
+      observer?.disconnect();
+    };
+  }, []);
+
+  const finalsEnabled = Boolean(snapshot.finals.find(item => item.eventId === event.id && item.category === category)?.enabled);
+  const effectiveStage: AthleticsStage = stage === 'finals' && finalsEnabled ? 'finals' : 'qualifying';
+  const winner = getWinner(event, category, effectiveStage, students, snapshot);
+  const awarded = getAwardedResult(event, category, effectiveStage, snapshot);
+  const hasAward = Boolean(awarded);
+
+  const toggleAward = () => {
+    if (!isLoggedIn) return;
+
+    if (hasAward && awarded) {
+      const student = students.find(item => item.id === awarded.studentId);
+      if (!window.confirm(`Undo NEW RESULT for ${student?.name || 'this winner'}?\n\nThis removes the extra +3 championship points from the athlete and +3 from their house.`)) return;
+
+      const nextResults = snapshot.results.map(result => {
+        if (
+          result.eventId === event.id &&
+          result.category === category &&
+          resultStageOf(result) === effectiveStage &&
+          result.newResultAwarded
+        ) {
+          return { ...result, newResultAwarded: false };
+        }
+        return result;
+      });
+
+      onSave(
+        { ...snapshot, results: nextResults },
+        'New Result Undone',
+        `${student?.name || 'Winner'} no longer has the +3 New Result award for ${event.name} ${effectiveStage}.`,
+      );
+      showToast({ title: 'New Result Undone', description: 'The extra 3 points have been removed.' });
       return;
     }
 
-    if (winner.result.newResultAwarded) return;
+    if (!winner) {
+      showToast({
+        title: 'No Winner Yet',
+        description: `${effectiveStage === 'finals' ? 'Finals' : 'Qualifying'} needs a finished result before a New Result can be awarded.`,
+      });
+      return;
+    }
 
-    const confirmed = window.confirm(
-      `Award NEW RESULT +3 to ${winner.student.name}?\n\nThis gives +3 championship points to ${winner.student.name} and +3 to ${winner.student.house}.\n\nThis award can only be applied once to this ${stage} result.`
-    );
-    if (!confirmed) return;
+    if (!window.confirm(`Award NEW RESULT +3 to ${winner.student.name}?\n\nThis gives +3 championship points to ${winner.student.name} and +3 to ${winner.student.house}.`)) return;
 
     const nextResults = snapshot.results.map(result => {
-      if (result.eventId !== event.id || result.category !== category || result.studentId !== winner.student.id || (result.stage || 'qualifying') !== stage) return result;
-      return { ...result, newResultAwarded: true };
+      if (
+        result.eventId === event.id &&
+        result.category === category &&
+        result.studentId === winner.student.id &&
+        resultStageOf(result) === effectiveStage
+      ) {
+        return { ...result, newResultAwarded: true };
+      }
+      return result;
     });
 
     onSave(
       { ...snapshot, results: nextResults },
       'New Result Awarded',
-      `${winner.student.name} receives +3 points and ${winner.student.house} receives +3 for ${event.name} ${stage}.`,
+      `${winner.student.name} receives +3 points and ${winner.student.house} receives +3 for ${event.name} ${effectiveStage}.`,
     );
-
     showToast({ title: 'New Result Awarded', description: `${winner.student.name}: +3 • ${winner.student.house}: +3` });
   };
 
-  return (
-    <div className="rounded-2xl border border-primary/15 bg-primary/[0.035] p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="royal-kicker">Championship Award</div>
-          <h3 className="mt-1 text-base font-black text-white">New Result</h3>
-          <p className="mt-1 text-xs text-slate-500">Adds +3 to the stage winner and +3 to their house. Only staff can award it, and each stage can be awarded once.</p>
-        </div>
-        <div className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-300">+3 / +3</div>
-      </div>
+  if (!isLoggedIn || !resultsTabOpen || !modalRoot) return null;
 
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {stages.map(stage => {
-          const winner = getWinner(event, category, stage, students, snapshot);
-          const awarded = Boolean(winner?.result.newResultAwarded);
-          return (
-            <div key={stage} className="rounded-xl border border-white/8 bg-white/[0.02] px-3 py-3">
-              <div className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">{stage === 'finals' ? 'Finals Winner' : 'Qualifying Winner'}</div>
-              <div className="mt-1 min-h-[20px] text-sm font-black text-white">{winner?.student.name || 'No finished winner yet'}</div>
-              {winner && <div className="mt-0.5 text-[10px] text-slate-500">{winner.student.house} • {winner.result.timing}</div>}
-              {isLoggedIn ? (
-                <button type="button" disabled={!winner || awarded} onClick={() => award(stage)} className={`mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-wider transition ${awarded ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' : 'border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'}`}>
-                  <Icon name={awarded ? 'verified' : 'add_circle'} size="13" /> {awarded ? 'New Result Awarded' : 'New Result +3'}
-                </button>
-              ) : (
-                awarded && <span className="mt-3 inline-flex items-center gap-1 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-2 text-[9px] font-black uppercase tracking-wider text-emerald-300"><Icon name="verified" size="13" /> +3 Awarded</span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+  const button = (
+    <button
+      type="button"
+      onClick={toggleAward}
+      disabled={!hasAward && !winner}
+      title={hasAward ? 'Undo New Result award' : 'Award New Result'}
+      className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] shadow-lg backdrop-blur-sm transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+        hasAward
+          ? 'border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15'
+          : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+      }`}
+    >
+      <Icon name={hasAward ? 'undo' : 'add_circle'} size="13" />
+      {hasAward ? 'Undo New Result' : 'New Result +3'}
+    </button>
+  );
+
+  return (
+    <div className="pointer-events-none absolute right-6 top-[230px] z-[10001] flex justify-end">
+      {button}
     </div>
   );
 };
