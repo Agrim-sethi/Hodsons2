@@ -210,7 +210,7 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
   );
 
   return createPortal(
-    <div className="pointer-events-none absolute right-6 top-[230px] z-[10001] flex justify-end">
+    <div className="pointer-events-none absolute right-[160px] top-[230px] z-[10001] flex justify-end">
       {button}
     </div>,
     modalPanel,
