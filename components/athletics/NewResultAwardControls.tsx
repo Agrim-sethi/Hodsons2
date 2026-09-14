@@ -73,22 +73,24 @@ const getAwardedResult = (
   result.newResultAwarded === true,
 );
 
-const findModalRoot = () => {
+const findModalPanel = () => {
   if (typeof document === 'undefined') return null;
-  return document.querySelector<HTMLElement>('[class*="z-[10000]"]');
+  const overlay = document.querySelector<HTMLElement>('[class*="z-[10000]"]');
+  if (!overlay) return null;
+  return (overlay.firstElementChild as HTMLElement | null) || null;
 };
 
-const getActiveResultsTab = (modal: HTMLElement | null) => {
-  if (!modal) return false;
-  const button = Array.from(modal.querySelectorAll('button')).find((item) =>
+const getActiveResultsTab = (panel: HTMLElement | null) => {
+  if (!panel) return false;
+  const button = Array.from(panel.querySelectorAll('button')).find((item) =>
     item.textContent?.trim() === 'Qualifying / Finals',
   ) as HTMLElement | undefined;
   return Boolean(button?.className.includes('bg-primary/15'));
 };
 
-const getActiveStage = (modal: HTMLElement | null): AthleticsStage => {
-  if (!modal) return 'qualifying';
-  const buttons = Array.from(modal.querySelectorAll('button')) as HTMLElement[];
+const getActiveStage = (panel: HTMLElement | null): AthleticsStage => {
+  if (!panel) return 'qualifying';
+  const buttons = Array.from(panel.querySelectorAll('button')) as HTMLElement[];
   const finals = buttons.find((button) => button.textContent?.trim().startsWith('Finals'));
   if (finals?.className.includes('bg-primary/15')) return 'finals';
   return 'qualifying';
@@ -96,7 +98,7 @@ const getActiveStage = (modal: HTMLElement | null): AthleticsStage => {
 
 const NewResultAwardControls: React.FC<Props> = ({ event, category, students, snapshot, isLoggedIn, onSave }) => {
   const { showToast } = useToast();
-  const [modalRoot, setModalRoot] = React.useState<HTMLElement | null>(null);
+  const [modalPanel, setModalPanel] = React.useState<HTMLElement | null>(null);
   const [resultsTabOpen, setResultsTabOpen] = React.useState(false);
   const [stage, setStage] = React.useState<AthleticsStage>('qualifying');
 
@@ -105,10 +107,10 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
     let interval: number | null = null;
 
     const refresh = () => {
-      const root = findModalRoot();
-      setModalRoot(root);
-      setResultsTabOpen(getActiveResultsTab(root));
-      setStage(getActiveStage(root));
+      const panel = findModalPanel();
+      setModalPanel(panel);
+      setResultsTabOpen(getActiveResultsTab(panel));
+      setStage(getActiveStage(panel));
     };
 
     refresh();
@@ -188,7 +190,7 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
     showToast({ title: 'New Result Awarded', description: `${winner.student.name}: +3 • ${winner.student.house}: +3` });
   };
 
-  if (!isLoggedIn || !resultsTabOpen || !modalRoot) return null;
+  if (!isLoggedIn || !resultsTabOpen || !modalPanel) return null;
 
   const button = (
     <button
@@ -211,7 +213,7 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
     <div className="pointer-events-none absolute right-6 top-[230px] z-[10001] flex justify-end">
       {button}
     </div>,
-    modalRoot,
+    modalPanel,
   );
 };
 
