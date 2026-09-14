@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../Icon';
 import { useToast } from '../ui/ToastProvider';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
@@ -206,10 +207,11 @@ const NewResultAwardControls: React.FC<Props> = ({ event, category, students, sn
     </button>
   );
 
-  return (
+  return createPortal(
     <div className="pointer-events-none absolute right-6 top-[230px] z-[10001] flex justify-end">
       {button}
-    </div>
+    </div>,
+    modalRoot,
   );
 };
 
