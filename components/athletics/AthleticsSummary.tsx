@@ -135,7 +135,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
               Class: entry?.student.className || '—',
               House: entry?.student.house || '—',
               Result: entry?.result || '—',
-              'New Result': entry?.newResultAwarded ? '+3 points' : '—',
+              'New Record': entry?.newResultAwarded ? 'Yes' : '—',
             });
           });
         });
@@ -158,7 +158,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
             Event: summary.event.name,
             Stage: summary.stage,
             '1st': summary.podium[0]?.student.name || 'TBD',
-            'New Result': summary.podium[0]?.newResultAwarded ? '+3 points' : '—',
+            'New Record': summary.podium[0]?.newResultAwarded ? 'Yes' : '—',
             '2nd': summary.podium[1]?.student.name || 'TBD',
             '3rd': summary.podium[2]?.student.name || 'TBD'
           });
@@ -197,7 +197,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
 
         category.events.forEach(summary => {
           const podiumCells = summary.podium.map(entry => {
-            const award = entry?.newResultAwarded ? ' • NEW RESULT +3' : '';
+            const award = entry?.newResultAwarded ? ' • NEW RECORD' : '';
             const text = entry ? `${entry.student.name}${award}\n${entry.student.className} • ${entry.student.house}\n${entry.result}` : 'TBD';
             return new TableCell({ children: text.split('\n').map((line, index) => new Paragraph({ children: [new TextRun({ text: line, bold: index === 0, size: index === 0 ? 18 : 15 })] })) });
           });
@@ -239,7 +239,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
             {category.events.map(summary => (
               <tr key={summary.event.id} className="hover:bg-white/[0.018] transition-colors">
                 <td className="px-5 py-4 align-top"><div className="flex flex-col gap-2"><span className={`w-fit rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em] ${summary.event.kind === 'track' ? 'border-amber-500/25 bg-amber-500/10 text-amber-300' : 'border-sky-500/25 bg-sky-500/10 text-sky-300'}`}>{summary.event.kind === 'track' ? 'Track' : 'Field'}</span><span className="text-sm font-black text-white">{summary.event.name}</span><span className="text-[9px] font-bold uppercase tracking-wider text-slate-600">{summary.stage} podium</span></div></td>
-                {summary.podium.map((entry,index)=>{const cfg=entry?houseConfig(entry.student.house):null;return <td key={`${summary.event.id}-${index}`} className="px-4 py-4 align-top">{entry?<div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3.5"><div className="flex items-start gap-3"><span className={`flex size-8 shrink-0 items-center justify-center rounded-xl border text-[10px] font-black ${podiumRankStyle(index)}`}><Icon name="emoji_events" size="14" /></span><div className="min-w-0"><div className="truncate text-sm font-black text-white">{entry.student.name}</div><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${cfg?.bg}/20 ${cfg?.text} ${cfg?.border}/30`}>{entry.student.house}</span><span className="text-[9px] text-slate-500">{entry.student.className}</span></div><div className="mt-2 font-mono text-xs font-black text-primary">{entry.result}</div>{entry.newResultAwarded&&<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-emerald-300"><Icon name="add_circle" size="12" /> New Result +3</span>}</div></div></div>:<div className="rounded-2xl border border-dashed border-white/8 bg-black/10 p-3.5 text-sm font-bold text-slate-600">TBD</div>}</td>})}
+                {summary.podium.map((entry,index)=>{const cfg=entry?houseConfig(entry.student.house):null;return <td key={`${summary.event.id}-${index}`} className="px-4 py-4 align-top">{entry?<div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3.5"><div className="flex items-start gap-3"><span className={`flex size-8 shrink-0 items-center justify-center rounded-xl border text-[10px] font-black ${podiumRankStyle(index)}`}><Icon name="emoji_events" size="14" /></span><div className="min-w-0"><div className="truncate text-sm font-black text-white">{entry.student.name}</div><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${cfg?.bg}/20 ${cfg?.text} ${cfg?.border}/30`}>{entry.student.house}</span><span className="text-[9px] text-slate-500">{entry.student.className}</span></div><div className="mt-2 font-mono text-xs font-black text-primary">{entry.result}</div>{entry.newResultAwarded&&<span className="mt-2 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-emerald-300"><Icon name="add_circle" size="12" /> New Record</span>}</div></div></div>:<div className="rounded-2xl border border-dashed border-white/8 bg-black/10 p-3.5 text-sm font-bold text-slate-600">TBD</div>}</td>})}
               </tr>
             ))}
           </tbody></table></div>
