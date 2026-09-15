@@ -80,6 +80,22 @@ const findResultsRow = () => {
   return heading.parentElement as HTMLElement | null;
 };
 
+/**
+ * The header row is `<title block> <Auto-Rank button>` laid out with
+ * `justify-between`. Rather than absolutely-positioning the New Record
+ * button over that row with a guessed pixel offset (which breaks as soon as
+ * the button's label changes length, e.g. "New Record" vs "Undo New
+ * Record"), we portal it in as a real sibling next to Auto-Rank so it's
+ * placed by normal flex layout and can never overlap anything.
+ */
+const findButtonGroup = (row: HTMLElement | null) => {
+  if (!row) return null;
+  const autoRankButton = Array.from(row.querySelectorAll('button')).find(
+    (button) => button.textContent?.trim() === 'Auto-Rank',
+  );
+  return (autoRankButton?.parentElement as HTMLElement | null) || null;
+};
+
 const getActiveStage = (row: HTMLElement | null): AthleticsStage => {
   if (!row) return 'qualifying';
   const heading = row.querySelector('h3')?.textContent?.trim();
@@ -88,19 +104,16 @@ const getActiveStage = (row: HTMLElement | null): AthleticsStage => {
 
 const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, snapshot, isLoggedIn, onSave }) => {
   const { showToast } = useToast();
-  const [resultsRow, setResultsRow] = React.useState<HTMLElement | null>(null);
+  const [buttonGroup, setButtonGroup] = React.useState<HTMLElement | null>(null);
   const [stage, setStage] = React.useState<AthleticsStage>('qualifying');
 
   React.useEffect(() => {
     let observer: MutationObserver | null = null;
     let interval: number | null = null;
-    let previousPosition = '';
 
     const refresh = () => {
       const row = findResultsRow();
-      if (row && previousPosition === '') previousPosition = row.style.position;
-      if (row) row.style.position = 'relative';
-      setResultsRow(row);
+      setButtonGroup(findButtonGroup(row));
       setStage(getActiveStage(row));
     };
 
@@ -114,9 +127,8 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
     return () => {
       if (interval) window.clearInterval(interval);
       observer?.disconnect();
-      if (resultsRow && previousPosition) resultsRow.style.position = previousPosition;
     };
-  }, [resultsRow]);
+  }, []);
 
   const finalsEnabled = Boolean(snapshot.finals.find(item => item.eventId === event.id && item.category === category)?.enabled);
   const effectiveStage: AthleticsStage = stage === 'finals' && finalsEnabled ? 'finals' : 'qualifying';
@@ -166,22 +178,20 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
     showToast({ title: 'New Record Awarded', description: `${winner.student.name}: +3 • ${winner.student.house}: +3` });
   };
 
-  if (!isLoggedIn || !resultsRow) return null;
+  if (!isLoggedIn || !buttonGroup) return null;
 
   return createPortal(
-    <div className="pointer-events-none absolute right-[118px] top-1/2 -translate-y-1/2 z-10">
-      <button
-        type="button"
-        onClick={toggleRecord}
-        disabled={!awarded && !winner}
-        title={awarded ? 'Undo New Record' : 'Award New Record'}
-        className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] transition ${awarded ? 'border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15' : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'}`}
-      >
-        <Icon name={awarded ? 'undo' : 'add_circle'} size="13" />
-        {awarded ? 'Undo New Record' : 'New Record'}
-      </button>
-    </div>,
-    resultsRow,
+    <button
+      type="button"
+      onClick={toggleRecord}
+      disabled={!awarded && !winner}
+      title={awarded ? 'Undo New Record' : 'Award New Record'}
+      className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] transition ${awarded ? 'border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15' : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'}`}
+    >
+      <Icon name={awarded ? 'undo' : 'add_circle'} size="13" />
+      {awarded ? 'Undo New Record' : 'New Record'}
+    </button>,
+    buttonGroup,
   );
 };
 
