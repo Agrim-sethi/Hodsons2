@@ -12,7 +12,7 @@ import AthleticsEventManager from '../components/athletics/AthleticsEventManager
 import StudentManager from '../components/student/StudentManager';
 import NewResultAwardOverlay from '../components/athletics/NewResultAwardOverlay';
 
-const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = { '3000m': ['BD Opens'], 'triple-jump': ['BD Opens'], 'javelin-throw': ['BD Opens'] };
+const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = { '3000m': ['BD Opens'], '110m-hurdles': ['BD Opens'], 'triple-jump': ['BD Opens'], 'javelin-throw': ['BD Opens'] };
 type PageTab = 'view' | 'manage' | 'leaderboard' | 'summary';
 
 const Athletics: React.FC = () => {
