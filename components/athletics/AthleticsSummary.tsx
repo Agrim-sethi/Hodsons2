@@ -280,7 +280,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
           <div className="royal-kicker mb-1">Championship Ledger</div>
           <h2 className="text-3xl font-black tracking-tight text-white">Athletics 2026 Summary</h2>
           <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-400">
-            Expand each age category dropdown to view the highest points scorer and 1st, 2nd, and 3rd place event results.
+            Expand each age category dropdown to view the top scorer(s) and 1st, 2nd, and 3rd place event results.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -394,7 +394,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
                   ) : (
                     <span className="text-xs text-slate-500 font-medium italic">No scores recorded yet</span>
                   )}
-                </div>                </div>
+                </div>
               </button>
 
               {/* Dropdown Body */}
