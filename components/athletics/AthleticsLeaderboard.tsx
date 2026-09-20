@@ -6,6 +6,7 @@ import { HOUSE_COLORS } from '../../constants';
 import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
 import { useToast } from '../ui/ToastProvider';
+import { eventPoints as sharedEventPoints, studentPointsAcrossEvents } from '../../utils/athleticsScoring';
 
 const HOUSES = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
 type Department = 'BD' | 'GD' | 'PD';
@@ -38,26 +39,8 @@ const eventAllowedForCategory = (event: AthleticsEvent, category: string) => {
   return !allowed || allowed.includes(category);
 };
 
-const eventPoints = (snapshot: AthleticsSnapshot, student: AthleticsStudent, event: AthleticsEvent) => {
-  if (!eventAllowedForCategory(event, student.category)) return 0;
-  const qualifying = snapshot.results.find(r => r.eventId === event.id && r.category === student.category && r.studentId === student.id && (r.stage || 'qualifying') === 'qualifying');
-  const finalsConfig = snapshot.finals.find(f => f.eventId === event.id && f.category === student.category);
-  const finalsEnabled = Boolean(finalsConfig?.enabled);
-  const finals = finalsEnabled ? snapshot.results.find(r => r.eventId === event.id && r.category === student.category && r.studentId === student.id && (r.stage || 'qualifying') === 'finals') : undefined;
-  let points = qualifying && (qualifying.qualified || qualifying.status === 'finished') ? 1 : 0;
-
-  if (qualifying?.newResultAwarded) {
-    points += 3;
-  }
-
-  if (finalsEnabled) {
-    if (finals?.status === 'finished') points += placementPoints(finals.position);
-    if (finals?.newResultAwarded) points += 3;
-  } else if (qualifying?.status === 'finished') {
-    points += placementPoints(qualifying.position);
-  }
-  return points;
-};
+const eventPoints = (snapshot: AthleticsSnapshot, student: AthleticsStudent, event: AthleticsEvent) =>
+  sharedEventPoints(snapshot, student, event);
 
 const buildHouseRows = (students: AthleticsStudent[], snapshot: AthleticsSnapshot, department?: Department) => HOUSES.map(house => {
   const inScope = students.filter(student => student.house === house && (!department || departmentOfCategory(student.category) === department));
@@ -67,7 +50,7 @@ const buildHouseRows = (students: AthleticsStudent[], snapshot: AthleticsSnapsho
 
 const buildIndividuals = (students: AthleticsStudent[], snapshot: AthleticsSnapshot) => students.map(student => ({
   student,
-  points: ATHLETICS_EVENTS.reduce((sum, event) => sum + eventPoints(snapshot, student, event), 0)
+  points: studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS)
 })).filter(row => row.points > 0).sort((a, b) => b.points - a.points || a.student.name.localeCompare(b.student.name));
 
 const AthleticsRaceChart: React.FC<{
@@ -164,8 +147,13 @@ const IndividualPerformance: React.FC<{ students: AthleticsStudent[]; snapshot: 
   const [search, setSearch] = React.useState('');
   const [paradeHouseFilter, setParadeHouseFilter] = React.useState('All');
   const [paradeCategoryFilter, setParadeCategoryFilter] = React.useState('All');
-  const individuals = React.useMemo(() => students.map(student => ({ student, points: ATHLETICS_EVENTS.reduce((sum, event) => sum + eventPoints(snapshot, student, event), 0) })).filter(row => row.points > 0).sort((a,b) => b.points-a.points || a.student.name.localeCompare(b.student.name)), [students, snapshot]);
-  const topByCategory = React.useMemo(() => ATHLETICS_CATEGORIES.map(category => ({ category, top: individuals.filter(row => row.student.category === category).slice(0,3) })), [individuals]);
+  const individuals = React.useMemo(() => students.map(student => ({ student, points: studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS) })).filter(row => row.points > 0).sort((a,b) => b.points-a.points || a.student.name.localeCompare(b.student.name)), [students, snapshot]);
+  const topByCategory = React.useMemo(() => ATHLETICS_CATEGORIES.map(category => {
+    const categoryRows = individuals.filter(row => row.student.category === category);
+    const topPoints = categoryRows[0]?.points ?? 0;
+    const tiedLeaders = topPoints > 0 ? categoryRows.filter(row => row.points === topPoints).slice(0, 3) : [];
+    return { category, top: tiedLeaders };
+  }), [individuals]);
   const searchResults = React.useMemo(() => { const query=search.trim().toLowerCase(); if(!query)return []; return individuals.filter(row=>row.student.name.toLowerCase().includes(query)||row.student.id.toLowerCase().includes(query)).slice(0,20); }, [individuals,search]);
   const paradeStudents = React.useMemo(() => individuals.filter(row=>row.points>=PARADE_THRESHOLD).filter(row=>paradeHouseFilter==='All'||row.student.house===paradeHouseFilter).filter(row=>paradeCategoryFilter==='All'||row.student.category===paradeCategoryFilter), [individuals,paradeHouseFilter,paradeCategoryFilter]);
   const downloadParadeList = () => { const rows=paradeStudents.map(row=>({'Comp No':row.student.id,Name:row.student.name,Class:row.student.className,House:row.student.house,Category:row.student.category,Points:row.points})); const wb=XLSX.utils.book_new(); const ws=XLSX.utils.json_to_sheet(rows); ws['!cols']=[{wch:10},{wch:28},{wch:10},{wch:12},{wch:16},{wch:8}]; XLSX.utils.book_append_sheet(wb,ws,'Athletic Parade'); const data=XLSX.write(wb,{bookType:'xlsx',type:'array'}); downloadBlob(new Blob([data],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`Athletics 2026 Parade List ${new Date().toISOString().slice(0,10)}.xlsx`,showToast); };
