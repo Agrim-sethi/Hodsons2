@@ -10,7 +10,7 @@ import { PodiumPlayer } from '../hodsons/types';
 type AthleticsStudent = { id: string; name: string; house: AthleticsHouse; category: AthleticsCategory; className: string; };
 type Stage = 'qualifying' | 'finals';
 
-const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = { '3000m': ['BD Opens'], 'triple-jump': ['BD Opens'], 'javelin-throw': ['BD Opens'] };
+const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = { '3000m': ['BD Opens'], '110m-hurdles': ['BD Opens'], 'triple-jump': ['BD Opens'], 'javelin-throw': ['BD Opens'] };
 const resultStageOf = (result: AthleticsResult): Stage => result.stage || 'qualifying';
 const isTrack = (event: AthleticsEvent) => event.kind === 'track';
 const parseTrackTiming = (value = '') => { const parts = value.trim().split(':').map(Number); if (parts.length === 3 && parts.every(Number.isFinite)) return parts[0] * 60 + parts[1] + parts[2] / 1000; return Number.POSITIVE_INFINITY; };
