@@ -7,13 +7,14 @@ import { ATHLETICS_EVENTS, AthleticsSnapshot, getAthleticsSnapshot, getPrepAthle
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../utils/athleticsCategories';
 import AthleticsLeaderboard from '../components/athletics/AthleticsLeaderboard';
 import AthleticsSummary from '../components/athletics/AthleticsSummary';
+import { AthleticsAnalytics } from '../components/athletics/AthleticsAnalytics';
 import AthleticsViewEvents from '../components/athletics/AthleticsViewEvents';
 import AthleticsEventManager from '../components/athletics/AthleticsEventManager';
 import StudentManager from '../components/student/StudentManager';
 import NewResultAwardOverlay from '../components/athletics/NewResultAwardOverlay';
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = { '3000m': ['BD Opens'], '110m-hurdles': ['BD Opens'], 'triple-jump': ['BD Opens'], 'javelin-throw': ['BD Opens'] };
-type PageTab = 'view' | 'manage' | 'leaderboard' | 'summary';
+type PageTab = 'view' | 'manage' | 'leaderboard' | 'summary' | 'analytics';
 
 const Athletics: React.FC = () => {
   const { isLoggedIn } = useStaffAuth();
@@ -34,11 +35,12 @@ const Athletics: React.FC = () => {
     <div className="mx-auto max-w-[1500px] space-y-7 pb-12">
       <section className="flex flex-col gap-5 border-b border-primary/10 pb-6 xl:flex-row xl:items-end xl:justify-between"><div><div className="royal-kicker mb-2">Track & Field Desk</div><h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">Athletics 2026</h1><p className="mt-2 max-w-4xl text-sm leading-relaxed text-slate-400">Athletics events organised by exact department and age category.</p></div><div className={`rounded-xl border px-4 py-3 text-xs font-black uppercase ${isLoggedIn ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/5 text-slate-400'}`}>{isLoggedIn ? 'Staff Editing Active' : 'Read Only Mode'}</div></section>
 
-      <section className="flex items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1"><button type="button" onClick={() => setPageTab('view')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'view' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>View Events</button>{isLoggedIn && <button type="button" onClick={() => setPageTab('manage')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'manage' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Manage Events</button>}<button type="button" onClick={() => setPageTab('leaderboard')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'leaderboard' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Leaderboard</button><button type="button" onClick={() => setPageTab('summary')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'summary' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Summary</button></div><div className="hidden text-xs text-slate-500 sm:block">Scoring updates live.</div></section>
+      <section className="flex items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1"><button type="button" onClick={() => setPageTab('view')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'view' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>View Events</button>{isLoggedIn && <button type="button" onClick={() => setPageTab('manage')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'manage' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Manage Events</button>}<button type="button" onClick={() => setPageTab('leaderboard')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'leaderboard' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Leaderboard</button><button type="button" onClick={() => setPageTab('summary')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'summary' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Summary</button><button type="button" onClick={() => setPageTab('analytics')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'analytics' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Analytics</button></div><div className="hidden text-xs text-slate-500 sm:block">Scoring updates live.</div></section>
 
       {pageTab === 'view' && <AthleticsViewEvents students={students} snapshot={snapshot} />}
       {pageTab === 'leaderboard' && <AthleticsLeaderboard students={students} snapshot={snapshot} />}
       {pageTab === 'summary' && <AthleticsSummary students={students} snapshot={snapshot} />}
+      {pageTab === 'analytics' && <AthleticsAnalytics students={students} snapshot={snapshot} />}
 
       {pageTab === 'manage' && <>
         <section className="space-y-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="royal-kicker mb-1">Event Management</div><h2 className="text-2xl font-black text-white">Choose a department & age group</h2></div><StudentManager /></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{ATHLETICS_CATEGORIES.map(category => <button key={category} type="button" onClick={() => setSelectedCategory(category)} className={`rounded-xl border px-3 py-3 text-left ${selectedCategory === category ? 'border-primary/50 bg-primary/10 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'}`}><div className="text-sm font-black">{category}</div><div className="mt-1 text-[10px] uppercase tracking-wider opacity-70">{students.filter(student => student.category === category).length} students</div></button>)}</div></section>
