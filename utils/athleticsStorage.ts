@@ -49,6 +49,7 @@ export const ATHLETICS_EVENTS:AthleticsEvent[]=[
  {id:'800m',name:'800m',type:'middle_distance',kind:'track',unit:'Mins&Secs&Milliseconds',departments:ALL_DEPARTMENTS},
  {id:'1500m',name:'1500m',type:'middle_distance',kind:'track',unit:'Mins&Secs&Milliseconds',departments:ALL_DEPARTMENTS},
  {id:'3000m',name:'3000m',type:'distance',kind:'track',unit:'Mins&Secs&Milliseconds',departments:['BD']},
+ {id:'110m-hurdles',name:'110m Hurdles',type:'sprint',kind:'track',unit:'Mins&Secs&Milliseconds',departments:['BD']},
  {id:'long-jump',name:'Long Jump',type:'field',kind:'field',unit:'Metres&Centimetres',departments:ALL_DEPARTMENTS},
  {id:'high-jump',name:'High Jump',type:'field',kind:'field',unit:'Metres&Centimetres',departments:ALL_DEPARTMENTS},
  {id:'shot-put',name:'Shot Put',type:'field',kind:'field',unit:'Metres&Centimetres',departments:ALL_DEPARTMENTS},
