@@ -15,6 +15,7 @@ const PARADE_THRESHOLD = 3;
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, string[]> = {
   '3000m': ['BD Opens'],
+  '110m-hurdles': ['BD Opens'],
   'javelin-throw': ['BD Opens'],
   'triple-jump': ['BD Opens']
 };
