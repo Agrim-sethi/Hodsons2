@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
-import { AthleticsSnapshot, AthleticsStudent, AthleticsEvent } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
 import { eventPoints } from '../../utils/athleticsScoring';
 
