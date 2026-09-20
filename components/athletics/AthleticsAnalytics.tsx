@@ -3,6 +3,7 @@ import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { AthleticsSnapshot, AthleticsStudent, AthleticsEvent } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
+import { eventPoints } from '../../utils/athleticsScoring';
 
 const houseConfig = (house: string) => HOUSE_COLORS[(house.toLowerCase() as keyof typeof HOUSE_COLORS)] ?? HOUSE_COLORS.nilgiri;
 const HOUSES_LIST = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
@@ -40,6 +41,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
         const finalsConfig = snapshot.finals.find(f => f.eventId === entry.eventId && f.category === entry.category);
         const stage = finalsConfig?.enabled ? 'finals' : 'qualifying';
         
+        const athleticsEvent = ATHLETICS_EVENTS.find(item => item.id === entry.eventId);
         const result = snapshot.results.find(r => r.eventId === entry.eventId && r.category === entry.category && r.studentId === sid && (r.stage || 'qualifying') === stage);
         
         const status = result?.status || 'pending';
@@ -53,7 +55,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
           totalFinished++;
           byHouse[stu.house].finished++;
           byDept[dept].finished++;
-          const pts = position && position <= 5 ? (6 - position) : 0;
+          const pts = athleticsEvent ? eventPoints(snapshot, stu, athleticsEvent) : 0;
           byHouse[stu.house].points += pts;
           byDept[dept].points += pts;
         } else if (status === 'dnf') {
