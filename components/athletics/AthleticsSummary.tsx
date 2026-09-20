@@ -6,6 +6,7 @@ import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent }
 import { useToast } from '../ui/ToastProvider';
 import * as XLSX from 'xlsx';
 import { AlignmentType, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
+import { podiumPoints, studentPointsAcrossEvents } from '../../utils/athleticsScoring';
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = {
   '3000m': ['BD Opens'],
@@ -43,6 +44,7 @@ type PodiumEntry = {
   student: AthleticsStudent;
   result: string;
   stage: 'Qualifying' | 'Finals';
+  points: number;
   newResultAwarded?: boolean;
 };
 
@@ -78,6 +80,7 @@ const buildEventSummary = (category: AthleticsCategory, event: AthleticsEvent, s
       student: entry.student,
       result: entry.result.timing || '—',
       stage: stage === 'finals' ? 'Finals' : 'Qualifying',
+      points: podiumPoints((index + 1) as 1 | 2 | 3, entry.result.newResultAwarded === true),
       newResultAwarded: entry.result.newResultAwarded === true,
     } : null;
   });
@@ -112,22 +115,22 @@ const downloadBlob = (blob: Blob, filename: string, showToast: (args: { title: s
   showToast({ title: 'Download Ready', description: filename });
 };
 
-const calculateCategoryTopScorer = (categoryEvents: EventSummary[]) => {
-  const scores: Record<string, { student: AthleticsStudent; points: number; gold: number }> = {};
-  categoryEvents.forEach(summary => {
-    summary.podium.forEach((entry, index) => {
-      if (!entry) return;
-      const pts = index === 0 ? 5 : index === 1 ? 4 : 3;
-      const id = entry.student.id;
-      if (!scores[id]) {
-        scores[id] = { student: entry.student, points: 0, gold: 0 };
-      }
-      scores[id].points += pts;
-      if (index === 0) scores[id].gold += 1;
-    });
-  });
-  const sorted = Object.values(scores).sort((a, b) => b.points - a.points || b.gold - a.gold);
-  return sorted[0] || null;
+const calculateCategoryTopScorers = (
+  category: AthleticsCategory,
+  categoryEvents: EventSummary[],
+  students: AthleticsStudent[],
+  snapshot: AthleticsSnapshot,
+) => {
+  const categoryStudents = students.filter(student => student.category === category);
+  const pointsById = categoryStudents.map(student => ({
+    student,
+    points: studentPointsAcrossEvents(snapshot, student, categoryEvents.map(summary => summary.event)),
+  })).filter(row => row.points > 0);
+
+  const topPoints = Math.max(...pointsById.map(row => row.points), 0);
+  return pointsById
+    .filter(row => row.points === topPoints && topPoints > 0)
+    .sort((a, b) => a.student.name.localeCompare(b.student.name));
 };
 
 export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
@@ -177,6 +180,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
               Class: entry?.student.className || '—',
               House: entry?.student.house || '—',
               Result: entry?.result || '—',
+              Points: entry?.points ?? '—',
               'New Record': entry?.newResultAwarded ? 'Yes' : '—',
             });
           });
@@ -230,10 +234,11 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
       ];
 
       summaries.forEach(category => {
-        const topScorer = calculateCategoryTopScorer(category.events);
+        const topScorers = calculateCategoryTopScorers(category.category, category.events, students, snapshot);
         children.push(new Paragraph({ spacing: { before: 500, after: 120 }, children: [new TextRun({ text: category.category, bold: true, size: 28 })] }));
-        if (topScorer) {
-          children.push(new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: `Highest Points Scorer: ${topScorer.student.name} (${topScorer.student.house}) — ${topScorer.points} pts`, italics: true, size: 20, color: 'B45309' })] }));
+        if (topScorers.length > 0) {
+          const scorerText = topScorers.map(row => `${row.student.name} (${row.student.house}) — ${row.points} pts`).join(' • ');
+          children.push(new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: `Top Scorers: ${scorerText}`, italics: true, size: 20, color: 'B45309' })] }));
         }
         children.push(new Paragraph({ spacing: { after: 170 }, children: [new TextRun({ text: `${category.events.length} eligible events`, color: '777777', size: 18 })] }));
 
@@ -337,9 +342,8 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
       <div className="space-y-3">
         {summaries.map(category => {
           const isOpen = Boolean(openCategories[category.category]);
-          const topScorer = calculateCategoryTopScorer(category.events);
+          const topScorers = calculateCategoryTopScorers(category.category, category.events, students, snapshot);
           const finishedEventsCount = category.events.filter(ev => ev.podium.some(Boolean)).length;
-          const scorerCfg = topScorer ? houseConfig(topScorer.student.house) : null;
 
           return (
             <div
@@ -370,24 +374,27 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  {topScorer ? (
-                    <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-xs">
-                      <Icon name="military_tech" size="16" className="text-amber-400" />
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-amber-300/80 uppercase tracking-wider">Top Scorer:</span>
-                        <span className="font-black text-white">{topScorer.student.name}</span>
-                        {scorerCfg && (
-                          <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${scorerCfg.bg}/20 ${scorerCfg.text} border ${scorerCfg.border}/30`}>
-                            {topScorer.student.house}
-                          </span>
-                        )}
-                        <span className="font-mono text-amber-300 font-bold ml-1">({topScorer.points} pts)</span>
+                  {topScorers.length > 0 ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-xs">
+                        <Icon name="military_tech" size="16" className="text-amber-400" />
+                        <span className="text-[10px] font-bold text-amber-300/80 uppercase tracking-wider">Top Scorers:</span>
                       </div>
+                      {topScorers.slice(0, 3).map(row => {
+                        const cfg = houseConfig(row.student.house);
+                        return (
+                          <div key={row.student.id} className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.025] px-2.5 py-1.5 text-xs">
+                            <span className="font-black text-white">{row.student.name}</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${cfg.bg}/20 ${cfg.text} border ${cfg.border}/30`}>{row.student.house}</span>
+                            <span className="font-mono text-amber-300 font-bold">({row.points} pts)</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <span className="text-xs text-slate-500 font-medium italic">No scores recorded yet</span>
                   )}
-                </div>
+                </div>                </div>
               </button>
 
               {/* Dropdown Body */}
@@ -398,9 +405,9 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
                       <thead>
                         <tr className="bg-white/[0.025] text-[9px] font-black uppercase tracking-[0.22em] text-slate-500 border-b border-white/5">
                           <th className="w-[25%] px-4 py-3 text-left">Event</th>
-                          <th className="w-[25%] px-4 py-3 text-left">1st Place (5 pts)</th>
-                          <th className="w-[25%] px-4 py-3 text-left">2nd Place (4 pts)</th>
-                          <th className="w-[25%] px-4 py-3 text-left">3rd Place (3 pts)</th>
+                          <th className="w-[25%] px-4 py-3 text-left">1st Place</th>
+                          <th className="w-[25%] px-4 py-3 text-left">2nd Place</th>
+                          <th className="w-[25%] px-4 py-3 text-left">3rd Place</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
@@ -438,7 +445,10 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
                                             </span>
                                             <span className="text-[9px] text-slate-500">{entry.student.className}</span>
                                           </div>
-                                          <div className="mt-1.5 font-mono text-xs font-bold text-amber-300">{entry.result}</div>
+                                          <div className="mt-1.5 flex items-center justify-between gap-2">
+                                            <span className="font-mono text-xs font-bold text-amber-300">{entry.result}</span>
+                                            <span className="text-[10px] font-black text-primary">{entry.points} pts</span>
+                                          </div>
                                           {entry.newResultAwarded && (
                                             <span className="mt-1 inline-flex items-center gap-1 rounded border border-emerald-400/25 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-300">
                                               <Icon name="add_circle" size="10" /> Record
