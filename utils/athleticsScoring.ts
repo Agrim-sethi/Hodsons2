@@ -8,13 +8,14 @@ export const placementPoints = (position?: number) =>
 
 const resultStageOf = (result: AthleticsResult) => result.stage || 'qualifying';
 
-const departmentForCategory = (category: string) =>
+const departmentForCategory = (category: string): AthleticsStudent['department'] =>
+  category.startsWith('PDB') ? 'PDB' :
+  category.startsWith('PDG') ? 'PDG' :
   category.startsWith('BD') ? 'BD' :
-  category.startsWith('GD') ? 'GD' :
-  'PD';
+  'GD';
 
 export const eventAllowedForStudent = (event: AthleticsEvent, student: AthleticsStudent) =>
-  event.departments.includes(departmentForCategory(student.category) as AthleticsStudent['department']);
+  event.departments.includes(departmentForCategory(student.category));
 
 export const eventPoints = (
   snapshot: AthleticsSnapshot,
