@@ -1008,7 +1008,7 @@ const AthleticsEventManager: React.FC<Props> = ({
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <h3 className="text-lg font-black text-white">
-                  {stage === 'qualifying' ? 'Qualifying Results' : 'Finals Results'}
+                  {stage === 'qualifying' && !finalsEnabled ? 'Finals Results' : stage === 'qualifying' ? 'Qualifying Results' : 'Finals Results'}
                 </h3>
                 <p className="mt-1 text-xs text-slate-400">
                   {isHighJump
