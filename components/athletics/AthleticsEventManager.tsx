@@ -41,6 +41,7 @@ const TRACK_EVENTS = new Set([
   '800m',
   '1500m',
   '3000m',
+  '110m-hurdles',
 ]);
 
 // High Jump uses its own height-ladder rules (handled separately) rather than
