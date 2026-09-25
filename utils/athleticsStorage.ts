@@ -15,11 +15,12 @@ export interface AthleticsEvent { id:string; name:string; type:AthleticsTrackTyp
 // keyed by (eventId, category) together — never eventId alone.
 export interface AthleticsEnrollment { eventId:string; category:AthleticsCategory; studentIds:string[]; }
 export interface AthleticsFinalsConfig { eventId:string; category:AthleticsCategory; enabled:boolean; studentIds:string[]; }
-// `attempts` holds up to 3 recorded attempts for field events (long jump, shot
-// put, discus, javelin, triple jump — NOT high jump, which uses its own
-// height-ladder rules). `timing` is always kept as the best valid attempt for
-// that event's scoring direction, so every existing consumer that reads
-// `timing` (ranking, leaderboards, summaries) keeps working unmodified.
+// `attempts` holds the standard 3 recorded attempts plus any additional
+// attempts staff add for field events (long jump, shot put, discus, javelin,
+// triple jump — NOT high jump, which uses its own height-ladder rules).
+// `timing` is always kept as the best valid attempt for that event's scoring
+// direction, so every existing consumer that reads `timing` (ranking,
+// leaderboards, summaries) keeps working unmodified.
 // `newResultAwarded` is a one-time +3 championship-point award attached to this
 // exact event/category/stage result. It never changes the recorded performance.
 export interface AthleticsResult { eventId:string; category:AthleticsCategory; studentId:string; stage?:AthleticsStage; status:AthleticsResultStatus; timing?:string; attempts?:string[]; position?:number; qualified?:boolean; newResultAwarded?:boolean; }
