@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ALL_STUDENTS } from './studentsData';
 
 export type StudentDepartment = 'PDB' | 'PDG' | 'BD' | 'GD';
@@ -78,14 +78,262 @@ export const getAthleticsCategoryForStudent = (department: StudentDepartment, do
 
 export const getStudentAgeOnAthleticsDate = (dob: string): number | null => getAgeOnAthleticsDate(dob);
 
-const baseStudents: ManagedStudent[] = (ALL_STUDENTS as any[]).map((student) => ({
-  id: String(student.id),
-  name: String(student.name),
-  house: student.house,
-  department: baseDepartmentForCategory(student.category),
-  category: student.category as StudentCategory,
-  dob: '',
-  className: '',
+const AUG30_STUDENT_DETAILS: Record<string, {
+  name: string;
+  dob: string;
+  house: ManagedStudent['house'];
+  department: StudentDepartment;
+  category: StudentCategory;
+  className: string;
+}> = {
+  "05592": {
+    "name": "SASHREEK BHARDWAJ",
+    "dob": "2012-08-03",
+    "house": "Vindhya",
+    "department": "BD",
+    "category": "BD Under 16",
+    "className": "9 A"
+  },
+  "06008": {
+    "name": "AKEERA GUPTA",
+    "dob": "2013-10-04",
+    "house": "Vindhya",
+    "department": "GD",
+    "category": "GD Under 14",
+    "className": "7 B"
+  },
+  "06028": {
+    "name": "MYRA BRAR",
+    "dob": "2015-11-22",
+    "house": "Nilgiri",
+    "department": "PDG",
+    "category": "PDG Under 11",
+    "className": "5 C"
+  },
+  "06032": {
+    "name": "INAAYA SINGH",
+    "dob": "2010-03-30",
+    "house": "Siwalik",
+    "department": "GD",
+    "category": "GD Opens",
+    "className": "11 A"
+  },
+  "06034": {
+    "name": "NIHAAL SINGH WALIA",
+    "dob": "2015-08-16",
+    "house": "Nilgiri",
+    "department": "PDB",
+    "category": "PDB Under 12",
+    "className": "5 B"
+  },
+  "06036": {
+    "name": "AIRA KAUR SETHI",
+    "dob": "2011-12-26",
+    "house": "Nilgiri",
+    "department": "GD",
+    "category": "GD Under 16",
+    "className": "9 B"
+  },
+  "06037": {
+    "name": "GURSAHIB SINGH PLAHA",
+    "dob": "2011-10-30",
+    "house": "Vindhya",
+    "department": "BD",
+    "category": "BD Under 16",
+    "className": "8 A"
+  },
+  "06038": {
+    "name": "VIHAAN AGRAWAL",
+    "dob": "2016-03-25",
+    "house": "Vindhya",
+    "department": "PDB",
+    "category": "PDB Under 11",
+    "className": "5 A"
+  },
+  "06039": {
+    "name": "ANAISHA NAIR",
+    "dob": "2013-08-25",
+    "house": "Vindhya",
+    "department": "GD",
+    "category": "GD Under 14",
+    "className": "8 A"
+  },
+  "06040": {
+    "name": "ZOYA NAIR",
+    "dob": "2016-02-01",
+    "house": "Vindhya",
+    "department": "PDG",
+    "category": "PDG Under 11",
+    "className": "6 B"
+  },
+  "06041": {
+    "name": "MEHNOOR KAUR BRAR",
+    "dob": "2009-11-16",
+    "house": "Siwalik",
+    "department": "GD",
+    "category": "GD Opens",
+    "className": "11 A"
+  },
+  "06042": {
+    "name": "SAMAYA CHADHA",
+    "dob": "2015-02-09",
+    "house": "Nilgiri",
+    "department": "PDG",
+    "category": "PDG Under 12",
+    "className": "6 B"
+  },
+  "06043": {
+    "name": "RIDUL SHARMA",
+    "dob": "2012-08-05",
+    "house": "Vindhya",
+    "department": "BD",
+    "category": "BD Under 16",
+    "className": "9 C"
+  },
+  "06044": {
+    "name": "DIVIJA RANJEET DAREKAR",
+    "dob": "2009-09-24",
+    "house": "Siwalik",
+    "department": "GD",
+    "category": "GD Opens",
+    "className": "11 B"
+  },
+  "06045": {
+    "name": "ANSHITA MUNJRAL",
+    "dob": "2011-08-22",
+    "house": "Nilgiri",
+    "department": "GD",
+    "category": "GD Under 16",
+    "className": "9 D"
+  },
+  "06046": {
+    "name": "NIRBHAY SINGH KARKI",
+    "dob": "2014-12-12",
+    "house": "Himalaya",
+    "department": "BD",
+    "category": "BD Under 13",
+    "className": "7 B"
+  },
+  "06047": {
+    "name": "SAIRAB KUKKAR",
+    "dob": "2013-11-19",
+    "house": "Nilgiri",
+    "department": "BD",
+    "category": "BD Under 13",
+    "className": "8 D"
+  },
+  "06048": {
+    "name": "GAURANG GARG",
+    "dob": "2010-01-09",
+    "house": "Vindhya",
+    "department": "BD",
+    "category": "BD Opens",
+    "className": "11 A"
+  },
+  "06049": {
+    "name": "JAZZLYN RAI",
+    "dob": "2010-10-21",
+    "house": "Nilgiri",
+    "department": "GD",
+    "category": "GD Under 16",
+    "className": "11 B"
+  },
+  "06050": {
+    "name": "KUVUTOLI ISAAC ZHIMOMI",
+    "dob": "2010-04-03",
+    "house": "Nilgiri",
+    "department": "GD",
+    "category": "GD Opens",
+    "className": "11 D"
+  },
+  "06051": {
+    "name": "MAHREEN MAKKAR",
+    "dob": "2015-11-09",
+    "house": "Nilgiri",
+    "department": "PDG",
+    "category": "PDG Under 11",
+    "className": "6 B"
+  },
+  "06052": {
+    "name": "AASHRITA MIGLANI",
+    "dob": "2014-10-19",
+    "house": "Nilgiri",
+    "department": "PDG",
+    "category": "PDG Under 12",
+    "className": "6 B"
+  },
+  "06053": {
+    "name": "EBADAT DHILLON",
+    "dob": "2012-01-26",
+    "house": "Vindhya",
+    "department": "GD",
+    "category": "GD Under 16",
+    "className": "8 D"
+  },
+  "06054": {
+    "name": "AARIV GAHLOT",
+    "dob": "2016-07-02",
+    "house": "Siwalik",
+    "department": "PDB",
+    "category": "PDB Under 11",
+    "className": "5 A"
+  },
+  "06055": {
+    "name": "ISHAAN MALHOTRA",
+    "dob": "2012-06-12",
+    "house": "Nilgiri",
+    "department": "BD",
+    "category": "BD Under 16",
+    "className": "8 C"
+  },
+  "06056": {
+    "name": "ZORAWAR SINGH",
+    "dob": "2012-09-09",
+    "house": "Siwalik",
+    "department": "BD",
+    "category": "BD Under 16",
+    "className": "9 A"
+  },
+  "06057": {
+    "name": "GURJAAP SINGH",
+    "dob": "2012-09-08",
+    "house": "Himalaya",
+    "department": "BD",
+    "category": "BD Under 16",
+    "className": "8 B"
+  }
+};
+
+const baseStudents: ManagedStudent[] = (ALL_STUDENTS as any[]).map((student) => {
+  const id = String(student.id);
+  const seeded = AUG30_STUDENT_DETAILS[id];
+  return seeded ? {
+    id,
+    name: seeded.name,
+    house: seeded.house,
+    department: seeded.department,
+    category: seeded.category,
+    dob: seeded.dob,
+    className: seeded.className,
+  } : {
+    id,
+    name: String(student.name),
+    house: student.house,
+    department: baseDepartmentForCategory(student.category),
+    category: student.category as StudentCategory,
+    dob: '',
+    className: '',
+  };
+});
+
+const seededStudents: ManagedStudent[] = Object.entries(AUG30_STUDENT_DETAILS).map(([id, seeded]) => ({
+  id,
+  name: seeded.name,
+  house: seeded.house,
+  department: seeded.department,
+  category: seeded.category,
+  dob: seeded.dob,
+  className: seeded.className,
 }));
 
 const getStoredStudents = (): ManagedStudent[] | null => {
@@ -101,13 +349,36 @@ const getStoredStudents = (): ManagedStudent[] | null => {
 
 export const getManagedStudents = (): ManagedStudent[] => {
   const stored = getStoredStudents();
-  if (stored) return stored;
-  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(baseStudents));
-  return baseStudents;
+  const source = stored ? [...stored] : [...baseStudents];
+
+  // Ensure the Aug 30 additions exist locally and carry the exact verified details.
+  seededStudents.forEach((seeded) => {
+    const index = source.findIndex((student) => String(student.id) === String(seeded.id));
+    if (index >= 0) source[index] = seeded;
+    else source.push(seeded);
+  });
+
+  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(source));
+  return source;
 };
 
 export const getManagedStudentById = (id: string) =>
   getManagedStudents().find((student) => String(student.id) === String(id)) || null;
+
+export const syncAug30StudentsToFirestore = async (): Promise<void> => {
+  const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH);
+  const current = await getDoc(ref);
+  const existingStudents = current.exists() && Array.isArray(current.data()?.students)
+    ? current.data()?.students as ManagedStudent[]
+    : [];
+
+  const byId = new Map(existingStudents.map((student) => [String(student.id), student]));
+  seededStudents.forEach((student) => byId.set(String(student.id), student));
+
+  const merged = Array.from(byId.values());
+  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(getManagedStudents()));
+  await setDoc(ref, sanitize({ students: merged }), { merge: true });
+};
 
 export const saveManagedStudent = async (student: ManagedStudent): Promise<void> => {
   const students = [...getManagedStudents()];
