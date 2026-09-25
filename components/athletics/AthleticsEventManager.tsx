@@ -442,9 +442,8 @@ const AthleticsEventManager: React.FC<Props> = ({
   };
 
   /**
-   * Updates one of a student's recorded attempts for a standard 3-attempt
-   * field event (plus any additional attempts), then recomputes `timing`
-   * as the best (farthest) valid attempt so
+   * Updates one of a student's 3 recorded attempts for a 3-attempt field
+   * event, then recomputes `timing` as the best (farthest) valid attempt so
    * every existing consumer (auto-rank, leaderboards, summaries) keeps
    * reading a single best-attempt value without any changes on their end.
    */
@@ -496,7 +495,6 @@ const AthleticsEventManager: React.FC<Props> = ({
       timing: bestFieldAttempt(attempts),
     });
   };
-
   const saveHighJumpConfig = (
     nextHeights: string[],
     nextAttempts: AthleticsHighJumpAttempt[],
@@ -1038,7 +1036,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                     : event.kind === 'track'
                       ? 'Enter minutes, seconds and milliseconds separately.'
                       : THREE_ATTEMPT_FIELD_EVENTS.has(event.id)
-                        ? 'Record the standard 3 attempts per competitor. Add further attempts when permitted; the best valid attempt is used for ranking.'
+                        ? 'Record the standard 3 attempts per competitor. Use + Add Attempt for further attempts when permitted; the best valid attempt is used for ranking.'
                         : 'Enter metres and centimetres separately.'}
                 </p>
               </div>
@@ -1172,15 +1170,217 @@ const AthleticsEventManager: React.FC<Props> = ({
                                 return (
                                   <td key={height} className="text-center">
                                     <div className="flex items-center justify-center gap-1">
-                                      {Array.from({ length: Math.max(3, attempts.length) }, (_, attemptIndex) => {
-                                const attemptSplit = splitFieldDistance(attempts[attemptIndex] || '');
+                                      {[0, 1, 2].map((attemptIndex) => {
+                                        const value = attempts[attemptIndex];
+                                        // Once a competitor has cleared this height, later attempts are moot —
+                                        // shown dimmed and left click-through disabled to avoid confusing entry.
+                                        const moot = hasCleared && attemptIndex > clearedIndex;
+
+                                        return (
+                                          <div key={attemptIndex} className="flex flex-col items-center gap-0.5">
+                                            <button
+                                              type="button"
+                                              disabled={!isLoggedIn || moot}
+                                              onClick={() => setHighJumpAttempt(studentId, height, attemptIndex as 0 | 1 | 2, 'cleared')}
+                                              className={`flex size-6 items-center justify-center rounded border text-xs font-black transition-all disabled:opacity-30 ${
+                                                value === 'cleared'
+                                                  ? 'border-emerald-400/50 bg-emerald-400/20 text-emerald-300'
+                                                  : 'border-white/10 bg-white/[0.02] text-slate-600 hover:border-emerald-500/30 hover:text-emerald-400'
+                                              }`}
+                                              title={`Attempt ${attemptIndex + 1}: mark cleared`}
+                                            >
+                                              ✓
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={!isLoggedIn || moot}
+                                              onClick={() => setHighJumpAttempt(studentId, height, attemptIndex as 0 | 1 | 2, 'failed')}
+                                              className={`flex size-6 items-center justify-center rounded border text-xs font-black transition-all disabled:opacity-30 ${
+                                                value === 'failed'
+                                                  ? 'border-rose-400/50 bg-rose-400/20 text-rose-300'
+                                                  : 'border-white/10 bg-white/[0.02] text-slate-600 hover:border-rose-500/30 hover:text-rose-400'
+                                              }`}
+                                              title={`Attempt ${attemptIndex + 1}: mark failed`}
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                              <td>
+                                <span className={`font-mono text-sm font-black ${result.timing ? 'text-emerald-300' : 'text-slate-600'}`}>
+                                  {result.timing ? `${result.timing}m` : '—'}
+                                </span>
+                              </td>
+                              <td>
+                                <span className="font-black text-white">{result.position || '—'}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!isHighJump && (
+            <div className="max-h-[48vh] overflow-auto rounded-xl border border-white/10">
+              <table className="royal-data-table min-w-[1100px]">
+                <thead>
+                  <tr>
+                    <th>Competitor</th>
+                    <th>House</th>
+                    <th>Status</th>
+                    <th>{event.kind === 'track' ? 'Time' : THREE_ATTEMPT_FIELD_EVENTS.has(event.id) ? 'Attempts (Best)' : 'Distance'}</th>
+                    <th>Position</th>
+                    {stage === 'qualifying' && <th>Qualification</th>}
+                    {stage === 'qualifying' && finalsEnabled && <th>Finals</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentIds.map((studentId) => {
+                    const student = studentMap.get(studentId);
+
+                    if (!student) {
+                      return null;
+                    }
+
+                    const result = getResult(student.id, stage);
+                    const qualifyingResult = getResult(student.id, 'qualifying');
+                    const qualified = Boolean(qualifyingResult.qualified);
+                    const inFinals = finalistIds.includes(student.id);
+                    const config = houseConfig(student.house);
+                    const resultKey = `${stage}:${student.id}`;
+
+                    const track = splitTrackTiming(result.timing);
+                    const field = splitFieldDistance(result.timing);
+                    const isThreeAttemptField = THREE_ATTEMPT_FIELD_EVENTS.has(event.id);
+                    const attempts = [result.attempts?.[0] || '', result.attempts?.[1] || '', result.attempts?.[2] || ''];
+
+                    return (
+                      <tr
+                        key={resultKey}
+                        className={
+                          stage === 'qualifying' && qualified
+                            ? 'bg-emerald-500/[0.035]'
+                            : ''
+                        }
+                      >
+                        <td>
+                          <div
+                            className={`font-black ${
+                              stage === 'qualifying' && qualified
+                                ? 'text-emerald-200'
+                                : 'text-white'
+                            }`}
+                          >
+                            {stage === 'qualifying' && qualified ? '✓ ' : ''}
+                            {student.name}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            #{student.id} • {category}
+                          </div>
+                        </td>
+
+                        <td>
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2 py-1 text-[9px] font-bold ${config.bg}/20 ${config.text} ${config.border}/30`}
+                          >
+                            {student.house}
+                          </span>
+                        </td>
+
+                        <td>
+                          <select
+                            disabled={!isLoggedIn}
+                            value={result.status}
+                            onChange={(eventObject) =>
+                              updateResult(student.id, stage, {
+                                status: eventObject.target.value as AthleticsResultStatus,
+                              })
+                            }
+                            className={`royal-input rounded-lg px-2 py-2 text-xs ${statusStyle(result.status)}`}
+                          >
+                            {RESULT_STATUSES.map((status) => (
+                              <option key={status} value={status}>
+                                {statusLabel(status)}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        <td>
+                          {event.kind === 'track' ? (
+                            <div className="flex min-w-[280px] items-center gap-2">
+                              <input
+                                disabled={!isLoggedIn}
+                                type="number"
+                                min="0"
+                                value={track.minutes}
+                                onChange={(eventObject) =>
+                                  updateTrackPart(
+                                    student.id,
+                                    stage,
+                                    'minutes',
+                                    eventObject.target.value,
+                                    999,
+                                  )
+                                }
+                                className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm"
+                              />
+                              <span>:</span>
+                              <input
+                                disabled={!isLoggedIn}
+                                type="number"
+                                min="0"
+                                max="59"
+                                value={track.seconds}
+                                onChange={(eventObject) =>
+                                  updateTrackPart(
+                                    student.id,
+                                    stage,
+                                    'seconds',
+                                    eventObject.target.value,
+                                    59,
+                                  )
+                                }
+                                className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm"
+                              />
+                              <span>:</span>
+                              <input
+                                disabled={!isLoggedIn}
+                                type="number"
+                                min="0"
+                                max="999"
+                                value={track.milliseconds}
+                                onChange={(eventObject) =>
+                                  updateTrackPart(
+                                    student.id,
+                                    stage,
+                                    'milliseconds',
+                                    eventObject.target.value,
+                                    999,
+                                  )
+                                }
+                                className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm"
+                              />
+                            </div>
+                          ) : isThreeAttemptField ? (
+                            <div className="flex min-w-[260px] flex-col gap-1.5">
+                              {Array.from({ length: Math.max(3, attempts.length) }, (_, attemptIndex) => {
+                                const attemptSplit = splitFieldDistance(attempts[attemptIndex]);
                                 const isBest = Boolean(attempts[attemptIndex]) && attempts[attemptIndex] === result.timing;
-                                const isAdditional = attemptIndex >= 3;
 
                                 return (
                                   <div key={attemptIndex} className="flex items-center gap-2">
                                     <span className={`w-14 shrink-0 text-[9px] font-black uppercase ${isBest ? 'text-emerald-300' : 'text-slate-500'}`}>
-                                      Try {attemptIndex + 1}{isAdditional ? ' +' : ''}{isBest ? ' ★' : ''}
+                                      Try {attemptIndex + 1}{attemptIndex >= 3 ? ' +' : ''}{isBest ? ' ★' : ''}
                                     </span>
                                     <input
                                       disabled={!isLoggedIn}
@@ -1219,19 +1419,17 @@ const AthleticsEventManager: React.FC<Props> = ({
                                   </div>
                                 );
                               })}
-                              <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-slate-400">
-                                <div>
-                                  Best: <span className={result.timing ? 'text-emerald-300' : 'text-slate-600'}>{result.timing ? `${result.timing}m` : '—'}</span>
-                                </div>
+                              <div className="mt-0.5 text-[10px] font-bold text-slate-400">
+                                Best: <span className={result.timing ? 'text-emerald-300' : 'text-slate-600'}>{result.timing ? `${result.timing}m` : '—'}</span>
+                              </div>
                                 <button
                                   type="button"
                                   disabled={!isLoggedIn}
                                   onClick={() => addFieldAttempt(student.id, stage)}
-                                  className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-primary hover:bg-primary/15 disabled:opacity-50"
+                                  className="mt-1 self-end rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-primary hover:bg-primary/20 disabled:opacity-50"
                                 >
-                                  + Additional Attempt
+                                  + Add Attempt
                                 </button>
-                              </div>
                             </div>
                           ) : (
                             <div className="flex min-w-[220px] items-center gap-2">
