@@ -4234,5 +4234,167 @@ export const ALL_STUDENTS = [
         "name": "ZOYANA WADHWA",
         "category": "GD Opens",
         "house": "Himalaya"
+    },
+    {
+        "id": "05592",
+        "name": "SASHREEK BHARDWAJ",
+        "category": "BD Under 16",
+        "house": "Vindhya"
+    },
+    {
+        "id": "06008",
+        "name": "AKEERA GUPTA",
+        "category": "GD Under 14",
+        "house": "Vindhya"
+    },
+    {
+        "id": "06028",
+        "name": "MYRA BRAR",
+        "category": "PDG Under 11",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06032",
+        "name": "INAAYA SINGH",
+        "category": "GD Opens",
+        "house": "Siwalik"
+    },
+    {
+        "id": "06034",
+        "name": "NIHAAL SINGH WALIA",
+        "category": "PDB Under 12",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06036",
+        "name": "AIRA KAUR SETHI",
+        "category": "GD Under 16",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06037",
+        "name": "GURSAHIB SINGH PLAHA",
+        "category": "BD Under 16",
+        "house": "Vindhya"
+    },
+    {
+        "id": "06038",
+        "name": "VIHAAN AGRAWAL",
+        "category": "PDB Under 11",
+        "house": "Vindhya"
+    },
+    {
+        "id": "06039",
+        "name": "ANAISHA NAIR",
+        "category": "GD Under 14",
+        "house": "Vindhya"
+    },
+    {
+        "id": "06040",
+        "name": "ZOYA NAIR",
+        "category": "PDG Under 11",
+        "house": "Vindhya"
+    },
+    {
+        "id": "06041",
+        "name": "MEHNOOR KAUR BRAR",
+        "category": "GD Opens",
+        "house": "Siwalik"
+    },
+    {
+        "id": "06042",
+        "name": "SAMAYA CHADHA",
+        "category": "PDG Under 12",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06043",
+        "name": "RIDUL SHARMA",
+        "category": "BD Under 16",
+        "house": "Vindhya"
+    },
+    {
+        "id": "06044",
+        "name": "DIVIJA RANJEET DAREKAR",
+        "category": "GD Opens",
+        "house": "Siwalik"
+    },
+    {
+        "id": "06045",
+        "name": "ANSHITA MUNJRAL",
+        "category": "GD Under 16",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06046",
+        "name": "NIRBHAY SINGH KARKI",
+        "category": "BD Under 13",
+        "house": "Himalaya"
+    },
+    {
+        "id": "06047",
+        "name": "SAIRAB KUKKAR",
+        "category": "BD Under 13",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06048",
+        "name": "GAURANG GARG",
+        "category": "BD Opens",
+        "house": "Vindhya"
+    },
+    {
+        "id": "06049",
+        "name": "JAZZLYN RAI",
+        "category": "GD Under 16",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06050",
+        "name": "KUVUTOLI ISAAC ZHIMOMI",
+        "category": "GD Opens",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06051",
+        "name": "MAHREEN MAKKAR",
+        "category": "PDG Under 11",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06052",
+        "name": "AASHRITA MIGLANI",
+        "category": "PDG Under 12",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06053",
+        "name": "EBADAT DHILLON",
+        "category": "GD Under 16",
+        "house": "Vindhya"
+    },
+    {
+        "id": "06054",
+        "name": "AARIV GAHLOT",
+        "category": "PDB Under 11",
+        "house": "Siwalik"
+    },
+    {
+        "id": "06055",
+        "name": "ISHAAN MALHOTRA",
+        "category": "BD Under 16",
+        "house": "Nilgiri"
+    },
+    {
+        "id": "06056",
+        "name": "ZORAWAR SINGH",
+        "category": "BD Under 16",
+        "house": "Siwalik"
+    },
+    {
+        "id": "06057",
+        "name": "GURJAAP SINGH",
+        "category": "BD Under 16",
+        "house": "Himalaya"
     }
 ];
