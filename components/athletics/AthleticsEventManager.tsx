@@ -455,7 +455,11 @@ const AthleticsEventManager: React.FC<Props> = ({
     value: string,
   ) => {
     const existing = getResult(studentId, resultStage);
-    const attempts = [existing.attempts?.[0] || '', existing.attempts?.[1] || '', existing.attempts?.[2] || ''];
+    // Preserve every attempt already recorded (there may be more than the
+    // default 3), padding out to at least attemptIndex + 1 slots so editing
+    // a newly-added attempt never truncates the ones after it.
+    const slotCount = Math.max(3, existing.attempts?.length || 0, attemptIndex + 1);
+    const attempts = Array.from({ length: slotCount }, (_, index) => existing.attempts?.[index] || '');
 
     const current = splitFieldDistance(attempts[attemptIndex]);
     const nextValue = value.replace(/\D/g, '').slice(0, key === 'metres' ? 3 : 2);
@@ -481,12 +485,8 @@ const AthleticsEventManager: React.FC<Props> = ({
     }
 
     const existing = getResult(studentId, resultStage);
-    const attempts = [
-      existing.attempts?.[0] || '',
-      existing.attempts?.[1] || '',
-      existing.attempts?.[2] || '',
-      ...(existing.attempts?.slice(3) || []),
-    ];
+    const slotCount = Math.max(3, existing.attempts?.length || 0);
+    const attempts = Array.from({ length: slotCount }, (_, index) => existing.attempts?.[index] || '');
 
     attempts.push('');
 
@@ -495,6 +495,30 @@ const AthleticsEventManager: React.FC<Props> = ({
       timing: bestFieldAttempt(attempts),
     });
   };
+
+  /**
+   * Removes one attempt slot for a competitor — only ever the 4th attempt or
+   * later (the default 3 are always present, matching every other
+   * competitor's row, so they're never individually removable). Used to
+   * undo an extra attempt added by mistake.
+   */
+  const removeFieldAttempt = (studentId: string, resultStage: AthleticsStage, attemptIndex: number) => {
+    if (!isLoggedIn || attemptIndex < 3) {
+      return;
+    }
+
+    const existing = getResult(studentId, resultStage);
+    const slotCount = Math.max(3, existing.attempts?.length || 0);
+    const attempts = Array.from({ length: slotCount }, (_, index) => existing.attempts?.[index] || '');
+
+    attempts.splice(attemptIndex, 1);
+
+    updateResult(studentId, resultStage, {
+      attempts,
+      timing: bestFieldAttempt(attempts),
+    });
+  };
+
   const saveHighJumpConfig = (
     nextHeights: string[],
     nextAttempts: AthleticsHighJumpAttempt[],
@@ -1261,7 +1285,10 @@ const AthleticsEventManager: React.FC<Props> = ({
                     const track = splitTrackTiming(result.timing);
                     const field = splitFieldDistance(result.timing);
                     const isThreeAttemptField = THREE_ATTEMPT_FIELD_EVENTS.has(event.id);
-                    const attempts = [result.attempts?.[0] || '', result.attempts?.[1] || '', result.attempts?.[2] || ''];
+                    // Preserve every attempt actually recorded — not just the
+                    // default 3 — so additional attempts render correctly.
+                    const attemptSlotCount = Math.max(3, result.attempts?.length || 0);
+                    const attempts = Array.from({ length: attemptSlotCount }, (_, index) => result.attempts?.[index] || '');
 
                     return (
                       <tr
@@ -1376,11 +1403,12 @@ const AthleticsEventManager: React.FC<Props> = ({
                               {Array.from({ length: Math.max(3, attempts.length) }, (_, attemptIndex) => {
                                 const attemptSplit = splitFieldDistance(attempts[attemptIndex]);
                                 const isBest = Boolean(attempts[attemptIndex]) && attempts[attemptIndex] === result.timing;
+                                const isExtra = attemptIndex >= 3;
 
                                 return (
                                   <div key={attemptIndex} className="flex items-center gap-2">
                                     <span className={`w-14 shrink-0 text-[9px] font-black uppercase ${isBest ? 'text-emerald-300' : 'text-slate-500'}`}>
-                                      Try {attemptIndex + 1}{attemptIndex >= 3 ? ' +' : ''}{isBest ? ' ★' : ''}
+                                      Try {attemptIndex + 1}{isExtra ? ' +' : ''}{isBest ? ' ★' : ''}
                                     </span>
                                     <input
                                       disabled={!isLoggedIn}
@@ -1416,6 +1444,17 @@ const AthleticsEventManager: React.FC<Props> = ({
                                       }
                                       className={`royal-input w-full rounded-lg px-2 py-1.5 text-center font-mono text-sm ${isBest ? 'border-emerald-500/40' : ''}`}
                                     />
+                                    {isExtra && (
+                                      <button
+                                        type="button"
+                                        disabled={!isLoggedIn}
+                                        onClick={() => removeFieldAttempt(student.id, stage, attemptIndex)}
+                                        title="Remove this attempt"
+                                        className="flex size-7 shrink-0 items-center justify-center rounded-md border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 disabled:opacity-40"
+                                      >
+                                        <Icon name="close" className="text-[13px]" />
+                                      </button>
+                                    )}
                                   </div>
                                 );
                               })}
