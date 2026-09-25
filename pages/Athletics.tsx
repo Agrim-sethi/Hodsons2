@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon';
 import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 import studentClasses from '../utils/studentClasses.json';
 import { ATHLETICS_EVENTS, AthleticsSnapshot, getAthleticsSnapshot, getPrepAthleticsStudents, saveAthleticsSnapshot, subscribeToAthleticsData } from '../utils/athleticsStorage';
+import { syncAug30StudentsToFirestore } from '../utils/studentStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../utils/athleticsCategories';
 import AthleticsLeaderboard from '../components/athletics/AthleticsLeaderboard';
 import AthleticsSummary from '../components/athletics/AthleticsSummary';
@@ -26,6 +27,13 @@ const Athletics: React.FC = () => {
 
   React.useEffect(() => { setSnapshot(getAthleticsSnapshot()); return subscribeToAthleticsData(setSnapshot); }, []);
   React.useEffect(() => { if (!isLoggedIn && pageTab === 'manage') setPageTab('view'); }, [isLoggedIn, pageTab]);
+
+  React.useEffect(() => {
+    if (!isLoggedIn) return;
+    void syncAug30StudentsToFirestore().catch((error) => {
+      console.error('Unable to sync Aug 30 student additions to Firestore:', error);
+    });
+  }, [isLoggedIn]);
 
   const visibleEvents = React.useMemo(() => ATHLETICS_EVENTS.filter(event => { const allowed = EXCLUSIVE_EVENT_CATEGORIES[event.id]; return !allowed || allowed.includes(selectedCategory); }), [selectedCategory]);
   const selectedEvent = React.useMemo(() => ATHLETICS_EVENTS.find(event => event.id === selectedEventId) || null, [selectedEventId]);
