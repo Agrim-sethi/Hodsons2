@@ -121,7 +121,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     ...analytics.byDept[d],
   })).sort((a, b) => Number(b.ppp) - Number(a.ppp));
 
-  const qualRate = pct(analytics.totalFinished, analytics.totalEnrolled);
+  const qualRate = pct(analytics.totalQualified, analytics.totalEnrolled);
   const absentRate = pct(analytics.totalAbsent, analytics.totalEnrolled);
   const medRate = pct(analytics.totalMed, analytics.totalEnrolled);
 
