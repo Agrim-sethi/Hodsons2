@@ -4,7 +4,7 @@ import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { PodiumStep } from '../hodsons/shared';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHouse, AthleticsResult, AthleticsSnapshot } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHouse, AthleticsResult, AthleticsSnapshot, RELAY_HOUSES, isRelayEvent } from '../../utils/athleticsStorage';
 import { PodiumPlayer } from '../hodsons/types';
 
 type AthleticsStudent = { id: string; name: string; house: AthleticsHouse; category: AthleticsCategory; className: string; };
@@ -16,6 +16,17 @@ const isTrack = (event: AthleticsEvent) => event.kind === 'track';
 const parseTrackTiming = (value = '') => { const parts = value.trim().split(':').map(Number); if (parts.length === 3 && parts.every(Number.isFinite)) return parts[0] * 60 + parts[1] + parts[2] / 1000; return Number.POSITIVE_INFINITY; };
 const parseFieldDistance = (value = '') => { const number = Number(value.trim().replace(',', '.')); return Number.isFinite(number) ? number : Number.NEGATIVE_INFINITY; };
 const displayResult = (_event: AthleticsEvent, result?: AthleticsResult) => (!result || result.status !== 'finished' || !result.timing) ? '—' : result.timing;
+const RelayPodiumTile: React.FC<{ house: AthleticsHouse; position?: number; timing?: string; runnerCount: number }> = ({ house, position, timing, runnerCount }) => {
+  const config = houseConfig(house);
+  const height = position === 1 ? 'min-h-[118px]' : position === 2 ? 'min-h-[104px]' : position === 3 ? 'min-h-[94px]' : 'min-h-[86px]';
+  return <div className={'flex flex-col justify-end rounded-xl border px-2.5 py-3 text-center ' + height + ' ' + (position ? 'border-primary/20 bg-primary/[0.05]' : 'border-white/5 bg-black/10')}>
+    <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">{position ? '#' + position : '—'}</div>
+    <div className={'mt-1 text-[10px] font-black uppercase ' + config.text}>{house}</div>
+    <div className="mt-1 text-[8px] font-bold uppercase tracking-wider text-slate-500">{runnerCount}/4 runners</div>
+    <div className="mt-1 font-mono text-[10px] font-black text-slate-300">{timing || 'TBD'}</div>
+  </div>;
+};
+
 const houseConfig = (house: string) => { const key = house.toLowerCase() as keyof typeof HOUSE_COLORS; return HOUSE_COLORS[key] ?? HOUSE_COLORS.nilgiri; };
 
 const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot; }> = ({ students, snapshot }) => {
@@ -48,7 +59,10 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
 
     const openEvent = (event: AthleticsEvent) => { setSelectedEvent(event); setStage(finalsFor(event.id)?.enabled ? 'finals' : 'qualifying'); };
     const selectedFinalsEnabled = selectedEvent ? Boolean(finalsFor(selectedEvent.id)?.enabled) : false;
-    const selectedRanked = selectedEvent ? rankedResults(selectedEvent, stage) : [];
+    const selectedRanked = selectedEvent && !isRelayEvent(selectedEvent) ? rankedResults(selectedEvent, stage) : [];
+    const selectedRelayTeams = selectedEvent && isRelayEvent(selectedEvent)
+        ? RELAY_HOUSES.map(house => snapshot.relayTeams.find(team => team.eventId === selectedEvent.id && team.category === category && team.house === house))
+        : [];
 
     const makePlayer = (entry: ReturnType<typeof rankedResults>[number] | undefined): PodiumPlayer | null => {
         if (!entry) return null;
