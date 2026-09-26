@@ -175,13 +175,13 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
             rows.push({
               Category: category.category,
               Event: summary.event.name,
-              Type: summary.event.kind === 'track' ? 'Track' : 'Field',
+              Type: summary.event.kind === 'relay' ? 'House Relay' : summary.event.kind === 'track' ? 'Track' : 'Field',
               Stage: summary.stage,
-              Place: `${index + 1}${index === 0 ? 'st' : index === 1 ? 'nd' : 'rd'}`,
-              'Comp No': entry?.student.id || '—',
-              Athlete: entry?.student.name || 'TBD',
-              Class: entry?.student.className || '—',
-              House: entry?.student.house || '—',
+              Place: `${index + 1}${index === 0 ? 'st' : index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'}`,
+              'Comp No': entry?.student?.id || '—',
+              Athlete: entry?.student?.name || entry?.runnerNames?.join(' • ') || 'TBD',
+              Class: entry?.student?.className || '—',
+              House: entry?.student?.house || entry?.house || '—',
               Result: entry?.result || '—',
               Points: entry?.points ?? '—',
               'New Record': entry?.newResultAwarded ? 'Yes' : '—',
@@ -206,10 +206,11 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
             Category: category.category,
             Event: summary.event.name,
             Stage: summary.stage,
-            '1st': summary.podium[0]?.student.name || 'TBD',
+            '1st': summary.podium[0]?.student?.name || summary.podium[0]?.house || 'TBD',
             'New Record': summary.podium[0]?.newResultAwarded ? 'Yes' : '—',
-            '2nd': summary.podium[1]?.student.name || 'TBD',
-            '3rd': summary.podium[2]?.student.name || 'TBD'
+            '2nd': summary.podium[1]?.student?.name || summary.podium[1]?.house || 'TBD',
+            '3rd': summary.podium[2]?.student?.name || summary.podium[2]?.house || 'TBD',
+            ...(isRelayEvent(summary.event) ? { '4th': summary.podium[3]?.student?.name || summary.podium[3]?.house || 'TBD' } : {})
           });
         });
       });
@@ -246,17 +247,22 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
         children.push(new Paragraph({ spacing: { after: 170 }, children: [new TextRun({ text: `${category.events.length} eligible events`, color: '777777', size: 18 })] }));
 
         const tableRows = [
-          new TableRow({ children: ['Event', '1st', '2nd', '3rd'].map(header => new TableCell({ shading: { fill: 'E9E9E9', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: header, bold: true })] })] })) })
+          new TableRow({ children: ['Event', '1st', '2nd', '3rd', ...(category.events.some(item => isRelayEvent(item.event)) ? ['4th'] : [])].map(header => new TableCell({ shading: { fill: 'E9E9E9', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: header, bold: true })] })] })) })
         ];
 
         category.events.forEach(summary => {
           const podiumCells = summary.podium.map(entry => {
-            const award = entry?.newResultAwarded ? ' • NEW RECORD' : '';
-            const text = entry ? `${entry.student.name}${award}\n${entry.student.className} • ${entry.student.house}\n${entry.result}` : 'TBD';
+            if (!entry) return new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'TBD' })] })] });
+            if (isRelayEvent(summary.event)) {
+              const text = `${entry.house || 'House'}\n${(entry.runnerNames || []).join(' • ')}\n${entry.result} • ${entry.points} pts`;
+              return new TableCell({ children: text.split('\n').map((line, index) => new Paragraph({ children: [new TextRun({ text: line, bold: index === 0, size: index === 0 ? 18 : 15 })] })) });
+            }
+            const award = entry.newResultAwarded ? ' • NEW RECORD' : '';
+            const text = `${entry.student?.name || 'TBD'}${award}\n${entry.student?.className || '—'} • ${entry.student?.house || '—'}\n${entry.result}`;
             return new TableCell({ children: text.split('\n').map((line, index) => new Paragraph({ children: [new TextRun({ text: line, bold: index === 0, size: index === 0 ? 18 : 15 })] })) });
           });
           tableRows.push(new TableRow({ children: [
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${summary.event.name}\n${summary.event.kind === 'track' ? 'Track' : 'Field'} • ${summary.stage}`, bold: true, size: 17 })] })] }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${summary.event.name}\n${summary.event.kind === 'relay' ? 'House Relay' : summary.event.kind === 'track' ? 'Track' : 'Field'} • ${summary.stage}`, bold: true, size: 17 })] })] }),
             ...podiumCells
           ] }));
         });
@@ -407,10 +413,11 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
                     <table className="w-full min-w-[850px] border-collapse">
                       <thead>
                         <tr className="bg-white/[0.025] text-[9px] font-black uppercase tracking-[0.22em] text-slate-500 border-b border-white/5">
-                          <th className="w-[25%] px-4 py-3 text-left">Event</th>
-                          <th className="w-[25%] px-4 py-3 text-left">1st Place</th>
-                          <th className="w-[25%] px-4 py-3 text-left">2nd Place</th>
-                          <th className="w-[25%] px-4 py-3 text-left">3rd Place</th>
+                          <th className="w-[20%] px-4 py-3 text-left">Event</th>
+                          <th className="w-[20%] px-4 py-3 text-left">1st Place</th>
+                          <th className="w-[20%] px-4 py-3 text-left">2nd Place</th>
+                          <th className="w-[20%] px-4 py-3 text-left">3rd Place</th>
+                          {category.events.some(item => isRelayEvent(item.event)) && <th className="w-[20%] px-4 py-3 text-left">4th Place</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
@@ -422,7 +429,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
                                   <span className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${
                                     summary.event.kind === 'track' ? 'border-amber-500/25 bg-amber-500/10 text-amber-300' : 'border-sky-500/25 bg-sky-500/10 text-sky-300'
                                   }`}>
-                                    {summary.event.kind === 'track' ? 'Track' : 'Field'}
+                                    {summary.event.kind === 'relay' ? 'House Relay' : summary.event.kind === 'track' ? 'Track' : 'Field'}
                                   </span>
                                   <span className="text-xs font-bold text-slate-500 uppercase">{summary.stage}</span>
                                 </div>
@@ -431,39 +438,26 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
                             </td>
 
                             {summary.podium.map((entry, index) => {
-                              const cfg = entry ? houseConfig(entry.student.house) : null;
+                              const cfg = entry?.student ? houseConfig(entry.student.house) : entry?.house ? houseConfig(entry.house) : null;
                               return (
-                                <td key={`${summary.event.id}-${index}`} className="px-4 py-3.5 align-top">
+                                <td key={summary.event.id + '-' + index} className="px-4 py-3.5 align-top">
                                   {entry ? (
                                     <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
                                       <div className="flex items-start gap-2.5">
-                                        <span className={`flex size-6 shrink-0 items-center justify-center rounded-lg border text-[9px] font-black ${podiumRankStyle(index)}`}>
-                                          {index + 1}
-                                        </span>
+                                        <span className={'flex size-6 shrink-0 items-center justify-center rounded-lg border text-[9px] font-black ' + podiumRankStyle(index)}>{index + 1}</span>
                                         <div className="min-w-0 flex-1">
-                                          <div className="truncate text-xs font-black text-white">{entry.student.name}</div>
+                                          <div className="truncate text-xs font-black text-white">{isRelayEvent(summary.event) ? entry.house : entry.student?.name}</div>
                                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                            <span className={`inline-flex items-center rounded px-1.5 py-0.2 text-[8px] font-black uppercase ${cfg?.bg}/20 ${cfg?.text}`}>
-                                              {entry.student.house}
-                                            </span>
-                                            <span className="text-[9px] text-slate-500">{entry.student.className}</span>
+                                            <span className={'inline-flex items-center rounded px-1.5 py-0.2 text-[8px] font-black uppercase ' + (cfg?.bg || '') + '/20 ' + (cfg?.text || 'text-slate-400')}>{isRelayEvent(summary.event) ? '4 runners' : entry.student?.house}</span>
+                                            <span className="text-[9px] text-slate-500">{isRelayEvent(summary.event) ? (entry.runnerNames || []).join(' • ') : entry.student?.className}</span>
                                           </div>
-                                          <div className="mt-1.5 flex items-center justify-between gap-2">
-                                            <span className="font-mono text-xs font-bold text-amber-300">{entry.result}</span>
-                                            <span className="text-[10px] font-black text-primary">{entry.points} pts</span>
-                                          </div>
-                                          {entry.newResultAwarded && (
-                                            <span className="mt-1 inline-flex items-center gap-1 rounded border border-emerald-400/25 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-300">
-                                              <Icon name="add_circle" size="10" /> Record
-                                            </span>
-                                          )}
+                                          <div className="mt-1.5 flex items-center justify-between gap-2"><span className="font-mono text-xs font-bold text-amber-300">{entry.result}</span><span className="text-[10px] font-black text-primary">{entry.points} pts</span></div>
+                                          {entry.newResultAwarded && <span className="mt-1 inline-flex items-center gap-1 rounded border border-emerald-400/25 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-300"><Icon name="add_circle" size="10" /> Record</span>}
                                         </div>
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="rounded-xl border border-dashed border-white/5 bg-black/10 p-3 text-xs font-bold text-slate-600">
-                                      TBD
-                                    </div>
+                                    <div className="rounded-xl border border-dashed border-white/5 bg-black/10 p-3 text-xs font-bold text-slate-600">TBD</div>
                                   )}
                                 </td>
                               );
