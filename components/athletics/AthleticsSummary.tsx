@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, RELAY_HOUSES, relayPointsForPosition, isRelayEvent } from '../../utils/athleticsStorage';
 import { useToast } from '../ui/ToastProvider';
 import * as XLSX from 'xlsx';
 import { AlignmentType, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
@@ -41,11 +41,14 @@ const resultForStage = (snapshot: AthleticsSnapshot, eventId: string, category: 
 };
 
 type PodiumEntry = {
-  student: AthleticsStudent;
+  student?: AthleticsStudent;
+  house?: AthleticsHouse;
+  runnerNames?: string[];
   result: string;
-  stage: 'Qualifying' | 'Finals';
+  stage: 'Qualifying' | 'Finals' | 'One Round';
   points: number;
   newResultAwarded?: boolean;
+  relayPosition?: number;
 };
 
 type EventSummary = {
@@ -55,13 +58,23 @@ type EventSummary = {
 };
 
 const buildEventSummary = (category: AthleticsCategory, event: AthleticsEvent, students: AthleticsStudent[], snapshot: AthleticsSnapshot): EventSummary => {
+  if (isRelayEvent(event)) {
+    const studentMap = new Map(students.map(student => [student.id, student]));
+    const teams = RELAY_HOUSES.map(house => snapshot.relayTeams.find(team => team.eventId === event.id && team.category === category && team.house === house));
+    const podium = [1, 2, 3, 4].map(position => {
+      const team = teams.find(item => item?.status === 'finished' && item.position === position);
+      if (!team) return null;
+      return { house: team.house, runnerNames: team.studentIds.map(id => studentMap.get(id)?.name || id), result: team.timing || '—', stage: 'One Round' as const, points: relayPointsForPosition(position), relayPosition: position };
+    });
+    return { event, stage: 'One Round', podium };
+  }
+
   const categoryStudents = students.filter(student => student.category === category);
   const finalsConfig = snapshot.finals.find(finals => finals.eventId === event.id && finals.category === category);
   const finalsEnabled = Boolean(finalsConfig?.enabled);
   const stage: 'qualifying' | 'finals' = finalsEnabled ? 'finals' : 'qualifying';
   const eligibleIds = new Set(stage === 'finals' ? (finalsConfig?.studentIds || []) : (snapshot.enrollments.find(enrollment => enrollment.eventId === event.id && enrollment.category === category)?.studentIds || []));
   const studentMap = new Map(categoryStudents.map(student => [student.id, student]));
-
   const candidates = Array.from(eligibleIds)
     .map(id => {
       const student = studentMap.get(id);
@@ -71,23 +84,13 @@ const buildEventSummary = (category: AthleticsCategory, event: AthleticsEvent, s
     })
     .filter((entry): entry is { student: AthleticsStudent; result: NonNullable<ReturnType<typeof resultForStage>>; performance: number } => Boolean(entry) && Number.isFinite(entry.performance))
     .sort((a, b) => a.performance - b.performance);
-
   if (event.kind === 'field') candidates.reverse();
-
   const podium = [0, 1, 2].map(index => {
     const entry = candidates[index];
-    return entry ? {
-      student: entry.student,
-      result: entry.result.timing || '—',
-      stage: stage === 'finals' ? 'Finals' : 'Qualifying',
-      points: podiumPoints((index + 1) as 1 | 2 | 3, entry.result.newResultAwarded === true),
-      newResultAwarded: entry.result.newResultAwarded === true,
-    } : null;
+    return entry ? { student: entry.student, result: entry.result.timing || '—', stage: stage === 'finals' ? 'Finals' : 'Qualifying', points: podiumPoints((index + 1) as 1 | 2 | 3, entry.result.newResultAwarded === true), newResultAwarded: entry.result.newResultAwarded === true } : null;
   });
-
   return { event, stage: stage === 'finals' ? 'Finals' : 'Qualifying', podium };
 };
-
 const buildSummary = (students: AthleticsStudent[], snapshot: AthleticsSnapshot) => {
   return ATHLETICS_CATEGORIES.map(category => ({
     category,
@@ -280,7 +283,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
           <div className="royal-kicker mb-1">Championship Ledger</div>
           <h2 className="text-3xl font-black tracking-tight text-white">Athletics 2026 Summary</h2>
           <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-400">
-            Expand each age category dropdown to view the top scorer(s) and 1st, 2nd, and 3rd place event results.
+            Expand each age category dropdown to view the top scorer(s), individual event podiums, and four-house relay results.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -334,7 +337,7 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
         </div>
         <div className="rounded-2xl border border-white/8 bg-white/[0.025] px-4 py-3">
           <div className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Places Per Event</div>
-          <div className="mt-1 text-2xl font-black text-white">1st • 2nd • 3rd</div>
+          <div className="mt-1 text-2xl font-black text-white">1st • 2nd • 3rd • Relay 4th</div>
         </div>
       </div>
 
