@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
-import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent, relayHousePoints } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
-import { eventPoints } from '../../utils/athleticsScoring';
+import { studentPointsAcrossEvents } from '../../utils/athleticsScoring';
 
 const houseConfig = (house: string) => HOUSE_COLORS[(house.toLowerCase() as keyof typeof HOUSE_COLORS)] ?? HOUSE_COLORS.nilgiri;
 const HOUSES_LIST = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
@@ -19,64 +19,94 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     return houseOk && deptOk;
   }), [students, houseFilter, deptFilter]);
 
-  const filteredIds = new Set(filteredStudents.map(s => s.id));
+  const filteredIds = useMemo(() => new Set(filteredStudents.map(s => s.id)), [filteredStudents]);
+
+  const departmentOfStudent = (student: AthleticsStudent) =>
+    student.category.startsWith('PD') ? 'PD' : student.category.startsWith('GD') ? 'GD' : 'BD';
 
   const analytics = useMemo(() => {
-    let totalEnrolled = 0, totalFinished = 0, totalDnf = 0, totalAbsent = 0, totalMed = 0, totalPending = 0;
-    const byHouse: Record<string, { enrolled: number; finished: number; absent: number; med: number; points: number }> = {};
-    const byDept: Record<string, { enrolled: number; finished: number; absent: number; med: number; points: number }> = {};
+    type ScopeStats = { enrolled: number; qualified: number; finished: number; dnf: number; absent: number; med: number; points: number };
+    let totalEnrolled = 0, totalQualified = 0, totalFinished = 0, totalDnf = 0, totalAbsent = 0, totalMed = 0, totalPending = 0;
+    const byHouse: Record<string, ScopeStats> = {};
+    const byDept: Record<string, ScopeStats> = {};
+    HOUSES_LIST.forEach(h => { byHouse[h] = { enrolled: 0, qualified: 0, finished: 0, dnf: 0, absent: 0, med: 0, points: 0 }; });
+    ['BD', 'GD', 'PD'].forEach(d => { byDept[d] = { enrolled: 0, qualified: 0, finished: 0, dnf: 0, absent: 0, med: 0, points: 0 }; });
 
-    HOUSES_LIST.forEach(h => { byHouse[h] = { enrolled: 0, finished: 0, absent: 0, med: 0, points: 0 }; });
-    ['BD', 'GD', 'PD'].forEach(d => { byDept[d] = { enrolled: 0, finished: 0, absent: 0, med: 0, points: 0 }; });
+    const addParticipation = (student: AthleticsStudent) => {
+      const dept = departmentOfStudent(student);
+      totalEnrolled += 1; byHouse[student.house].enrolled += 1; byDept[dept].enrolled += 1;
+    };
+    const addQualified = (student: AthleticsStudent) => {
+      const dept = departmentOfStudent(student);
+      totalQualified += 1; byHouse[student.house].qualified += 1; byDept[dept].qualified += 1;
+    };
+    const addFinished = (student: AthleticsStudent) => {
+      const dept = departmentOfStudent(student);
+      totalFinished += 1; byHouse[student.house].finished += 1; byDept[dept].finished += 1;
+    };
+    const addDnf = (student: AthleticsStudent) => {
+      const dept = departmentOfStudent(student);
+      totalDnf += 1; byHouse[student.house].dnf += 1; byDept[dept].dnf += 1;
+    };
 
     snapshot.enrollments.forEach(entry => {
       entry.studentIds.forEach(sid => {
         if (!filteredIds.has(sid)) return;
         const stu = students.find(s => s.id === sid);
         if (!stu) return;
-        
-        const dept = stu.category.startsWith('PD') ? 'PD' : stu.category.startsWith('GD') ? 'GD' : 'BD';
-        
-        // Find finals config for this event/category
+        addParticipation(stu);
         const finalsConfig = snapshot.finals.find(f => f.eventId === entry.eventId && f.category === entry.category);
         const stage = finalsConfig?.enabled ? 'finals' : 'qualifying';
-        
-        const athleticsEvent = ATHLETICS_EVENTS.find(item => item.id === entry.eventId);
         const result = snapshot.results.find(r => r.eventId === entry.eventId && r.category === entry.category && r.studentId === sid && (r.stage || 'qualifying') === stage);
-        
         const status = result?.status || 'pending';
-        const position = result?.position;
-
-        totalEnrolled++;
-        byHouse[stu.house].enrolled++;
-        byDept[dept].enrolled++;
-
-        if (status === 'finished') {
-          totalFinished++;
-          byHouse[stu.house].finished++;
-          byDept[dept].finished++;
-          const pts = athleticsEvent ? eventPoints(snapshot, stu, athleticsEvent) : 0;
-          byHouse[stu.house].points += pts;
-          byDept[dept].points += pts;
-        } else if (status === 'dnf') {
-          totalDnf++;
-        } else if (status === 'absent') {
-          totalAbsent++;
-          byHouse[stu.house].absent++;
-          byDept[dept].absent++;
-        } else if (status === 'medically_excused') {
-          totalMed++;
-          byHouse[stu.house].med++;
-          byDept[dept].med++;
-        } else {
-          totalPending++;
-        }
+        if (status === 'finished') { addFinished(stu); addQualified(stu); }
+        else if (status === 'dnf') addDnf(stu);
+        else if (status === 'absent') { totalAbsent += 1; byHouse[stu.house].absent += 1; byDept[departmentOfStudent(stu)].absent += 1; }
+        else if (status === 'medically_excused') { totalMed += 1; byHouse[stu.house].med += 1; byDept[departmentOfStudent(stu)].med += 1; }
+        else totalPending += 1;
       });
     });
 
-    return { totalEnrolled, totalFinished, totalDnf, totalAbsent, totalMed, totalPending, byHouse, byDept };
-  }, [snapshot, filteredIds, students]);
+    snapshot.relayTeams.forEach(team => {
+      team.studentIds.forEach(sid => {
+        if (!filteredIds.has(sid)) return;
+        const stu = students.find(s => s.id === sid);
+        if (!stu) return;
+        const dept = departmentOfStudent(stu);
+        if (houseFilter !== 'All' && stu.house !== houseFilter) return;
+        if (deptFilter !== 'All' && dept !== deptFilter) return;
+        addParticipation(stu);
+        if (team.status === 'dnf') addDnf(stu);
+        else { addQualified(stu); if (team.status === 'finished') addFinished(stu); }
+      });
+    });
 
+    HOUSES_LIST.forEach(house => {
+      if (houseFilter !== 'All' && house !== houseFilter) return;
+      const inScope = students.filter(student => student.house === house && (deptFilter === 'All' || departmentOfStudent(student) === deptFilter));
+      const individualPoints = inScope.reduce((sum, student) => sum + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS), 0);
+      const relayPoints = deptFilter === 'PD'
+        ? relayHousePoints(snapshot, house, 'PDB') + relayHousePoints(snapshot, house, 'PDG')
+        : deptFilter === 'All' ? relayHousePoints(snapshot, house) : relayHousePoints(snapshot, house, deptFilter);
+      byHouse[house].points = individualPoints + relayPoints;
+    });
+
+    (['BD', 'GD', 'PD'] as const).forEach(dept => {
+      if (deptFilter !== 'All' && dept !== deptFilter) return;
+      byDept[dept].points = HOUSES_LIST.reduce((sum, house) => {
+        if (houseFilter !== 'All' && house !== houseFilter) return sum;
+        const individual = students.filter(student => student.house === house && departmentOfStudent(student) === dept)
+          .reduce((inner, student) => inner + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS), 0);
+        const relay = dept === 'PD'
+          ? relayHousePoints(snapshot, house, 'PDB') + relayHousePoints(snapshot, house, 'PDG')
+          : relayHousePoints(snapshot, house, dept);
+        return sum + individual + relay;
+      }, 0);
+    });
+
+    const totalPoints = HOUSES_LIST.reduce((sum, house) => sum + byHouse[house].points, 0);
+    return { totalEnrolled, totalQualified, totalFinished, totalDnf, totalAbsent, totalMed, totalPending, totalPoints, byHouse, byDept };
+  }, [snapshot, filteredIds, students, houseFilter, deptFilter]);
   const pct = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : '—';
 
   const housePpp = HOUSES_LIST.map(h => ({
@@ -116,15 +146,16 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
       </div>
 
       {/* Top KPI tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-3">
         {[
           { label: 'Participations', value: analytics.totalEnrolled, accent: 'text-white', icon: 'groups' },
-          { label: 'Qualified', value: `${analytics.totalFinished} (${qualRate})`, accent: 'text-emerald-400', icon: 'check_circle' },
+          { label: 'Qualified', value: `${analytics.totalQualified} (${qualRate})`, accent: 'text-emerald-400', icon: 'check_circle' },
+          { label: 'Championship Points', value: analytics.totalPoints, accent: 'text-primary', icon: 'emoji_events' },
           { label: 'Pending', value: analytics.totalPending, accent: 'text-slate-400', icon: 'hourglass_top' },
           { label: 'DNF', value: analytics.totalDnf, accent: 'text-amber-400', icon: 'cancel' },
           { label: 'Absent', value: `${analytics.totalAbsent} (${absentRate})`, accent: 'text-rose-400', icon: 'person_off' },
           { label: 'Med. Excused', value: `${analytics.totalMed} (${medRate})`, accent: 'text-purple-400', icon: 'medical_services' },
-        ].map(tile => (
+                ].map(tile => (
           <div key={tile.label} className="rounded-xl border border-primary/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-3 flex flex-col justify-between shadow-lg shadow-black/20">
             <div className="flex items-center justify-between gap-1 mb-2">
               <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider leading-tight">{tile.label}</span>
@@ -149,7 +180,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
                 <th>Rank</th>
                 <th>House</th>
                 <th>Participations</th>
-                <th>Finished</th>
+                <th>Qualified</th>
                 <th>Points</th>
                 <th>PPP</th>
                 <th>Absent</th>
@@ -170,8 +201,8 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
                     </td>
                     <td className="text-center font-bold">{h.enrolled}</td>
                     <td className="text-center">
-                      <span className="text-emerald-400 font-bold">{h.finished}</span>
-                      <span className="text-slate-500 text-xs ml-1">({pct(h.finished, h.enrolled)})</span>
+                      <span className="text-emerald-400 font-bold">{h.qualified}</span>
+                      <span className="text-slate-500 text-xs ml-1">({pct(h.qualified, h.enrolled)})</span>
                     </td>
                     <td className="text-center font-black text-white">{h.points}</td>
                     <td className="text-center">
@@ -222,8 +253,8 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
                     <td><span className={`font-black text-sm ${deptColors[d.name] || 'text-white'}`}>{d.name}</span></td>
                     <td className="text-center font-bold">{d.enrolled}</td>
                     <td className="text-center">
-                      <span className="text-emerald-400 font-bold">{d.finished}</span>
-                      <span className="text-slate-500 text-xs ml-1">({pct(d.finished, d.enrolled)})</span>
+                      <span className="text-emerald-400 font-bold">{d.qualified}</span>
+                      <span className="text-slate-500 text-xs ml-1">({pct(d.qualified, d.enrolled)})</span>
                     </td>
                     <td className="text-center font-black text-white">{d.points}</td>
                     <td className="text-center">
