@@ -1,4 +1,4 @@
-import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent } from './athleticsStorage';
+import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, getAthleticsDepartment, isRelayEvent, relayHousePoints, relayPointsForPosition, relayTiebreakPointsForStudent } from './athleticsStorage';
 
 export const placementPoints = (position?: number) =>
   position === 1 ? 4 :
@@ -22,6 +22,9 @@ export const eventPoints = (
   student: AthleticsStudent,
   event: AthleticsEvent,
 ) => {
+  // Relay points are house/team points and never enter a student's displayed
+  // individual event tally. They are used separately as a cross-house tiebreak.
+  if (isRelayEvent(event)) return 0;
   if (!eventAllowedForStudent(event, student)) return 0;
 
   const qualifying = snapshot.results.find(result =>
@@ -71,6 +74,60 @@ export const studentPointsAcrossEvents = (
   student: AthleticsStudent,
   events: AthleticsEvent[],
 ) => events.reduce((sum, event) => sum + eventPoints(snapshot, student, event), 0);
+
+export const houseChampionshipPoints = (snapshot: AthleticsSnapshot, house: AthleticsHouse, department?: AthleticsDepartment) => {
+  return relayHousePoints(snapshot, house, department);
+};
+
+export const individualRelayTiebreakPoints = (snapshot: AthleticsSnapshot, studentId: string) => {
+  return relayTiebreakPointsForStudent(snapshot, studentId);
+};
+
+export const compareIndividualChampionshipRows = (
+  snapshot: AthleticsSnapshot,
+  a: { student: AthleticsStudent; points: number },
+  b: { student: AthleticsStudent; points: number },
+) => {
+  if (a.points !== b.points) return b.points - a.points;
+
+  // Relay tiebreaks are relevant only when a tied score spans different houses.
+  // This comparison is pairwise; callers grouping by equal points should use
+  // this only for groups that contain more than one house.
+  if (a.student.house !== b.student.house) {
+    const aRelay = individualRelayTiebreakPoints(snapshot, a.student.id);
+    const bRelay = individualRelayTiebreakPoints(snapshot, b.student.id);
+    if (aRelay !== bRelay) return bRelay - aRelay;
+  }
+
+  return a.student.name.localeCompare(b.student.name);
+};
+
+export const sortIndividualChampionshipRows = (
+  snapshot: AthleticsSnapshot,
+  rows: Array<{ student: AthleticsStudent; points: number }>,
+) => {
+  const grouped = new Map<number, Array<{ student: AthleticsStudent; points: number }>>();
+  rows.forEach(row => {
+    const list = grouped.get(row.points) || [];
+    list.push(row);
+    grouped.set(row.points, list);
+  });
+
+  return Array.from(grouped.keys())
+    .sort((a, b) => b - a)
+    .flatMap(points => {
+      const group = grouped.get(points) || [];
+      const multipleHouses = new Set(group.map(row => row.student.house)).size > 1;
+      return [...group].sort((a, b) => {
+        if (multipleHouses) {
+          const aRelay = individualRelayTiebreakPoints(snapshot, a.student.id);
+          const bRelay = individualRelayTiebreakPoints(snapshot, b.student.id);
+          if (aRelay !== bRelay) return bRelay - aRelay;
+        }
+        return a.student.name.localeCompare(b.student.name);
+      });
+    });
+};
 
 export const podiumPoints = (position: 1 | 2 | 3, newRecordAwarded = false) =>
   (position === 1 ? 5 : position === 2 ? 4 : 3) + (newRecordAwarded ? 3 : 0);
