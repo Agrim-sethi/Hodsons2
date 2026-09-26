@@ -53,7 +53,7 @@ type PodiumEntry = {
 
 type EventSummary = {
   event: AthleticsEvent;
-  stage: 'Qualifying' | 'Finals';
+  stage: 'Qualifying' | 'Finals' | 'One Round';
   podium: Array<PodiumEntry | null>;
 };
 
@@ -104,7 +104,9 @@ const podiumRankStyle = (rank: number) => rank === 0
   ? 'bg-yellow-400/10 text-yellow-300 border-yellow-300/20'
   : rank === 1
     ? 'bg-slate-300/10 text-slate-200 border-slate-300/20'
-    : 'bg-amber-600/10 text-amber-400 border-amber-500/20';
+    : rank === 2
+      ? 'bg-amber-600/10 text-amber-400 border-amber-500/20'
+      : 'bg-white/5 text-slate-400 border-white/10';
 
 const downloadBlob = (blob: Blob, filename: string, showToast: (args: { title: string; description: string }) => void) => {
   const url = URL.createObjectURL(blob);
