@@ -6,7 +6,7 @@ import { HOUSE_COLORS } from '../../constants';
 import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, relayHousePoints } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
 import { useToast } from '../ui/ToastProvider';
-import { eventPoints as sharedEventPoints, studentPointsAcrossEvents, sortIndividualChampionshipRows } from '../../utils/athleticsScoring';
+import { eventPoints as sharedEventPoints, studentPointsAcrossEvents, sortIndividualChampionshipRows, topIndividualChampionshipRows } from '../../utils/athleticsScoring';
 
 const HOUSES = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
 type Department = 'BD' | 'GD' | 'PD';
@@ -156,10 +156,8 @@ const IndividualPerformance: React.FC<{ students: AthleticsStudent[]; snapshot: 
   const [paradeCategoryFilter, setParadeCategoryFilter] = React.useState('All');
   const individuals = React.useMemo(() => students.map(student => ({ student, points: studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS) })).filter(row => row.points > 0).sort((a,b) => b.points-a.points || a.student.name.localeCompare(b.student.name)), [students, snapshot]);
   const topByCategory = React.useMemo(() => ATHLETICS_CATEGORIES.map(category => {
-    const categoryRows = sortIndividualChampionshipRows(snapshot, individuals.filter(row => row.student.category === category));
-    const topPoints = categoryRows[0]?.points ?? 0;
-    const tiedLeaders = topPoints > 0 ? categoryRows.filter(row => row.points === topPoints).slice(0, 3) : [];
-    return { category, top: tiedLeaders };
+    const categoryRows = topIndividualChampionshipRows(snapshot, individuals.filter(row => row.student.category === category));
+    return { category, top: categoryRows.slice(0, 3) };
   }), [individuals]);
   const searchResults = React.useMemo(() => { const query=search.trim().toLowerCase(); if(!query)return []; return individuals.filter(row=>row.student.name.toLowerCase().includes(query)||row.student.id.toLowerCase().includes(query)).slice(0,20); }, [individuals,search]);
   const paradeStudents = React.useMemo(() => individuals.filter(row=>row.points>=PARADE_THRESHOLD).filter(row=>paradeHouseFilter==='All'||row.student.house===paradeHouseFilter).filter(row=>paradeCategoryFilter==='All'||row.student.category===paradeCategoryFilter), [individuals,paradeHouseFilter,paradeCategoryFilter]);
