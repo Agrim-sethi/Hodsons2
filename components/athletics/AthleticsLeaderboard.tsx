@@ -3,10 +3,10 @@ import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Re
 import * as XLSX from 'xlsx';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, relayHousePoints } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
 import { useToast } from '../ui/ToastProvider';
-import { eventPoints as sharedEventPoints, studentPointsAcrossEvents } from '../../utils/athleticsScoring';
+import { eventPoints as sharedEventPoints, studentPointsAcrossEvents, sortIndividualChampionshipRows } from '../../utils/athleticsScoring';
 
 const HOUSES = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
 type Department = 'BD' | 'GD' | 'PD';
@@ -42,16 +42,23 @@ const eventAllowedForCategory = (event: AthleticsEvent, category: string) => {
 const eventPoints = (snapshot: AthleticsSnapshot, student: AthleticsStudent, event: AthleticsEvent) =>
   sharedEventPoints(snapshot, student, event);
 
+const relayPointsForDepartment = (snapshot: AthleticsSnapshot, house: typeof HOUSES[number], department?: Department) => {
+  if (!department) return relayHousePoints(snapshot, house);
+  if (department === 'PD') return relayHousePoints(snapshot, house, 'PDB') + relayHousePoints(snapshot, house, 'PDG');
+  return relayHousePoints(snapshot, house, department);
+};
+
 const buildHouseRows = (students: AthleticsStudent[], snapshot: AthleticsSnapshot, department?: Department) => HOUSES.map(house => {
   const inScope = students.filter(student => student.house === house && (!department || departmentOfCategory(student.category) === department));
-  const points = inScope.reduce((sum, student) => sum + ATHLETICS_EVENTS.reduce((eventSum, event) => eventSum + eventPoints(snapshot, student, event), 0), 0);
+  const individualPoints = inScope.reduce((sum, student) => sum + ATHLETICS_EVENTS.reduce((eventSum, event) => eventSum + eventPoints(snapshot, student, event), 0), 0);
+  const points = individualPoints + relayPointsForDepartment(snapshot, house, department);
   return { name: house, house, points };
 }).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
 
-const buildIndividuals = (students: AthleticsStudent[], snapshot: AthleticsSnapshot) => students.map(student => ({
-  student,
-  points: studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS)
-})).filter(row => row.points > 0).sort((a, b) => b.points - a.points || a.student.name.localeCompare(b.student.name));
+const buildIndividuals = (students: AthleticsStudent[], snapshot: AthleticsSnapshot) => sortIndividualChampionshipRows(
+  snapshot,
+  students.map(student => ({ student, points: studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS) })).filter(row => row.points > 0),
+);
 
 const AthleticsRaceChart: React.FC<{
   title: string;
@@ -149,7 +156,7 @@ const IndividualPerformance: React.FC<{ students: AthleticsStudent[]; snapshot: 
   const [paradeCategoryFilter, setParadeCategoryFilter] = React.useState('All');
   const individuals = React.useMemo(() => students.map(student => ({ student, points: studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS) })).filter(row => row.points > 0).sort((a,b) => b.points-a.points || a.student.name.localeCompare(b.student.name)), [students, snapshot]);
   const topByCategory = React.useMemo(() => ATHLETICS_CATEGORIES.map(category => {
-    const categoryRows = individuals.filter(row => row.student.category === category);
+    const categoryRows = sortIndividualChampionshipRows(snapshot, individuals.filter(row => row.student.category === category));
     const topPoints = categoryRows[0]?.points ?? 0;
     const tiedLeaders = topPoints > 0 ? categoryRows.filter(row => row.points === topPoints).slice(0, 3) : [];
     return { category, top: tiedLeaders };
