@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { useToast } from '../ui/ToastProvider';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, AthleticsRelayTeam, RELAY_HOUSES, relayEligibleCategories } from '../../utils/athleticsStorage';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
 
 type AthleticsStudent = {
@@ -163,6 +163,7 @@ const AthleticsEventManager: React.FC<Props> = ({
   const [search, setSearch] = React.useState('');
   const [houseFilter, setHouseFilter] = React.useState('All');
   const [savedStudent, setSavedStudent] = React.useState<string | null>(null);
+  const [relayHouse, setRelayHouse] = React.useState<(typeof HOUSES)[number]>('Vindhya');
 
   const studentMap = React.useMemo(() => {
     return new Map(students.map((student) => [student.id, student]));
@@ -181,6 +182,7 @@ const AthleticsEventManager: React.FC<Props> = ({
   const currentIds = stage === 'finals' ? finalistIds : enrollment;
 
   const isHighJump = event.id === 'high-jump';
+  const isRelay = event.kind === 'relay';
 
   const highJumpConfig = React.useMemo(() => {
     return snapshot.highJump?.find((entry) => entry.category === category && entry.stage === stage);
@@ -229,6 +231,19 @@ const AthleticsEventManager: React.FC<Props> = ({
     );
   };
 
+  const getRelayTeam = React.useCallback((house: (typeof HOUSES)[number]): AthleticsRelayTeam => {
+    return snapshot.relayTeams.find(team => team.eventId === event.id && team.category === category && team.house === house) || {
+      eventId: event.id,
+      category,
+      house,
+      studentIds: [],
+      status: 'pending',
+      timing: '',
+      position: undefined,
+    };
+  }, [snapshot.relayTeams, event.id, category]);
+
+  const eligibleRelayCategoriesForCurrentEvent = React.useMemo(() => relayEligibleCategories(category), [category]);
   const saveSnapshot = (
     nextSnapshot: AthleticsSnapshot,
     title: string,
@@ -340,6 +355,70 @@ const AthleticsEventManager: React.FC<Props> = ({
     );
   };
 
+  const updateRelayTeam = (house: (typeof HOUSES)[number], patch: Partial<AthleticsRelayTeam>, title = 'Relay Team Updated', description = 'Relay team updated.') => {
+    if (!isLoggedIn) return;
+    const existing = getRelayTeam(house);
+    const nextTeam: AthleticsRelayTeam = { ...existing, ...patch, studentIds: (patch.studentIds || existing.studentIds).slice(0, 4) };
+    const hasEntry = snapshot.relayTeams.some(team => team.eventId === event.id && team.category === category && team.house === house);
+    const relayTeams = hasEntry
+      ? snapshot.relayTeams.map(team => team.eventId === event.id && team.category === category && team.house === house ? nextTeam : team)
+      : [...snapshot.relayTeams, nextTeam];
+    saveSnapshot({ ...snapshot, relayTeams }, title, description);
+  };
+
+  const toggleRelayStudent = (studentId: string) => {
+    if (!isLoggedIn) return;
+    const team = getRelayTeam(relayHouse);
+    const enrolled = team.studentIds.includes(studentId);
+    if (enrolled) {
+      const nextIds = team.studentIds.filter(id => id !== studentId);
+      updateRelayTeam(relayHouse, { studentIds: nextIds, status: 'pending', timing: '', position: undefined }, 'Runner Removed', `${studentMap.get(studentId)?.name || 'Student'} removed from the ${relayHouse} relay.`);
+      return;
+    }
+    if (team.studentIds.length >= 4) {
+      showToast({ title: 'Team Full', description: 'Each house can have exactly 4 relay runners.' });
+      return;
+    }
+    const eligible = students.find(student => student.id === studentId && eligibleRelayCategoriesForCurrentEvent.includes(student.category) && student.house === relayHouse);
+    if (!eligible) {
+      showToast({ title: 'Runner Not Eligible', description: 'This student is not eligible for this house relay category.' });
+      return;
+    }
+    const alreadyInAnotherHouse = snapshot.relayTeams.some(team => team.eventId === event.id && team.category === category && team.house !== relayHouse && team.studentIds.includes(studentId));
+    if (alreadyInAnotherHouse) {
+      showToast({ title: 'Runner Already Assigned', description: 'A runner cannot represent two houses in the same relay.' });
+      return;
+    }
+    updateRelayTeam(relayHouse, { studentIds: [...team.studentIds, studentId], status: 'pending', timing: '', position: undefined }, 'Runner Added', `${eligible.name} added to the ${relayHouse} ${event.name} team.`);
+  };
+
+  const updateRelayTiming = (house: (typeof HOUSES)[number], key: 'minutes' | 'seconds' | 'milliseconds', value: string, max: number) => {
+    const team = getRelayTeam(house);
+    const current = splitTrackTiming(team.timing);
+    const next = { ...current, [key]: String(clampNumber(value, max)) };
+    const timing = [clampNumber(next.minutes, 999), clampNumber(next.seconds, 59), clampNumber(next.milliseconds, 999)].join(':');
+    updateRelayTeam(house, { timing }, 'Relay Time Saved', `${house} ${event.name} time updated.`);
+  };
+
+  const updateRelayStatus = (house: (typeof HOUSES)[number], status: 'pending' | 'finished') => {
+    const team = getRelayTeam(house);
+    if (status === 'finished' && (team.studentIds.length !== 4 || !team.timing || !Number.isFinite(parseTrackTiming(team.timing)))) {
+      showToast({ title: 'Relay Incomplete', description: 'A relay needs exactly 4 runners and a valid time before it can be marked finished.' });
+      return;
+    }
+    updateRelayTeam(house, { status, position: status === 'pending' ? undefined : team.position }, 'Relay Status Saved', `${house} ${event.name} is ${status}.`);
+  };
+
+  const autoRankRelay = () => {
+    if (!isLoggedIn) return;
+    const ranked = RELAY_HOUSES
+      .map(house => getRelayTeam(house))
+      .filter(team => team.studentIds.length === 4 && team.status === 'finished' && team.timing && Number.isFinite(parseTrackTiming(team.timing)))
+      .sort((a, b) => parseTrackTiming(a.timing || '') - parseTrackTiming(b.timing || ''));
+    const positions = new Map(ranked.map((team, index) => [team.house, index + 1]));
+    const relayTeams = snapshot.relayTeams.map(team => team.eventId === event.id && team.category === category ? { ...team, position: positions.get(team.house) } : team);
+    saveSnapshot({ ...snapshot, relayTeams }, 'Relay Positions Calculated', `${ranked.length} house relay teams ranked.`);
+  };
   const updateResult = (
     studentId: string,
     resultStage: AthleticsStage,
@@ -857,8 +936,85 @@ const AthleticsEventManager: React.FC<Props> = ({
     setSearch('');
     setHouseFilter('All');
     setStage('qualifying');
-  }, [event.id]);
+    setRelayHouse('Vindhya');
+    setTab('enrollment');
+  }, [event.id, category]);
 
+  const renderRelay = () => {
+    const selectedTeam = getRelayTeam(relayHouse);
+    const eligibleStudents = students.filter(student => student.house === relayHouse && eligibleRelayCategoriesForCurrentEvent.includes(student.category)).sort((a, b) => a.name.localeCompare(b.name));
+    const selectedSet = new Set(selectedTeam.studentIds);
+
+    if (tab === 'enrollment') {
+      return (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-4 text-sm text-slate-300">
+            <div className="font-black text-white">House Relay • One Race Only</div>
+            <div className="mt-1 text-xs leading-relaxed text-slate-400">Select exactly 4 runners for each house. Runners may come from {eligibleRelayCategoriesForCurrentEvent.join(' + ')} but must all belong to the selected house and department.</div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {RELAY_HOUSES.map(house => {
+              const team = getRelayTeam(house);
+              const config = houseConfig(house);
+              return <button key={house} type="button" onClick={() => setRelayHouse(house)} className={`rounded-xl border px-3 py-3 text-left transition-colors ${relayHouse === house ? 'border-primary/50 bg-primary/10' : 'border-white/10 bg-white/[0.02] hover:border-primary/30'}`}>
+                <div className={`text-xs font-black uppercase ${config.text}`}>{house}</div>
+                <div className="mt-1 text-lg font-black text-white">{team.studentIds.length}/4</div>
+                <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{team.status === 'finished' ? 'Result set' : 'Team setup'}</div>
+              </button>;
+            })}
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div><div className="royal-kicker mb-1">{relayHouse} Team</div><h3 className="text-lg font-black text-white">Choose 4 runners</h3></div>
+              <div className="text-xs font-black uppercase tracking-wider text-primary">{selectedTeam.studentIds.length}/4 selected</div>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {[0, 1, 2, 3].map(slot => {
+                const runnerId = selectedTeam.studentIds[slot];
+                const runner = runnerId ? studentMap.get(runnerId) : undefined;
+                return <div key={slot} className="rounded-lg border border-white/5 bg-black/10 px-3 py-2.5"><div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Runner {slot + 1}</div><div className="mt-1 text-xs font-bold text-white">{runner?.name || 'Open slot'}</div>{runner && <div className="mt-0.5 text-[9px] text-slate-500">#{runner.id} • {runner.category}</div>}</div>;
+              })}
+            </div>
+          </div>
+          <div>
+            <div className="mb-3 flex items-center justify-between gap-3"><div><h3 className="text-sm font-black text-white">Eligible {relayHouse} runners</h3><p className="mt-1 text-[10px] text-slate-500">{eligibleRelayCategoriesForCurrentEvent.join(' • ')}</p></div><span className="text-[10px] font-bold text-slate-500">{eligibleStudents.length} eligible</span></div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {eligibleStudents.map(student => {
+                const enrolled = selectedSet.has(student.id);
+                const otherHouse = snapshot.relayTeams.some(team => team.eventId === event.id && team.category === category && team.house !== relayHouse && team.studentIds.includes(student.id));
+                const disabled = !isLoggedIn || (!enrolled && (selectedTeam.studentIds.length >= 4 || otherHouse));
+                return <button key={student.id} type="button" disabled={disabled} onClick={() => toggleRelayStudent(student.id)} className={`rounded-xl border p-3 text-left transition-colors ${enrolled ? 'border-emerald-500/35 bg-emerald-500/[0.045]' : 'border-white/10 bg-white/[0.02] hover:border-primary/30'} disabled:cursor-not-allowed disabled:opacity-50`}><div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="truncate text-xs font-black text-white">{student.name}</div><div className="mt-1 text-[9px] text-slate-500">#{student.id} • {student.category}</div></div><span className={`shrink-0 text-[9px] font-black uppercase ${enrolled ? 'text-emerald-300' : otherHouse ? 'text-rose-300' : 'text-slate-500'}`}>{enrolled ? '✓ Runner' : otherHouse ? 'Other House' : 'Select'}</span></div></button>;
+              })}
+              {eligibleStudents.length === 0 && <div className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-slate-500">No eligible runners from {relayHouse} are available.</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="royal-kicker mb-1">One-Round Race</div><h3 className="text-xl font-black text-white">{event.name} Results</h3><p className="mt-1 text-xs text-slate-500">One race across the four houses. Relay points: 8 • 6 • 4 • 2.</p></div><button type="button" disabled={!isLoggedIn} onClick={autoRankRelay} className="royal-primary-btn rounded-xl px-4 py-2 text-xs font-black uppercase disabled:opacity-50">Auto-Rank</button></div>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {RELAY_HOUSES.map(house => {
+            const team = getRelayTeam(house);
+            const config = houseConfig(house);
+            const canFinish = team.studentIds.length === 4 && Boolean(team.timing) && Number.isFinite(parseTrackTiming(team.timing));
+            const track = splitTrackTiming(team.timing);
+            return <div key={house} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+              <div className="flex items-start justify-between gap-3"><div><div className={`text-xs font-black uppercase ${config.text}`}>{house}</div><div className="mt-1 text-[10px] text-slate-500">{team.studentIds.length}/4 runners</div></div><span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase ${team.status === 'finished' ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/[0.03] text-slate-400'}`}>{team.status === 'finished' ? 'Finished' : 'Pending'}</span></div>
+              <div className="mt-3 flex flex-wrap gap-1.5">{team.studentIds.map(id => <span key={id} className="rounded-md border border-white/10 bg-black/10 px-2 py-1 text-[9px] font-bold text-slate-300">{studentMap.get(id)?.name || id}</span>)}{team.studentIds.length === 0 && <span className="text-[10px] text-slate-600">No runners selected</span>}</div>
+              <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-3">
+                <div><div className="mb-1 text-[9px] font-black uppercase tracking-wider text-slate-500">Race Time</div><div className="flex items-center gap-1.5"><input disabled={!isLoggedIn} type="number" min="0" value={track.minutes} onChange={e => updateRelayTiming(house,'minutes',e.target.value,999)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" /><span>:</span><input disabled={!isLoggedIn} type="number" min="0" max="59" value={track.seconds} onChange={e => updateRelayTiming(house,'seconds',e.target.value,59)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" /><span>:</span><input disabled={!isLoggedIn} type="number" min="0" max="999" value={track.milliseconds} onChange={e => updateRelayTiming(house,'milliseconds',e.target.value,999)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" /></div></div>
+                <div><div className="mb-1 text-[9px] font-black uppercase tracking-wider text-slate-500">Place</div><input disabled={!isLoggedIn} type="number" min="1" max="4" value={team.position || ''} onChange={e => updateRelayTeam(house,{position:e.target.value ? Math.min(4,Math.max(1,Number(e.target.value))) : undefined},'Relay Position Saved',`${house} position updated.`)} className="royal-input w-20 rounded-lg px-2 py-2 text-center text-xs" placeholder="#" /></div>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3"><span className="text-[9px] text-slate-500">{team.studentIds.length === 4 ? 'Team complete' : 'Exactly 4 runners required'}</span><select disabled={!isLoggedIn} value={team.status} onChange={e => updateRelayStatus(house,e.target.value as 'pending'|'finished')} className="royal-input rounded-lg px-2 py-2 text-[10px] font-black uppercase disabled:opacity-50"><option value="pending">Pending</option><option value="finished" disabled={!canFinish}>Finished</option></select></div>
+            </div>;
+          })}
+        </div>
+      </div>
+    );
+  };
   const renderEnrollment = () => {
     return (
       <div className="space-y-5">
@@ -1583,7 +1739,7 @@ const AthleticsEventManager: React.FC<Props> = ({
           <div className="flex items-start gap-4">
             <div className="hidden sm:flex size-11 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
               <Icon
-                name={event.kind === 'track' ? 'directions_run' : 'sports_handball'}
+                name={event.kind === 'relay' ? 'groups' : event.kind === 'track' ? 'directions_run' : 'sports_handball'}
                 size="23"
               />
             </div>
@@ -1596,7 +1752,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                 {event.name}
               </h2>
               <div className="mt-1 text-xs text-slate-400 sm:text-sm">
-                {event.kind === 'track' ? 'Track' : 'Field'} • Staff Management
+                {event.kind === 'relay' ? 'House Relay • Staff Management' : event.kind === 'track' ? 'Track • Staff Management' : 'Field • Staff Management'}
               </div>
             </div>
 
@@ -1613,32 +1769,24 @@ const AthleticsEventManager: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => setTab('enrollment')}
-              className={`rounded-lg px-4 py-2.5 text-xs font-black uppercase ${
-                tab === 'enrollment'
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-slate-400'
-              }`}
+              className={`rounded-lg px-4 py-2.5 text-xs font-black uppercase ${tab === 'enrollment' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}
             >
-              Enrollment
-              <span className="ml-1 opacity-70">{enrollment.length}</span>
+              {isRelay ? 'Teams' : 'Enrollment'}
+              {!isRelay && <span className="ml-1 opacity-70">{enrollment.length}</span>}
             </button>
 
             <button
               type="button"
               onClick={() => setTab('results')}
-              className={`rounded-lg px-4 py-2.5 text-xs font-black uppercase ${
-                tab === 'results'
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-slate-400'
-              }`}
+              className={`rounded-lg px-4 py-2.5 text-xs font-black uppercase ${tab === 'results' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}
             >
-              Qualifying / Finals
+              {isRelay ? 'Race Results' : 'Qualifying / Finals'}
             </button>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6">
-          {tab === 'enrollment' ? renderEnrollment() : renderResults()}
+          {isRelay ? renderRelay() : tab === 'enrollment' ? renderEnrollment() : renderResults()}
         </div>
       </div>
     </div>
