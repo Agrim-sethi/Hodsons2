@@ -6,7 +6,7 @@ import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, 
 import { useToast } from '../ui/ToastProvider';
 import * as XLSX from 'xlsx';
 import { AlignmentType, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
-import { podiumPoints, studentPointsAcrossEvents } from '../../utils/athleticsScoring';
+import { podiumPoints, studentPointsAcrossEvents, sortIndividualChampionshipRows } from '../../utils/athleticsScoring';
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = {
   '3000m': ['BD Opens'],
@@ -127,15 +127,16 @@ const calculateCategoryTopScorers = (
   snapshot: AthleticsSnapshot,
 ) => {
   const categoryStudents = students.filter(student => student.category === category);
-  const pointsById = categoryStudents.map(student => ({
-    student,
-    points: studentPointsAcrossEvents(snapshot, student, categoryEvents.map(summary => summary.event)),
-  })).filter(row => row.points > 0);
+  const pointsById = sortIndividualChampionshipRows(
+    snapshot,
+    categoryStudents.map(student => ({
+      student,
+      points: studentPointsAcrossEvents(snapshot, student, categoryEvents.map(summary => summary.event)),
+    })).filter(row => row.points > 0),
+  );
 
   const topPoints = Math.max(...pointsById.map(row => row.points), 0);
-  return pointsById
-    .filter(row => row.points === topPoints && topPoints > 0)
-    .sort((a, b) => a.student.name.localeCompare(b.student.name));
+  return pointsById.filter(row => row.points === topPoints && topPoints > 0);
 };
 
 export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
