@@ -1,4 +1,4 @@
-import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, getAthleticsDepartment, isRelayEvent, relayHousePoints, relayPointsForPosition, relayTiebreakPointsForStudent } from './athleticsStorage';
+import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, isRelayEvent, relayHousePoints, relayTiebreakPointsForStudent } from './athleticsStorage';
 
 export const placementPoints = (position?: number) =>
   position === 1 ? 4 :
@@ -127,6 +127,24 @@ export const sortIndividualChampionshipRows = (
         return a.student.name.localeCompare(b.student.name);
       });
     });
+};
+
+export const topIndividualChampionshipRows = (
+  snapshot: AthleticsSnapshot,
+  rows: Array<{ student: AthleticsStudent; points: number }>,
+) => {
+  if (rows.length === 0) return [];
+
+  const maxPoints = Math.max(...rows.map(row => row.points));
+  const tied = rows.filter(row => row.points === maxPoints);
+  const houses = new Set(tied.map(row => row.student.house));
+
+  if (houses.size <= 1) return tied.sort((a, b) => a.student.name.localeCompare(b.student.name));
+
+  const maxRelayTiebreak = Math.max(...tied.map(row => individualRelayTiebreakPoints(snapshot, row.student.id)));
+  return tied
+    .filter(row => individualRelayTiebreakPoints(snapshot, row.student.id) === maxRelayTiebreak)
+    .sort((a, b) => a.student.name.localeCompare(b.student.name));
 };
 
 export const podiumPoints = (position: 1 | 2 | 3, newRecordAwarded = false) =>
