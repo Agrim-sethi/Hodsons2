@@ -400,13 +400,22 @@ const AthleticsEventManager: React.FC<Props> = ({
     updateRelayTeam(house, { timing }, 'Relay Time Saved', `${house} ${event.name} time updated.`);
   };
 
-  const updateRelayStatus = (house: (typeof HOUSES)[number], status: 'pending' | 'finished') => {
+  const updateRelayStatus = (house: (typeof HOUSES)[number], status: 'pending' | 'finished' | 'dnf') => {
     const team = getRelayTeam(house);
-    if (status === 'finished' && (team.studentIds.length !== 4 || !team.timing || !Number.isFinite(parseTrackTiming(team.timing)))) {
-      showToast({ title: 'Relay Incomplete', description: 'A relay needs exactly 4 runners and a valid time before it can be marked finished.' });
+    if ((status === 'finished' || status === 'dnf') && team.studentIds.length !== 4) {
+      showToast({ title: 'Relay Team Incomplete', description: 'A relay team needs exactly 4 runners before a result can be recorded.' });
       return;
     }
-    updateRelayTeam(house, { status, position: status === 'pending' ? undefined : team.position }, 'Relay Status Saved', `${house} ${event.name} is ${status}.`);
+    if (status === 'finished' && (!team.timing || !Number.isFinite(parseTrackTiming(team.timing)))) {
+      showToast({ title: 'Relay Time Missing', description: 'A finished relay needs a valid race time.' });
+      return;
+    }
+    updateRelayTeam(
+      house,
+      { status, timing: status === 'dnf' ? '' : team.timing, position: status === 'pending' || status === 'dnf' ? undefined : team.position },
+      'Relay Status Saved',
+      `${house} ${event.name} is ${status === 'dnf' ? 'DNF' : status}.`,
+    );
   };
 
   const autoRankRelay = () => {
@@ -1002,13 +1011,13 @@ const AthleticsEventManager: React.FC<Props> = ({
             const canFinish = team.studentIds.length === 4 && Boolean(team.timing) && Number.isFinite(parseTrackTiming(team.timing));
             const track = splitTrackTiming(team.timing);
             return <div key={house} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-              <div className="flex items-start justify-between gap-3"><div><div className={`text-xs font-black uppercase ${config.text}`}>{house}</div><div className="mt-1 text-[10px] text-slate-500">{team.studentIds.length}/4 runners</div></div><span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase ${team.status === 'finished' ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/[0.03] text-slate-400'}`}>{team.status === 'finished' ? 'Finished' : 'Pending'}</span></div>
+              <div className="flex items-start justify-between gap-3"><div><div className={`text-xs font-black uppercase ${config.text}`}>{house}</div><div className="mt-1 text-[10px] text-slate-500">{team.studentIds.length}/4 runners</div></div><span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase ${team.status === 'finished' ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : team.status === 'dnf' ? 'border-amber-400/30 bg-amber-500/10 text-amber-300' : 'border-white/10 bg-white/[0.03] text-slate-400'}`}>{team.status === 'finished' ? 'Finished' : team.status === 'dnf' ? 'DNF' : 'Pending'}</span></div>
               <div className="mt-3 flex flex-wrap gap-1.5">{team.studentIds.map(id => <span key={id} className="rounded-md border border-white/10 bg-black/10 px-2 py-1 text-[9px] font-bold text-slate-300">{studentMap.get(id)?.name || id}</span>)}{team.studentIds.length === 0 && <span className="text-[10px] text-slate-600">No runners selected</span>}</div>
               <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-3">
                 <div><div className="mb-1 text-[9px] font-black uppercase tracking-wider text-slate-500">Race Time</div><div className="flex items-center gap-1.5"><input disabled={!isLoggedIn} type="number" min="0" value={track.minutes} onChange={e => updateRelayTiming(house,'minutes',e.target.value,999)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" /><span>:</span><input disabled={!isLoggedIn} type="number" min="0" max="59" value={track.seconds} onChange={e => updateRelayTiming(house,'seconds',e.target.value,59)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" /><span>:</span><input disabled={!isLoggedIn} type="number" min="0" max="999" value={track.milliseconds} onChange={e => updateRelayTiming(house,'milliseconds',e.target.value,999)} className="royal-input w-full rounded-lg px-2 py-2 text-center font-mono text-sm" /></div></div>
                 <div><div className="mb-1 text-[9px] font-black uppercase tracking-wider text-slate-500">Place</div><input disabled={!isLoggedIn} type="number" min="1" max="4" value={team.position || ''} onChange={e => updateRelayTeam(house,{position:e.target.value ? Math.min(4,Math.max(1,Number(e.target.value))) : undefined},'Relay Position Saved',`${house} position updated.`)} className="royal-input w-20 rounded-lg px-2 py-2 text-center text-xs" placeholder="#" /></div>
               </div>
-              <div className="mt-3 flex items-center justify-between gap-3"><span className="text-[9px] text-slate-500">{team.studentIds.length === 4 ? 'Team complete' : 'Exactly 4 runners required'}</span><select disabled={!isLoggedIn} value={team.status} onChange={e => updateRelayStatus(house,e.target.value as 'pending'|'finished')} className="royal-input rounded-lg px-2 py-2 text-[10px] font-black uppercase disabled:opacity-50"><option value="pending">Pending</option><option value="finished" disabled={!canFinish}>Finished</option></select></div>
+              <div className="mt-3 flex items-center justify-between gap-3"><span className="text-[9px] text-slate-500">{team.studentIds.length === 4 ? 'Team complete' : 'Exactly 4 runners required'}</span><select disabled={!isLoggedIn} value={team.status} onChange={e => updateRelayStatus(house,e.target.value as 'pending'|'finished'|'dnf')} className="royal-input rounded-lg px-2 py-2 text-[10px] font-black uppercase disabled:opacity-50"><option value="pending">Pending</option><option value="finished" disabled={!canFinish}>Finished</option><option value="dnf" disabled={team.studentIds.length !== 4}>DNF</option></select></div>
             </div>;
           })}
         </div>
