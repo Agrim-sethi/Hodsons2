@@ -5,7 +5,7 @@ import { ATHLETICS_CATEGORY_STUDENTS, ATHLETICS_STUDENT_BY_ID, ATHLETICS_CATEGOR
 
 export type AthleticsHouse = 'Vindhya' | 'Himalaya' | 'Nilgiri' | 'Siwalik';
 export type AthleticsResultStatus = 'pending' | 'finished' | 'dnf' | 'absent' | 'medically_excused';
-export type AthleticsRelayStatus = 'pending' | 'finished';
+export type AthleticsRelayStatus = 'pending' | 'finished' | 'dnf';
 export type AthleticsEventKind = 'track' | 'field' | 'relay';
 export type AthleticsTrackType = 'sprint' | 'middle_distance' | 'distance';
 export type AthleticsStage = 'qualifying' | 'finals';
@@ -173,7 +173,7 @@ const normalizeSnapshot=(raw:Partial<AthleticsSnapshot>|null|undefined):Athletic
         category,
         house,
         studentIds:Array.isArray(rawTeam?.studentIds)?rawTeam.studentIds.slice(0,4):[],
-        status:rawTeam?.status==='finished'?'finished' as AthleticsRelayStatus:'pending' as AthleticsRelayStatus,
+        status:rawTeam?.status==='finished' ? 'finished' as AthleticsRelayStatus : rawTeam?.status==='dnf' ? 'dnf' as AthleticsRelayStatus : 'pending' as AthleticsRelayStatus,
         timing:typeof rawTeam?.timing==='string'?rawTeam.timing:'',
         position:Number.isInteger(rawTeam?.position)?rawTeam.position:undefined,
       };
