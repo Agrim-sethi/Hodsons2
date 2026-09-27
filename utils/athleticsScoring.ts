@@ -128,22 +128,24 @@ export const eventPointBreakdown = (
   snapshot: AthleticsSnapshot,
   student: AthleticsStudent,
   event: AthleticsEvent,
+  categoryOverride?: AthleticsStudent['category'],
 ): EventPointBreakdown => {
+  const category = categoryOverride || student.category;
   // Relay points are house/team points only. They never enter an individual's
   // event or championship tally.
   if (isRelayEvent(event)) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
-  if (!eventAllowedForStudent(event, student)) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
+  if (!event.departments.includes(departmentForCategory(category))) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
 
   const qualifying = snapshot.results.find(result =>
     result.eventId === event.id &&
-    result.category === student.category &&
+    result.category === category &&
     result.studentId === student.id &&
     resultStageOf(result) === 'qualifying'
   );
 
   const finalsConfig = snapshot.finals.find(finals =>
     finals.eventId === event.id &&
-    finals.category === student.category
+    finals.category === category
   );
 
   const finalsEnabled = Boolean(finalsConfig?.enabled);
@@ -165,13 +167,13 @@ export const eventPointBreakdown = (
     // Finals award only placement points. There is no additional +1 for
     // appearing in, finishing, or qualifying for the second round.
     if (finals?.status === 'finished') {
-      const finalPosition = rankedResultRows(snapshot, event, student.category, 'finals')
+      const finalPosition = rankedResultRows(snapshot, event, category, 'finals')
         .find(row => row.studentId === student.id)?.computedPosition;
       if (finalPosition) placement += placementPoints(finalPosition);
     }
   } else if (qualifying?.status === 'finished' && qualifying?.qualified === true) {
     // Without finals, qualifying is the scored round.
-    const qualifyingPosition = rankedResultRows(snapshot, event, student.category, 'qualifying')
+    const qualifyingPosition = rankedResultRows(snapshot, event, category, 'qualifying')
       .find(row => row.studentId === student.id)?.computedPosition;
     if (qualifyingPosition) placement += placementPoints(qualifyingPosition);
   }
