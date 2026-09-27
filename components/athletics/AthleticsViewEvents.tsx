@@ -67,7 +67,7 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
         const rows = ids.map(id => {
             const student = studentMap.get(id);
             if (!student) return null;
-            const points = eventPointBreakdown(snapshot, student, selectedEvent);
+            const points = eventPointBreakdown(snapshot, student, selectedEvent, category);
             const houseTotal = totals[student.house];
             houseTotal.qualification += points.qualification; houseTotal.placement += points.placement; houseTotal.newRecord += points.newRecord; houseTotal.total += points.total;
             return { student, points };
