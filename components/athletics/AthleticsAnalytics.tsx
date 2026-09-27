@@ -57,9 +57,21 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
         addParticipation(stu);
         const finalsConfig = snapshot.finals.find(f => f.eventId === entry.eventId && f.category === entry.category);
         const stage = finalsConfig?.enabled ? 'finals' : 'qualifying';
-        const result = snapshot.results.find(r => r.eventId === entry.eventId && r.category === entry.category && r.studentId === sid && (r.stage || 'qualifying') === stage);
+        const qualifyingResult = snapshot.results.find(r =>
+          r.eventId === entry.eventId &&
+          r.category === entry.category &&
+          r.studentId === sid &&
+          (r.stage || 'qualifying') === 'qualifying'
+        );
+        const result = snapshot.results.find(r =>
+          r.eventId === entry.eventId &&
+          r.category === entry.category &&
+          r.studentId === sid &&
+          (r.stage || 'qualifying') === stage
+        );
+        if (qualifyingResult?.qualified === true) addQualified(stu);
         const status = result?.status || 'pending';
-        if (status === 'finished') { addFinished(stu); addQualified(stu); }
+        if (status === 'finished') addFinished(stu);
         else if (status === 'dnf') addDnf(stu);
         else if (status === 'absent') { totalAbsent += 1; byHouse[stu.house].absent += 1; byDept[departmentOfStudent(stu)].absent += 1; }
         else if (status === 'medically_excused') { totalMed += 1; byHouse[stu.house].med += 1; byDept[departmentOfStudent(stu)].med += 1; }
