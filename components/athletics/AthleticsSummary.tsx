@@ -2,11 +2,11 @@ import React from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, RELAY_HOUSES, relayPointsForPosition, isRelayEvent } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, rankedRelayTeams, relayPointsForPosition, isRelayEvent } from '../../utils/athleticsStorage';
 import { useToast } from '../ui/ToastProvider';
 import * as XLSX from 'xlsx';
 import { AlignmentType, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
-import { podiumPoints, studentPointsAcrossEvents, topIndividualChampionshipRows } from '../../utils/athleticsScoring';
+import { podiumPoints, rankedEventResults, studentPointsAcrossEvents, topIndividualChampionshipRows } from '../../utils/athleticsScoring';
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = {
   '3000m': ['BD Opens'],
@@ -20,24 +20,9 @@ const houseConfig = (house: string) => {
   return HOUSE_COLORS[key] ?? HOUSE_COLORS.nilgiri;
 };
 
-const parseTrackTiming = (timing: string) => {
-  const parts = timing.trim().split(':').map(Number);
-  if (parts.length !== 3 || parts.some(part => !Number.isFinite(part))) return Number.POSITIVE_INFINITY;
-  return parts[0] * 60 + parts[1] + parts[2] / 1000;
-};
-
-const parseFieldDistance = (distance: string) => {
-  const value = Number(distance.trim().replace(',', '.'));
-  return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
-};
-
 const eventAllowedForCategory = (event: AthleticsEvent, category: AthleticsCategory) => {
   const allowed = EXCLUSIVE_EVENT_CATEGORIES[event.id];
   return !allowed || allowed.includes(category);
-};
-
-const resultForStage = (snapshot: AthleticsSnapshot, eventId: string, category: AthleticsCategory, studentId: string, stage: 'qualifying' | 'finals') => {
-  return snapshot.results.find(result => result.eventId === eventId && result.category === category && result.studentId === studentId && (result.stage || 'qualifying') === stage);
 };
 
 type PodiumEntry = {
@@ -60,36 +45,39 @@ type EventSummary = {
 const buildEventSummary = (category: AthleticsCategory, event: AthleticsEvent, students: AthleticsStudent[], snapshot: AthleticsSnapshot): EventSummary => {
   if (isRelayEvent(event)) {
     const studentMap = new Map(students.map(student => [student.id, student]));
-    const teams = RELAY_HOUSES.map(house => snapshot.relayTeams.find(team => team.eventId === event.id && team.category === category && team.house === house));
+    const rankedTeams = rankedRelayTeams(snapshot, event.id, category);
     const podium = [1, 2, 3, 4].map(position => {
-      const team = teams.find(item => item?.status === 'finished' && item.position === position);
+      const team = rankedTeams.find(item => item.computedPosition === position);
       if (!team) return null;
-      return { house: team.house, runnerNames: team.studentIds.map(id => studentMap.get(id)?.name || id), result: team.timing || '—', stage: 'One Round' as const, points: relayPointsForPosition(position), relayPosition: position };
+      return {
+        house: team.house,
+        runnerNames: team.studentIds.map(id => studentMap.get(id)?.name || id),
+        result: team.timing || '—',
+        stage: 'One Round' as const,
+        points: relayPointsForPosition(position),
+        relayPosition: position,
+      };
     });
     return { event, stage: 'One Round', podium };
   }
 
-  const categoryStudents = students.filter(student => student.category === category);
   const finalsConfig = snapshot.finals.find(finals => finals.eventId === event.id && finals.category === category);
   const finalsEnabled = Boolean(finalsConfig?.enabled);
   const stage: 'qualifying' | 'finals' = finalsEnabled ? 'finals' : 'qualifying';
-  const eligibleIds = new Set(stage === 'finals' ? (finalsConfig?.studentIds || []) : (snapshot.enrollments.find(enrollment => enrollment.eventId === event.id && enrollment.category === category)?.studentIds || []));
-  const studentMap = new Map(categoryStudents.map(student => [student.id, student]));
-  const candidates = Array.from(eligibleIds)
-    .map(id => {
-      const student = studentMap.get(id);
-      const result = student ? resultForStage(snapshot, event.id, category, id, stage) : undefined;
-      if (!student || !result || result.status !== 'finished' || !result.timing) return null;
-      return { student, result, performance: event.kind === 'track' ? parseTrackTiming(result.timing) : parseFieldDistance(result.timing) };
-    })
-    .filter((entry): entry is { student: AthleticsStudent; result: NonNullable<ReturnType<typeof resultForStage>>; performance: number } => Boolean(entry) && Number.isFinite(entry.performance))
-    .sort((a, b) => a.performance - b.performance);
-  if (event.kind === 'field') candidates.reverse();
-  const podium = [0, 1, 2].map(index => {
-    const entry = candidates[index];
-    return entry ? { student: entry.student, result: entry.result.timing || '—', stage: stage === 'finals' ? 'Finals' : 'Qualifying', points: podiumPoints((index + 1) as 1 | 2 | 3, entry.result.newResultAwarded === true), newResultAwarded: entry.result.newResultAwarded === true } : null;
-  });
-  return { event, stage: stage === 'finals' ? 'Finals' : 'Qualifying', podium };
+  const ranked = rankedEventResults(snapshot, event, category, students, stage);
+  const podium = ranked.slice(0, 3).map((entry, index) => ({
+    student: entry.student,
+    result: entry.result.timing || '—',
+    stage: stage === 'finals' ? 'Finals' : 'Qualifying',
+    points: podiumPoints((index + 1) as 1 | 2 | 3, entry.result.newResultAwarded === true),
+    newResultAwarded: entry.result.newResultAwarded === true,
+  }));
+
+  return {
+    event,
+    stage: stage === 'finals' ? 'Finals' : 'Qualifying',
+    podium: [podium[0] || null, podium[1] || null, podium[2] || null],
+  };
 };
 const buildSummary = (students: AthleticsStudent[], snapshot: AthleticsSnapshot) => {
   return ATHLETICS_CATEGORIES.map(category => ({
@@ -193,10 +181,10 @@ export const AthleticsSummary: React.FC<{ students: AthleticsStudent[]; snapshot
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(rows);
       ws['!cols'] = [
-        { wch: 18 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 9 },
-        { wch: 12 }, { wch: 28 }, { wch: 13 }, { wch: 12 }, { wch: 13 }, { wch: 15 }
+        { wch: 18 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 9 }, { wch: 12 },
+        { wch: 28 }, { wch: 13 }, { wch: 12 }, { wch: 13 }, { wch: 10 }, { wch: 15 }
       ];
-      ws['!autofilter'] = { ref: `A1:K${rows.length + 1}` };
+      ws['!autofilter'] = { ref: `A1:L${rows.length + 1}` };
       XLSX.utils.book_append_sheet(wb, ws, 'Summary');
 
       const categoryRows: Record<string, string | number>[] = [];
