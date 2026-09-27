@@ -127,7 +127,7 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
                       </div>
                     </div>
                     <div className="border-y border-white/10 bg-white/[0.025] px-4 py-3"><h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">House totals</h3><p className="mt-1 text-[10px] text-slate-500">Sum of the athlete points above, grouped by house.</p></div>
-                    <div className="border-b border-white/10 bg-white/[0.025] px-4 py-3"><h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">Athlete points log</h3><p className="mt-1 text-[10px] text-slate-500">Unified qualifying + finals tally. Qualification: +1; placement: scored round only; new record: +3 once per athlete/event.</p></div>
+                    <div className="border-b border-white/10 bg-white/[0.025] px-4 py-3"><h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-300" >Housewise points summary</h3><p className="mt-1 text-[10px] text-slate-500">Combined qualifying + finals points, with the record bonus counted once per athlete/event.</p></div>
                     <div className="grid grid-cols-[1fr_repeat(4,auto)] gap-3 border-b border-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-wider text-slate-500"><span>House</span><span>Qual.</span><span>Place</span><span>Record</span><span>Total</span></div>
                     {RELAY_HOUSES.map(house => {
                       const total = selectedAudit.totals[house] || { qualification: 0, placement: 0, newRecord: 0, total: 0 };
