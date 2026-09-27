@@ -233,5 +233,5 @@ export const topIndividualChampionshipRows = (
     .sort((a, b) => a.student.name.localeCompare(b.student.name));
 };
 
-export const podiumPoints = (position: 1 | 2 | 3, newRecordAwarded = false) =>
-  (position === 1 ? 5 : position === 2 ? 4 : 3) + (newRecordAwarded ? 3 : 0);
+export const podiumPoints = (position: 1 | 2 | 3) =>
+  position === 1 ? 5 : position === 2 ? 4 : 3;
