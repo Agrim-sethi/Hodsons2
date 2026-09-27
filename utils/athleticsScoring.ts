@@ -173,8 +173,8 @@ export const eventPoints = (
     if (qualifyingPosition) points += placementPoints(qualifyingPosition);
   }
 
-  // A New Record is an event-level bonus, not a per-stage bonus. Even when
-  // records are marked in both qualifying and finals, the athlete receives
+  // New Record is one bonus per athlete per event, not one bonus per stage.
+  // Even if the same athlete records in both qualifying and finals, they get
   // only one +3 for this event.
   const hasNewRecord = Boolean(qualifying?.newResultAwarded || finals?.newResultAwarded);
   if (hasNewRecord) points += 3;
