@@ -169,6 +169,16 @@ export const eventPointBreakdown = (
   // Relay points are house/team points only. They never enter an individual's
   // event or championship tally.
   if (isRelayEvent(event)) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
+  // Results alone must not award points: the athlete must be entered in this
+  // event/category (or explicitly listed as a finalist). This prevents orphaned
+  // or stale result documents from appearing on individual leaderboards.
+  const isEnrolled = snapshot.enrollments.some(entry =>
+    entry.eventId === event.id && entry.category === category && entry.studentIds?.includes(student.id)
+  );
+  const isFinalist = snapshot.finals.some(entry =>
+    entry.eventId === event.id && entry.category === category && entry.studentIds?.includes(student.id)
+  );
+  if (!isEnrolled && !isFinalist) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
   if (!event.departments.includes(departmentForCategory(category))) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
 
   const qualifying = snapshot.results.find(result =>
