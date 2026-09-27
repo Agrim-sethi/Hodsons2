@@ -3,7 +3,7 @@ import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent, relayHousePoints, rankedRelayTeams, relayPointsForPosition } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
-import { studentPointsAcrossEvents } from '../../utils/athleticsScoring';
+import { studentPointsAcrossEvents, eventPointBreakdown } from '../../utils/athleticsScoring';
 
 const houseConfig = (house: string) => HOUSE_COLORS[(house.toLowerCase() as keyof typeof HOUSE_COLORS)] ?? HOUSE_COLORS.nilgiri;
 const HOUSES_LIST = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
@@ -145,6 +145,65 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     const totalPoints = HOUSES_LIST.reduce((sum, house) => sum + byHouse[house].points, 0);
     return { totalEnrolled, totalQualified, totalFinished, totalDnf, totalAbsent, totalMed, totalPending, totalPoints, byHouse, byDept, byCategory };
   }, [snapshot, filteredIds, students, filteredStudents, houseFilter, deptFilter]);
+  // Event PPP uses the same participation denominator and score sources as the
+  // house, department, and age-category tables, including relay team points once.
+  const eventPpp = useMemo(() => ATHLETICS_EVENTS.map(event => {
+    const stats = { enrolled: 0, qualified: 0, finished: 0, dnf: 0, absent: 0, med: 0, points: 0 };
+    snapshot.enrollments.filter(entry => entry.eventId === event.id).forEach(entry => {
+      entry.studentIds.forEach(sid => {
+        const student = filteredStudents.find(stu => stu.id === sid);
+        if (!student) return;
+        stats.enrolled += 1;
+        const finalsConfig = snapshot.finals.find(f => f.eventId === event.id && f.category === entry.category);
+        const qualifying = snapshot.results.find(result =>
+          result.eventId === event.id && result.category === entry.category &&
+          result.studentId === sid && (result.stage || 'qualifying') === 'qualifying'
+        );
+        if (qualifying?.qualified === true) stats.qualified += 1;
+        if (finalsConfig?.enabled && !(finalsConfig.studentIds || []).includes(sid)) return;
+        const stage = finalsConfig?.enabled ? 'finals' : 'qualifying';
+        const result = snapshot.results.find(item =>
+          item.eventId === event.id && item.category === entry.category &&
+          item.studentId === sid && (item.stage || 'qualifying') === stage
+        );
+        const status = result?.status || 'pending';
+        if (status === 'finished') stats.finished += 1;
+        else if (status === 'dnf') stats.dnf += 1;
+        else if (status === 'absent') stats.absent += 1;
+        else if (status === 'medically_excused') stats.med += 1;
+        stats.points += eventPointBreakdown(snapshot, student, event, entry.category).total;
+      });
+    });
+
+    snapshot.relayTeams.filter(team => team.eventId === event.id).forEach(team => {
+      if (houseFilter !== 'All' && team.house !== houseFilter) return;
+      if (categoryFilter !== 'All' && team.category !== categoryFilter) return;
+      const teamStudents = team.studentIds
+        .map(sid => filteredStudents.find(student => student.id === sid))
+        .filter((student): student is AthleticsStudent => Boolean(student));
+      if (deptFilter !== 'All' && !teamStudents.some(student => departmentOfStudent(student) === deptFilter)) return;
+      teamStudents.forEach(student => {
+        stats.enrolled += 1;
+        if (team.status !== 'dnf') stats.qualified += 1;
+        if (team.status === 'finished') stats.finished += 1;
+        else if (team.status === 'dnf') stats.dnf += 1;
+      });
+      if (team.status === 'finished') {
+        const position = rankedRelayTeams(snapshot, team.eventId, team.category)
+          .find(rankedTeam => rankedTeam.house === team.house)?.computedPosition;
+        stats.points += relayPointsForPosition(position);
+      }
+    });
+    return {
+      name: event.name,
+      id: event.id,
+      ...stats,
+      ppp: stats.enrolled > 0 ? (stats.points / stats.enrolled).toFixed(2) : '0.00',
+    };
+  }).filter(row => row.enrolled > 0 || row.points > 0)
+    .sort((a, b) => Number(b.ppp) - Number(a.ppp)),
+  [snapshot, filteredStudents, houseFilter, deptFilter, categoryFilter]);
+
   const pct = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : '—';
 
   const housePpp = HOUSES_LIST.map(h => ({
@@ -316,6 +375,32 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
                 );
               })}
             </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* PPP by Event */}
+      <div className="glass-panel rounded-2xl border border-primary/15 p-5 mt-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Icon name="event" size="18" className="text-primary" />
+          <h3 className="text-sm font-black text-white">Points Per Participation (PPP) — By Event</h3>
+          <span className="text-[10px] text-slate-500 font-bold ml-auto">pts earned ÷ event participations</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="royal-data-table min-w-[620px]">
+            <thead><tr><th>Rank</th><th>Event</th><th>Participations</th><th>Qualified</th><th>Points</th><th>PPP</th><th>Absent</th><th>Med. Leave</th></tr></thead>
+            <tbody>{eventPpp.map((row, i) => (
+              <tr key={row.id} className="hover:bg-white/[0.02]">
+                <td><span className="text-slate-500 font-black text-xs">#{i + 1}</span></td>
+                <td><span className="font-black text-sm text-white">{row.name}</span></td>
+                <td className="text-center font-bold">{row.enrolled}</td>
+                <td className="text-center"><span className="text-emerald-400 font-bold">{row.qualified}</span><span className="text-slate-500 text-xs ml-1">({pct(row.qualified, row.enrolled)})</span></td>
+                <td className="text-center font-black text-white">{row.points}</td>
+                <td className="text-center"><span className="font-black text-amber-300">{row.ppp}</span></td>
+                <td className="text-center"><span className="text-rose-400 font-bold">{row.absent}</span><span className="text-slate-500 text-xs ml-1">({pct(row.absent, row.enrolled)})</span></td>
+                <td className="text-center"><span className="text-purple-400 font-bold">{row.med}</span><span className="text-slate-500 text-xs ml-1">({pct(row.med, row.enrolled)})</span></td>
+              </tr>
+            ))}</tbody>
           </table>
         </div>
       </div>
