@@ -6,7 +6,7 @@ import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, 
 import { useToast } from '../ui/ToastProvider';
 import * as XLSX from 'xlsx';
 import { AlignmentType, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
-import { podiumPoints, rankedEventResults, studentPointsAcrossEvents, topIndividualChampionshipRows } from '../../utils/athleticsScoring';
+import { eventPoints, rankedEventResults, studentPointsAcrossEvents, topIndividualChampionshipRows } from '../../utils/athleticsScoring';
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = {
   '3000m': ['BD Opens'],
@@ -69,7 +69,7 @@ const buildEventSummary = (category: AthleticsCategory, event: AthleticsEvent, s
     student: entry.student,
     result: entry.result.timing || '—',
     stage: stage === 'finals' ? 'Finals' : 'Qualifying',
-    points: podiumPoints((index + 1) as 1 | 2 | 3, entry.result.newResultAwarded === true),
+    points: eventPoints(snapshot, entry.student, event),
     newResultAwarded: entry.result.newResultAwarded === true,
   }));
 
