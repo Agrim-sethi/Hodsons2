@@ -76,6 +76,10 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
           (r.stage || 'qualifying') === stage
         );
         if (qualifyingResult?.qualified === true) { addQualified(stu); if (categoryStats) categoryStats.qualified += 1; }
+        // Pending tracks unresolved entries in the round actually being run.
+        // Once finals are enabled, enrolled athletes who were not selected as finalists
+        // are not pending in finals; their qualifying status is already accounted for.
+        if (finalsConfig?.enabled && !(finalsConfig.studentIds || []).includes(sid)) return;
         const status = result?.status || 'pending';
         if (status === 'finished') { addFinished(stu); if (categoryStats) categoryStats.finished += 1; }
         else if (status === 'dnf') { addDnf(stu); if (categoryStats) categoryStats.dnf += 1; }
@@ -123,12 +127,12 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     });
 
     ATHLETICS_CATEGORIES.forEach(cat => {
-      const inCategory = students.filter(student => student.category === cat);
+      const inCategory = filteredStudents.filter(student => student.category === cat);
       byCategory[cat].points = inCategory.reduce((sum, student) => sum + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS), 0);
     });
     const totalPoints = HOUSES_LIST.reduce((sum, house) => sum + byHouse[house].points, 0);
     return { totalEnrolled, totalQualified, totalFinished, totalDnf, totalAbsent, totalMed, totalPending, totalPoints, byHouse, byDept, byCategory };
-  }, [snapshot, filteredIds, students, houseFilter, deptFilter]);
+  }, [snapshot, filteredIds, students, filteredStudents, houseFilter, deptFilter]);
   const pct = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : '—';
 
   const housePpp = HOUSES_LIST.map(h => ({
