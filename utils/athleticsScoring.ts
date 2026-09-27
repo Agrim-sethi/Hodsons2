@@ -122,15 +122,17 @@ export const rankedEventResults = (
     .filter((row): row is RankedAthleticsResult => Boolean(row));
 };
 
-export const eventPoints = (
+export type EventPointBreakdown = { qualification: number; placement: number; newRecord: number; total: number };
+
+export const eventPointBreakdown = (
   snapshot: AthleticsSnapshot,
   student: AthleticsStudent,
   event: AthleticsEvent,
-) => {
+): EventPointBreakdown => {
   // Relay points are house/team points only. They never enter an individual's
   // event or championship tally.
-  if (isRelayEvent(event)) return 0;
-  if (!eventAllowedForStudent(event, student)) return 0;
+  if (isRelayEvent(event)) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
+  if (!eventAllowedForStudent(event, student)) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
 
   const qualifying = snapshot.results.find(result =>
     result.eventId === event.id &&
@@ -156,7 +158,8 @@ export const eventPoints = (
 
   // Qualification is a first-round achievement worth exactly +1. A finished
   // but unqualified result earns no participation point.
-  let points = qualifying?.qualified === true ? 1 : 0;
+  const qualification = qualifying?.qualified === true ? 1 : 0;
+  let placement = 0;
 
   if (finalsEnabled) {
     // Finals award only placement points. There is no additional +1 for
@@ -164,23 +167,25 @@ export const eventPoints = (
     if (finals?.status === 'finished') {
       const finalPosition = rankedResultRows(snapshot, event, student.category, 'finals')
         .find(row => row.studentId === student.id)?.computedPosition;
-      if (finalPosition) points += placementPoints(finalPosition);
+      if (finalPosition) placement += placementPoints(finalPosition);
     }
   } else if (qualifying?.status === 'finished' && qualifying?.qualified === true) {
     // Without finals, qualifying is the scored round.
     const qualifyingPosition = rankedResultRows(snapshot, event, student.category, 'qualifying')
       .find(row => row.studentId === student.id)?.computedPosition;
-    if (qualifyingPosition) points += placementPoints(qualifyingPosition);
+    if (qualifyingPosition) placement += placementPoints(qualifyingPosition);
   }
 
   // New Record is one bonus per athlete per event, not one bonus per stage.
   // Even if the same athlete records in both qualifying and finals, they get
   // only one +3 for this event.
   const hasNewRecord = Boolean(qualifying?.newResultAwarded || finals?.newResultAwarded);
-  if (hasNewRecord) points += 3;
-
-  return points;
+  const newRecord = hasNewRecord ? 3 : 0;
+  return { qualification, placement, newRecord, total: qualification + placement + newRecord };
 };
+
+export const eventPoints = (snapshot: AthleticsSnapshot, student: AthleticsStudent, event: AthleticsEvent) =>
+  eventPointBreakdown(snapshot, student, event).total;
 
 export const studentPointsAcrossEvents = (
   snapshot: AthleticsSnapshot,
