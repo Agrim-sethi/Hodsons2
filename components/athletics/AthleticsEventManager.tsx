@@ -635,7 +635,21 @@ const AthleticsEventManager: React.FC<Props> = ({
       };
     });
 
-    saveSnapshot({ ...snapshot, highJump }, title, description);
+    const results = snapshot.results.map((result) => {
+      if (result.eventId !== event.id || result.category !== category || resultStageOf(result) !== stage) {
+        return result;
+      }
+
+      return {
+        ...result,
+        status: result.status === 'finished' ? 'pending' as AthleticsResultStatus : result.status,
+        timing: '',
+        position: undefined,
+        newResultAwarded: false,
+      };
+    });
+
+    saveSnapshot({ ...snapshot, highJump, results }, title, description);
   };
 
   const addHighJumpHeight = (height: string) => {
