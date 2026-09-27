@@ -192,7 +192,6 @@ export const houseChampionshipPoints = (snapshot: AthleticsSnapshot, house: Athl
   return relayHousePoints(snapshot, house, department);
 };
 
-export const individualRelayTiebreakPoints = (_snapshot: AthleticsSnapshot, _studentId: string) => 0;
 
 // Equal individual championship scores are true ties, including across houses.
 // Relay results do not break the tie.
