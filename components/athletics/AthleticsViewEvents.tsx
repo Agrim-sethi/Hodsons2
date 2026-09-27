@@ -68,6 +68,15 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
             return student ? { student, result, position: ranked?.computedPosition, points: eventPointBreakdown(snapshot, student, selectedEvent) } : null;
         }).filter((item): item is NonNullable<typeof item> => Boolean(item));
     })() : [];
+    const selectedHouseTotals = selectedParticipants.reduce((totals, entry) => {
+        const house = entry.student.house;
+        totals[house] ||= { qualification: 0, placement: 0, newRecord: 0, total: 0 };
+        totals[house].qualification += entry.points.qualification;
+        totals[house].placement += entry.points.placement;
+        totals[house].newRecord += entry.points.newRecord;
+        totals[house].total += entry.points.total;
+        return totals;
+    }, {} as Record<AthleticsHouse, { qualification: number; placement: number; newRecord: number; total: number }>);
     const selectedRelayTeams = selectedEvent && isRelayEvent(selectedEvent)
         ? RELAY_HOUSES.map(house => snapshot.relayTeams.find(team => team.eventId === selectedEvent.id && team.category === category && team.house === house))
         : [];
@@ -113,14 +122,19 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1"><button onClick={() => setStage('qualifying')} className={'rounded-lg px-4 py-2 text-xs font-black uppercase ' + (stage === 'qualifying' ? 'bg-primary/15 text-primary' : 'text-slate-400')}>Qualifying</button>{selectedFinalsEnabled && <button onClick={() => setStage('finals')} className={'rounded-lg px-4 py-2 text-xs font-black uppercase ' + (stage === 'finals' ? 'bg-primary/15 text-primary' : 'text-slate-400')}>Finals</button>}</div><div className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">{selectedRanked.length} finished result{selectedRanked.length === 1 ? '' : 's'}</div></div>
                   <div className="overflow-hidden rounded-2xl border border-white/10"><div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500"><span>Competitor</span><span>{isTrack(selectedEvent) ? 'Time' : 'Distance'}</span><span>Position</span></div>{selectedRanked.length === 0 ? <div className="px-4 py-12 text-center text-sm text-slate-500">No completed results have been published yet.</div> : selectedRanked.map(({student,result,computedPosition}) => { const config=houseConfig(student.house); return <div key={stage + ':' + student.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0"><div className="min-w-0"><div className="truncate font-black text-white">{student.name}</div><div className="mt-0.5 text-[10px] text-slate-500">#{student.id} • Class {student.className}</div><span className={'mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ' + config.bg + '/20 ' + config.text + ' ' + config.border + '/30'}>{student.house}</span>{computedPosition===1 && hasEventRecord(selectedEvent.id, student.id) && <span className="ml-2 mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-300"><Icon name="verified" size="11" /> New Record</span>}</div><div className="font-mono text-sm font-black text-slate-200">{displayResult(selectedEvent,result)}</div><div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-black text-primary">#{computedPosition}</div></div>; })}</div>
                   <section className="overflow-hidden rounded-2xl border border-white/10">
-                    <div className="border-b border-white/10 bg-white/[0.025] px-4 py-3"><h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">Full participation & points audit</h3><p className="mt-1 text-[10px] text-slate-500">All listed entrants for this round, including non-finishers and medical leave.</p></div>
-                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-wider text-slate-500"><span>Student / status</span><span>Place</span><span>Breakdown</span><span>Total</span></div>
-                    {selectedParticipants.length === 0 ? <div className="px-4 py-6 text-center text-xs text-slate-500">No entrants are listed for this round.</div> : selectedParticipants.map(({student,result,position,points}) => <div key={'audit:'+stage+':'+student.id} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 border-b border-white/5 px-4 py-3 last:border-0">
-                      <div className="min-w-0"><div className="truncate text-xs font-bold text-white">{student.name}</div><div className="mt-0.5 text-[9px] text-slate-500">{result?.status === 'medically_excused' ? 'Medical leave' : result?.status === 'dnf' ? 'DNF' : result?.status === 'absent' ? 'Absent' : result?.status === 'finished' ? (result.qualified === false && stage === 'qualifying' ? 'Finished • Not qualified' : 'Finished') : 'Pending'}{result?.timing ? ' • '+result.timing : ''}</div></div>
-                      <span className="text-xs text-slate-300">{position ? '#'+position : '—'}</span>
-                      <span className="text-[9px] tabular-nums text-slate-400">Q {points.qualification} · P {points.placement} · NR {points.newRecord}</span>
-                      <span className="text-xs font-black text-primary">{points.total}</span>
-                    </div>)}
+                    <div className="border-b border-white/10 bg-white/[0.025] px-4 py-3"><h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">Housewise points audit</h3><p className="mt-1 text-[10px] text-slate-500">Points awarded to each house, split by qualification, position and new-record bonus.</p></div>
+                    <div className="grid grid-cols-[1fr_repeat(4,auto)] gap-3 border-b border-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-wider text-slate-500"><span>House</span><span>Qual.</span><span>Place</span><span>Record</span><span>Total</span></div>
+                    {RELAY_HOUSES.map(house => {
+                      const total = selectedHouseTotals[house] || { qualification: 0, placement: 0, newRecord: 0, total: 0 };
+                      const config = houseConfig(house);
+                      return <div key={'house-audit:'+house} className="grid grid-cols-[1fr_repeat(4,auto)] items-center gap-3 border-b border-white/5 px-4 py-3 last:border-0">
+                        <span className={'text-xs font-black uppercase '+config.text}>{house}</span>
+                        <span className="text-xs tabular-nums text-slate-300">{total.qualification}</span>
+                        <span className="text-xs tabular-nums text-slate-300">{total.placement}</span>
+                        <span className="text-xs tabular-nums text-slate-300">{total.newRecord}</span>
+                        <span className="text-xs font-black tabular-nums text-primary">{total.total}</span>
+                      </div>;
+                    })}
                   </section>
                 </div>
               )}
