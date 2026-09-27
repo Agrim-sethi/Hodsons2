@@ -115,7 +115,7 @@ const normalizeSnapshot=(raw:Partial<AthleticsSnapshot>|null|undefined):Athletic
   const enrollmentMap=new Map<string,string[]>();
   rawEnrollments.forEach((entry:any)=>{
     if(entry.category){
-      enrollmentMap.set(enrollmentKey(entry.eventId,entry.category),Array.isArray(entry.studentIds)?entry.studentIds:[]);
+      enrollmentMap.set(enrollmentKey(entry.eventId,entry.category),Array.from(new Set(Array.isArray(entry.studentIds)?entry.studentIds:[])));
     }else{
       (Array.isArray(entry.studentIds)?entry.studentIds:[]).forEach((studentId:string)=>{
         const student=ATHLETICS_STUDENT_BY_ID.get(studentId);
@@ -131,7 +131,7 @@ const normalizeSnapshot=(raw:Partial<AthleticsSnapshot>|null|undefined):Athletic
   const finalsMap=new Map<string,{enabled:boolean;studentIds:string[]}>();
   rawFinals.forEach((entry:any)=>{
     if(entry.category){
-      finalsMap.set(enrollmentKey(entry.eventId,entry.category),{enabled:Boolean(entry.enabled),studentIds:Array.isArray(entry.studentIds)?entry.studentIds:[]});
+      finalsMap.set(enrollmentKey(entry.eventId,entry.category),{enabled:Boolean(entry.enabled),studentIds:Array.from(new Set(Array.isArray(entry.studentIds)?entry.studentIds:[]))});
     }else{
       const enabled=Boolean(entry.enabled);
       (Array.isArray(entry.studentIds)?entry.studentIds:[]).forEach((studentId:string)=>{
@@ -146,10 +146,23 @@ const normalizeSnapshot=(raw:Partial<AthleticsSnapshot>|null|undefined):Athletic
     }
   });
 
-  const results=rawResults.map((r:any)=>{
+  const resultMap=new Map<string,AthleticsResult>();
+  rawResults.forEach((r:any)=>{
     const category=r.category||ATHLETICS_STUDENT_BY_ID.get(r.studentId)?.category;
-    return{...r,category,stage:r.stage==='finals'?'finals':'qualifying',qualified:r.qualified===true,newResultAwarded:r.newResultAwarded===true};
-  }).filter((r:AthleticsResult)=>Boolean(r.category));
+    if (!category) return;
+    const normalizedResult:AthleticsResult={
+      ...r,
+      category,
+      stage:r.stage==='finals'?'finals':'qualifying',
+      qualified:r.qualified===true,
+      newResultAwarded:r.newResultAwarded===true,
+    };
+    const key=`${normalizedResult.eventId}|${normalizedResult.category}|${normalizedResult.studentId}|${normalizedResult.stage}`;
+    // Keep the last occurrence so a malformed legacy snapshot with duplicate
+    // result rows resolves to the most recently saved version.
+    resultMap.set(key, normalizedResult);
+  });
+  const results=Array.from(resultMap.values());
 
   const rawHighJump=Array.isArray(raw?.highJump)?raw!.highJump!:[];
   const highJumpMap=new Map<string,{heights:string[];attempts:AthleticsHighJumpAttempt[]}>();
