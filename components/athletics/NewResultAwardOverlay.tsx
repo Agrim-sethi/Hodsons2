@@ -95,11 +95,21 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
   const finalsEnabled = Boolean(snapshot.finals.find(item => item.eventId === event.id && item.category === category)?.enabled);
   const effectiveStage: AthleticsStage = stage === 'finals' && finalsEnabled ? 'finals' : 'qualifying';
   const winner = getWinner(event, category, effectiveStage, students, snapshot);
-  const awardedResult = snapshot.results.find(result =>
+  const winnerRecord = winner
+    ? snapshot.results.find(result =>
+        result.eventId === event.id &&
+        result.category === category &&
+        result.studentId === winner.student.id &&
+        result.newResultAwarded === true
+      )
+    : undefined;
+  const stageRecord = snapshot.results.find(result =>
     result.eventId === event.id &&
     result.category === category &&
-    result.newResultAwarded === true,
+    resultStageOf(result) === effectiveStage &&
+    result.newResultAwarded === true
   );
+  const awardedResult = winnerRecord || stageRecord;
   const awarded = Boolean(awardedResult);
 
   const toggleRecord = () => {
@@ -107,17 +117,21 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
 
     if (awarded && awardedResult) {
       const student = students.find(item => item.id === awardedResult.studentId);
-      if (!window.confirm(`Undo NEW RECORD for ${student?.name || 'this winner'}?\n\nThis removes the extra +3 championship points from the athlete and +3 from their house.`)) return;
+      if (!window.confirm(`Undo NEW RECORD for ${student?.name || 'this winner'}?\n\nThis removes the New Record bonus from this athlete.`)) return;
 
       const nextResults = snapshot.results.map(result => {
-        if (result.eventId === event.id && result.category === category) {
+        if (
+          result.eventId === event.id &&
+          result.category === category &&
+          result.studentId === awardedResult.studentId
+        ) {
           return { ...result, newResultAwarded: false };
         }
         return result;
       });
 
-      onSave({ ...snapshot, results: nextResults }, 'New Record Undone', `${student?.name || 'Winner'} no longer has the New Record award for ${event.name} ${effectiveStage}.`);
-      showToast({ title: 'New Record Undone', description: 'The extra 3 points have been removed.' });
+      onSave({ ...snapshot, results: nextResults }, 'New Record Undone', `${student?.name || 'Winner'} no longer has the New Record award for ${event.name}.`);
+      showToast({ title: 'New Record Undone', description: 'The New Record bonus has been removed.' });
       return;
     }
 
@@ -126,22 +140,24 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
       return;
     }
 
-    if (!window.confirm(`Award NEW RECORD to ${winner.student.name}?\n\nThis gives +3 championship points to ${winner.student.name} and +3 to ${winner.student.house}.`)) return;
+    if (!window.confirm(`Award NEW RECORD to ${winner.student.name}?\n\nThis gives +3 championship points to ${winner.student.name} and +3 to ${winner.student.house} for this event.`)) return;
 
     const nextResults = snapshot.results.map(result => {
-      if (result.eventId !== event.id || result.category !== category) return result;
-
-      if (result.studentId === winner.student.id && resultStageOf(result) === effectiveStage) {
-        return { ...result, newResultAwarded: true };
+      if (
+        result.eventId === event.id &&
+        result.category === category &&
+        resultStageOf(result) === effectiveStage
+      ) {
+        return {
+          ...result,
+          newResultAwarded: result.studentId === winner.student.id,
+        };
       }
-
-      // New Record is one +3 award for the whole event/category. Never leave
-      // a second stage or another athlete with a simultaneous bonus.
-      return { ...result, newResultAwarded: false };
+      return result;
     });
 
-    onSave({ ...snapshot, results: nextResults }, 'New Record Awarded', `${winner.student.name} receives +3 points and ${winner.student.house} receives +3 for ${event.name} ${effectiveStage}.`);
-    showToast({ title: 'New Record Awarded', description: `${winner.student.name}: +3 • ${winner.student.house}: +3` });
+    onSave({ ...snapshot, results: nextResults }, 'New Record Awarded', `${winner.student.name} receives the +3 New Record bonus for ${event.name} ${effectiveStage}.`);
+    showToast({ title: 'New Record Awarded', description: `${winner.student.name}: +3` });
   };
 
   if (!isLoggedIn || !buttonGroup) return null;
