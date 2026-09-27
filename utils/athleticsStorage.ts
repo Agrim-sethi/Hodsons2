@@ -186,19 +186,50 @@ export const subscribeToAthleticsData=(callback:(snapshot:AthleticsSnapshot)=>vo
 
 export const relayPointsForPosition = (position?: number) => RELAY_POINTS_BY_POSITION[position || 0] || 0;
 
+const parseRelayTiming = (timing = '') => {
+  const parts = timing.trim().split(':').map(Number);
+  if (parts.length !== 3 || parts.some(part => !Number.isFinite(part))) return Number.POSITIVE_INFINITY;
+  return parts[0] * 60 + parts[1] + parts[2] / 1000;
+};
+
+export type RankedRelayTeam = AthleticsRelayTeam & { computedPosition: number };
+
+export const rankedRelayTeams = (
+  snapshot: AthleticsSnapshot,
+  eventId: string,
+  category: AthleticsCategory,
+): RankedRelayTeam[] => RELAY_HOUSES
+  .map(house => snapshot.relayTeams.find(team =>
+    team.eventId === eventId &&
+    team.category === category &&
+    team.house === house
+  ))
+  .filter((team): team is AthleticsRelayTeam => Boolean(
+    team &&
+    team.status === 'finished' &&
+    team.studentIds.length === 4 &&
+    team.timing &&
+    Number.isFinite(parseRelayTiming(team.timing))
+  ))
+  .sort((a, b) => parseRelayTiming(a.timing || '') - parseRelayTiming(b.timing || ''))
+  .map((team, index) => ({ ...team, computedPosition: index + 1 }));
+
 export const relayHousePoints = (snapshot: AthleticsSnapshot, house: AthleticsHouse, department?: AthleticsDepartment) =>
   snapshot.relayTeams.reduce((sum, team) => {
     if (team.house !== house || team.status !== 'finished') return sum;
     if (department && getAthleticsDepartment(team.category) !== department) return sum;
-    return sum + relayPointsForPosition(team.position);
+    const position = rankedRelayTeams(snapshot, team.eventId, team.category)
+      .find(rankedTeam => rankedTeam.house === house)?.computedPosition;
+    return sum + relayPointsForPosition(position);
   }, 0);
 
 export const relayTiebreakPointsForStudent = (snapshot: AthleticsSnapshot, studentId: string) =>
-  snapshot.relayTeams.reduce((sum, team) => (
-    team.status === 'finished' && team.studentIds.includes(studentId)
-      ? sum + relayPointsForPosition(team.position)
-      : sum
-  ), 0);
+  snapshot.relayTeams.reduce((sum, team) => {
+    if (team.status !== 'finished' || !team.studentIds.includes(studentId)) return sum;
+    const position = rankedRelayTeams(snapshot, team.eventId, team.category)
+      .find(rankedTeam => rankedTeam.house === team.house)?.computedPosition;
+    return sum + relayPointsForPosition(position);
+  }, 0);
 
 export const getAthleticsStudents=(baseClasses:Record<string,string>={}):AthleticsStudent[]=>{const classes=getAllHodsonsClasses(baseClasses);return ATHLETICS_CATEGORY_STUDENTS.map(s=>({...s,className:classes[s.id]||'N/A',department:s.department})).filter((s,i,a)=>a.findIndex(x=>`${x.id}|${x.name.trim()}`===`${s.id}|${s.name.trim()}`)===i);};
 export const getPrepAthleticsStudents=getAthleticsStudents;
