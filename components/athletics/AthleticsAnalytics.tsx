@@ -11,13 +11,15 @@ const HOUSES_LIST = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
 export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
   const [houseFilter, setHouseFilter] = useState<'All' | typeof HOUSES_LIST[number]>('All');
   const [deptFilter, setDeptFilter] = useState<'All' | 'BD' | 'GD' | 'PD'>('All');
+  const [categoryFilter, setCategoryFilter] = useState<'All' | AthleticsCategory>('All');
 
   const filteredStudents = useMemo(() => students.filter(stu => {
     const houseOk = houseFilter === 'All' || stu.house === houseFilter;
     const dept = stu.category.startsWith('PD') ? 'PD' : stu.category.startsWith('GD') ? 'GD' : 'BD';
     const deptOk = deptFilter === 'All' || dept === deptFilter;
-    return houseOk && deptOk;
-  }), [students, houseFilter, deptFilter]);
+    const categoryOk = categoryFilter === 'All' || stu.category === categoryFilter;
+    return houseOk && deptOk && categoryOk;
+  }), [students, houseFilter, deptFilter, categoryFilter]);
 
   const filteredIds = useMemo(() => new Set(filteredStudents.map(s => s.id)), [filteredStudents]);
 
@@ -29,8 +31,10 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     let totalEnrolled = 0, totalQualified = 0, totalFinished = 0, totalDnf = 0, totalAbsent = 0, totalMed = 0, totalPending = 0;
     const byHouse: Record<string, ScopeStats> = {};
     const byDept: Record<string, ScopeStats> = {};
+    const byCategory: Record<string, ScopeStats> = {};
     HOUSES_LIST.forEach(h => { byHouse[h] = { enrolled: 0, qualified: 0, finished: 0, dnf: 0, absent: 0, med: 0, points: 0 }; });
     ['BD', 'GD', 'PD'].forEach(d => { byDept[d] = { enrolled: 0, qualified: 0, finished: 0, dnf: 0, absent: 0, med: 0, points: 0 }; });
+    ATHLETICS_CATEGORIES.forEach(cat => { byCategory[cat] = { enrolled: 0, qualified: 0, finished: 0, dnf: 0, absent: 0, med: 0, points: 0 }; });
 
     const addParticipation = (student: AthleticsStudent) => {
       const dept = departmentOfStudent(student);
@@ -55,6 +59,8 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
         const stu = students.find(s => s.id === sid);
         if (!stu) return;
         addParticipation(stu);
+        const categoryStats = byCategory[entry.category];
+        if (categoryStats) categoryStats.enrolled += 1;
         const finalsConfig = snapshot.finals.find(f => f.eventId === entry.eventId && f.category === entry.category);
         const stage = finalsConfig?.enabled ? 'finals' : 'qualifying';
         const qualifyingResult = snapshot.results.find(r =>
@@ -69,13 +75,13 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
           r.studentId === sid &&
           (r.stage || 'qualifying') === stage
         );
-        if (qualifyingResult?.qualified === true) addQualified(stu);
+        if (qualifyingResult?.qualified === true) { addQualified(stu); if (categoryStats) categoryStats.qualified += 1; }
         const status = result?.status || 'pending';
-        if (status === 'finished') addFinished(stu);
-        else if (status === 'dnf') addDnf(stu);
-        else if (status === 'absent') { totalAbsent += 1; byHouse[stu.house].absent += 1; byDept[departmentOfStudent(stu)].absent += 1; }
-        else if (status === 'medically_excused') { totalMed += 1; byHouse[stu.house].med += 1; byDept[departmentOfStudent(stu)].med += 1; }
-        else totalPending += 1;
+        if (status === 'finished') { addFinished(stu); if (categoryStats) categoryStats.finished += 1; }
+        else if (status === 'dnf') { addDnf(stu); if (categoryStats) categoryStats.dnf += 1; }
+        else if (status === 'absent') { totalAbsent += 1; byHouse[stu.house].absent += 1; byDept[departmentOfStudent(stu)].absent += 1; if (categoryStats) categoryStats.absent += 1; }
+        else if (status === 'medically_excused') { totalMed += 1; byHouse[stu.house].med += 1; byDept[departmentOfStudent(stu)].med += 1; if (categoryStats) categoryStats.med += 1; }
+        else { totalPending += 1; }
       });
     });
 
@@ -116,8 +122,12 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
       }, 0);
     });
 
+    ATHLETICS_CATEGORIES.forEach(cat => {
+      const inCategory = students.filter(student => student.category === cat);
+      byCategory[cat].points = inCategory.reduce((sum, student) => sum + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS), 0);
+    });
     const totalPoints = HOUSES_LIST.reduce((sum, house) => sum + byHouse[house].points, 0);
-    return { totalEnrolled, totalQualified, totalFinished, totalDnf, totalAbsent, totalMed, totalPending, totalPoints, byHouse, byDept };
+    return { totalEnrolled, totalQualified, totalFinished, totalDnf, totalAbsent, totalMed, totalPending, totalPoints, byHouse, byDept, byCategory };
   }, [snapshot, filteredIds, students, houseFilter, deptFilter]);
   const pct = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : '—';
 
@@ -126,6 +136,8 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     ppp: analytics.byHouse[h].enrolled > 0 ? (analytics.byHouse[h].points / analytics.byHouse[h].enrolled).toFixed(2) : '0.00',
     ...analytics.byHouse[h],
   })).sort((a, b) => Number(b.ppp) - Number(a.ppp));
+
+  const categoryPpp = ATHLETICS_CATEGORIES.map(cat => ({ name: cat, ...analytics.byCategory[cat], ppp: analytics.byCategory[cat].enrolled > 0 ? (analytics.byCategory[cat].points / analytics.byCategory[cat].enrolled).toFixed(2) : '0.00' })).sort((a,b) => Number(b.ppp)-Number(a.ppp));
 
   const deptPpp = (['BD', 'GD', 'PD'] as const).map(d => ({
     name: d,
@@ -153,6 +165,10 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
           <option value="BD">BD (Boys Dept)</option>
           <option value="GD">GD (Girls Dept)</option>
           <option value="PD">PD (Prep Dept)</option>
+        </select>
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value as any)} className="royal-input rounded-xl px-3 py-2 text-xs font-bold">
+          <option value="All">All Age Categories</option>
+          {ATHLETICS_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
         <span className="ml-auto text-xs text-slate-500 font-bold">{filteredStudents.length} students in scope</span>
       </div>
@@ -286,6 +302,31 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
             </tbody>
           </table>
         </div>
+      {/* PPP by Age Category */}
+      <div className="glass-panel rounded-2xl border border-primary/15 p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Icon name="groups" size="18" className="text-primary" />
+          <h3 className="text-sm font-black text-white">Points Per Participation (PPP) — By Age Category</h3>
+          <span className="text-[10px] text-slate-500 font-bold ml-auto">pts earned ÷ event participations</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="royal-data-table min-w-[620px]">
+            <thead><tr><th>Rank</th><th>Age Category</th><th>Participations</th><th>Qualified</th><th>Points</th><th>PPP</th><th>Absent</th><th>Med. Leave</th></tr></thead>
+            <tbody>{categoryPpp.filter(row => categoryFilter === 'All' || row.name === categoryFilter).map((row,i) => (
+              <tr key={row.name} className="hover:bg-white/[0.02]">
+                <td><span className="text-slate-500 font-black text-xs">#{i+1}</span></td>
+                <td><span className="font-black text-sm text-white">{row.name}</span></td>
+                <td className="text-center font-bold">{row.enrolled}</td>
+                <td className="text-center"><span className="text-emerald-400 font-bold">{row.qualified}</span><span className="text-slate-500 text-xs ml-1">({pct(row.qualified,row.enrolled)})</span></td>
+                <td className="text-center font-black text-white">{row.points}</td>
+                <td className="text-center"><span className="font-black text-amber-300">{row.ppp}</span></td>
+                <td className="text-center"><span className="text-rose-400 font-bold">{row.absent}</span><span className="text-slate-500 text-xs ml-1">({pct(row.absent,row.enrolled)})</span></td>
+                <td className="text-center"><span className="text-purple-400 font-bold">{row.med}</span><span className="text-slate-500 text-xs ml-1">({pct(row.med,row.enrolled)})</span></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </div>
       </div>
     </section>
   );
