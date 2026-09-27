@@ -23,8 +23,9 @@ export interface AthleticsFinalsConfig { eventId:string; category:AthleticsCateg
 // `timing` is always kept as the best valid attempt for that event's scoring
 // direction, so every existing consumer that reads `timing` (ranking,
 // leaderboards, summaries) keeps working unmodified.
-// `newResultAwarded` is a one-time +3 championship-point award attached to this
-// exact event/category/stage result. It never changes the recorded performance.
+// `newResultAwarded` marks the one-time +3 championship-point bonus for this
+// event/category. The scoring engine counts it once even if both stages are flagged.
+// It never changes the recorded performance.
 export interface AthleticsResult { eventId:string; category:AthleticsCategory; studentId:string; stage?:AthleticsStage; status:AthleticsResultStatus; timing?:string; attempts?:string[]; position?:number; qualified?:boolean; newResultAwarded?:boolean; }
 export interface AthleticsStudent { id:string; name:string; house:AthleticsHouse; category:AthleticsCategory; className:string; department:AthleticsDepartment; }
 
