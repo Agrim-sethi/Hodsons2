@@ -31,6 +31,7 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
     const [category, setCategory] = React.useState<AthleticsCategory>('PDB Under 11');
     const [selectedEvent, setSelectedEvent] = React.useState<AthleticsEvent | null>(null);
     const [stage, setStage] = React.useState<Stage>('qualifying');
+    const [activeTab, setActiveTab] = React.useState<Stage | 'audit'>('qualifying');
 
     const visibleEvents = React.useMemo(() => ATHLETICS_EVENTS.filter(event => { const allowedCategories = EXCLUSIVE_EVENT_CATEGORIES[event.id]; return !allowedCategories || allowedCategories.includes(category); }), [category]);
     const studentMap = React.useMemo(() => new Map(students.map(student => [student.id, student])), [students]);
@@ -53,30 +54,19 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
         return rankedResults(event, activeStage).slice(0, 3);
     }, [rankedResults, snapshot, category]);
 
-    const openEvent = (event: AthleticsEvent) => { setSelectedEvent(event); setStage(finalsFor(event.id)?.enabled ? 'finals' : 'qualifying'); };
+    const openEvent = (event: AthleticsEvent) => { const initial: Stage = finalsFor(event.id)?.enabled ? 'finals' : 'qualifying'; setSelectedEvent(event); setStage(initial); setActiveTab(initial); };
     const selectedFinalsEnabled = selectedEvent ? Boolean(finalsFor(selectedEvent.id)?.enabled) : false;
     const selectedRanked = selectedEvent && !isRelayEvent(selectedEvent) ? rankedResults(selectedEvent, stage) : [];
-    const selectedParticipants = selectedEvent && !isRelayEvent(selectedEvent) ? (() => {
-        const source = stage === 'finals'
-            ? snapshot.finals.find(entry => entry.eventId === selectedEvent.id && entry.category === category)
-            : snapshot.enrollments.find(entry => entry.eventId === selectedEvent.id && entry.category === category);
-        const ids = source?.studentIds || [];
-        return [...new Set(ids)].map(id => {
-            const student = studentMap.get(id);
-            const result = snapshot.results.find(item => item.eventId === selectedEvent.id && item.category === category && item.studentId === id && (item.stage || 'qualifying') === stage);
-            const ranked = selectedRanked.find(item => item.student.id === id);
-            return student ? { student, result, position: ranked?.computedPosition, points: eventPointBreakdown(snapshot, student, selectedEvent) } : null;
-        }).filter((item): item is NonNullable<typeof item> => Boolean(item));
-    })() : [];
-    const selectedHouseTotals = selectedParticipants.reduce((totals, entry) => {
-        const house = entry.student.house;
-        totals[house] ||= { qualification: 0, placement: 0, newRecord: 0, total: 0 };
-        totals[house].qualification += entry.points.qualification;
-        totals[house].placement += entry.points.placement;
-        totals[house].newRecord += entry.points.newRecord;
-        totals[house].total += entry.points.total;
+    const selectedHouseTotals = selectedEvent && !isRelayEvent(selectedEvent) ? (() => {
+        const enrollment = snapshot.enrollments.find(entry => entry.eventId === selectedEvent.id && entry.category === category);
+        const finals = snapshot.finals.find(entry => entry.eventId === selectedEvent.id && entry.category === category);
+        const resultIds = snapshot.results.filter(item => item.eventId === selectedEvent.id && item.category === category).map(item => item.studentId);
+        const ids = [...new Set([...(enrollment?.studentIds || []), ...(finals?.studentIds || []), ...resultIds])];
+        const totals = {} as Record<AthleticsHouse, { qualification: number; placement: number; newRecord: number; total: number }>;
+        RELAY_HOUSES.forEach(house => { totals[house] = { qualification: 0, placement: 0, newRecord: 0, total: 0 }; });
+        ids.forEach(id => { const student = studentMap.get(id); if (!student) return; const points = eventPointBreakdown(snapshot, student, selectedEvent); const total = totals[student.house]; total.qualification += points.qualification; total.placement += points.placement; total.newRecord += points.newRecord; total.total += points.total; });
         return totals;
-    }, {} as Record<AthleticsHouse, { qualification: number; placement: number; newRecord: number; total: number }>);
+    })() : {};
     const selectedRelayTeams = selectedEvent && isRelayEvent(selectedEvent)
         ? RELAY_HOUSES.map(house => snapshot.relayTeams.find(team => team.eventId === selectedEvent.id && team.category === category && team.house === house))
         : [];
@@ -119,10 +109,10 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1"><button onClick={() => setStage('qualifying')} className={'rounded-lg px-4 py-2 text-xs font-black uppercase ' + (stage === 'qualifying' ? 'bg-primary/15 text-primary' : 'text-slate-400')}>Qualifying</button>{selectedFinalsEnabled && <button onClick={() => setStage('finals')} className={'rounded-lg px-4 py-2 text-xs font-black uppercase ' + (stage === 'finals' ? 'bg-primary/15 text-primary' : 'text-slate-400')}>Finals</button>}</div><div className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">{selectedRanked.length} finished result{selectedRanked.length === 1 ? '' : 's'}</div></div>
-                  <div className="overflow-hidden rounded-2xl border border-white/10"><div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500"><span>Competitor</span><span>{isTrack(selectedEvent) ? 'Time' : 'Distance'}</span><span>Position</span></div>{selectedRanked.length === 0 ? <div className="px-4 py-12 text-center text-sm text-slate-500">No completed results have been published yet.</div> : selectedRanked.map(({student,result,computedPosition}) => { const config=houseConfig(student.house); return <div key={stage + ':' + student.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0"><div className="min-w-0"><div className="truncate font-black text-white">{student.name}</div><div className="mt-0.5 text-[10px] text-slate-500">#{student.id} • Class {student.className}</div><span className={'mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ' + config.bg + '/20 ' + config.text + ' ' + config.border + '/30'}>{student.house}</span>{computedPosition===1 && hasEventRecord(selectedEvent.id, student.id) && <span className="ml-2 mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-300"><Icon name="verified" size="11" /> New Record</span>}</div><div className="font-mono text-sm font-black text-slate-200">{displayResult(selectedEvent,result)}</div><div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-black text-primary">#{computedPosition}</div></div>; })}</div>
-                  <section className="overflow-hidden rounded-2xl border border-white/10">
-                    <div className="border-b border-white/10 bg-white/[0.025] px-4 py-3"><h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">Housewise points audit</h3><p className="mt-1 text-[10px] text-slate-500">Points awarded to each house, split by qualification, position and new-record bonus.</p></div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1"><button onClick={() => { setStage('qualifying'); setActiveTab('qualifying'); }} className={'rounded-lg px-4 py-2 text-xs font-black uppercase ' + (activeTab === 'qualifying' ? 'bg-primary/15 text-primary' : 'text-slate-400')}>Qualifying</button>{selectedFinalsEnabled && <button onClick={() => { setStage('finals'); setActiveTab('finals'); }} className={'rounded-lg px-4 py-2 text-xs font-black uppercase ' + (activeTab === 'finals' ? 'bg-primary/15 text-primary' : 'text-slate-400')}>Finals</button>}<button onClick={() => setActiveTab('audit')} className={'rounded-lg px-4 py-2 text-xs font-black uppercase ' + (activeTab === 'audit' ? 'bg-primary/15 text-primary' : 'text-slate-400')}>Points Audit</button></div>{activeTab !== 'audit' && <div className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">{selectedRanked.length} finished result{selectedRanked.length === 1 ? '' : 's'}</div></div>}
+                  {activeTab !== 'audit' && <div className="overflow-hidden rounded-2xl border border-white/10"><div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500"><span>Competitor</span><span>{isTrack(selectedEvent) ? 'Time' : 'Distance'}</span><span>Position</span></div>{selectedRanked.length === 0 ? <div className="px-4 py-12 text-center text-sm text-slate-500">No completed results have been published yet.</div> : selectedRanked.map(({student,result,computedPosition}) => { const config=houseConfig(student.house); return <div key={stage + ':' + student.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0"><div className="min-w-0"><div className="truncate font-black text-white">{student.name}</div><div className="mt-0.5 text-[10px] text-slate-500">#{student.id} • Class {student.className}</div><span className={'mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ' + config.bg + '/20 ' + config.text + ' ' + config.border + '/30'}>{student.house}</span>{computedPosition===1 && hasEventRecord(selectedEvent.id, student.id) && <span className="ml-2 mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-300"><Icon name="verified" size="11" /> New Record</span>}</div><div className="font-mono text-sm font-black text-slate-200">{displayResult(selectedEvent,result)}</div><div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-black text-primary">#{computedPosition}</div></div>; })}</div>}
+                  {activeTab === 'audit' &&                   <section className="overflow-hidden rounded-2xl border border-white/10">
+                    <div className="border-b border-white/10 bg-white/[0.025] px-4 py-3"><h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">Central event points log</h3><p className="mt-1 text-[10px] text-slate-500">Unified qualifying + finals tally. Qualification: +1; placement: scored round only; new record: +3 once per athlete/event.</p></div>
                     <div className="grid grid-cols-[1fr_repeat(4,auto)] gap-3 border-b border-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-wider text-slate-500"><span>House</span><span>Qual.</span><span>Place</span><span>Record</span><span>Total</span></div>
                     {RELAY_HOUSES.map(house => {
                       const total = selectedHouseTotals[house] || { qualification: 0, placement: 0, newRecord: 0, total: 0 };
@@ -135,7 +125,7 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
                         <span className="text-xs font-black tabular-nums text-primary">{total.total}</span>
                       </div>;
                     })}
-                  </section>
+                  </section>}
                 </div>
               )}
             </div>
