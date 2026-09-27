@@ -449,7 +449,10 @@ const AthleticsEventManager: React.FC<Props> = ({
       Object.prototype.hasOwnProperty.call(patch, 'timing') ||
       Object.prototype.hasOwnProperty.call(patch, 'attempts');
     const positionWasExplicitlyPatched = Object.prototype.hasOwnProperty.call(patch, 'position');
+    const statusChanged = Object.prototype.hasOwnProperty.call(patch, 'status') && patch.status !== existing?.status;
+    const qualificationChanged = Object.prototype.hasOwnProperty.call(patch, 'qualified') && patch.qualified !== existing?.qualified;
     const positionChanged = positionWasExplicitlyPatched && patch.position !== existing?.position;
+    const rankingInputsChanged = performanceChanged || statusChanged || qualificationChanged || positionChanged;
 
     const nextResult: AthleticsResult = {
       eventId: event.id,
@@ -467,7 +470,7 @@ const AthleticsEventManager: React.FC<Props> = ({
         : performanceChanged
           ? undefined
           : existing?.position,
-      newResultAwarded: positionChanged ? false : existing?.newResultAwarded,
+      newResultAwarded: rankingInputsChanged ? false : existing?.newResultAwarded,
     };
 
     const results = existing
@@ -480,7 +483,7 @@ const AthleticsEventManager: React.FC<Props> = ({
             return result;
           }
 
-          if (performanceChanged || positionChanged) {
+          if (rankingInputsChanged) {
             return result.studentId === studentId
               ? nextResult
               : { ...result, newResultAwarded: false };
