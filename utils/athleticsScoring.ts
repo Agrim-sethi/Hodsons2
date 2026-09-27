@@ -195,7 +195,7 @@ export const eventPointBreakdown = (
 
   // Qualification is a first-round achievement worth exactly +1. A finished
   // but unqualified result earns no participation point.
-  const qualification = qualifying?.qualified === true ? 1 : 0;
+  const qualification = qualifying?.status === 'finished' && qualifying.qualified === true ? 1 : 0;
   let placement = 0;
 
   if (finalsEnabled) {
