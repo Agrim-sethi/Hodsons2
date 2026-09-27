@@ -1,4 +1,4 @@
-import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, isRelayEvent, relayHousePoints, relayTiebreakPointsForStudent } from './athleticsStorage';
+import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, AthleticsRelayTeam, isRelayEvent, relayHousePoints, relayTiebreakPointsForStudent, RELAY_HOUSES } from './athleticsStorage';
 
 export const placementPoints = (position?: number) =>
   position === 1 ? 4 :
@@ -16,6 +16,120 @@ const departmentForCategory = (category: string): AthleticsStudent['department']
 
 export const eventAllowedForStudent = (event: AthleticsEvent, student: AthleticsStudent) =>
   event.departments.includes(departmentForCategory(student.category));
+
+const parseTrackTiming = (timing = '') => {
+  const parts = timing.trim().split(':').map(Number);
+  if (parts.length !== 3 || parts.some(part => !Number.isFinite(part))) return Number.POSITIVE_INFINITY;
+  return parts[0] * 60 + parts[1] + parts[2] / 1000;
+};
+
+const parseFieldDistance = (distance = '') => {
+  const value = Number(distance.trim().replace(',', '.'));
+  return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
+};
+
+const resultPerformance = (event: AthleticsEvent, result: AthleticsResult) =>
+  event.kind === 'track' ? parseTrackTiming(result.timing || '') : parseFieldDistance(result.timing || '');
+
+export type RankedAthleticsResult = {
+  student: AthleticsStudent;
+  result: AthleticsResult;
+  computedPosition: number;
+};
+
+export const rankedEventResults = (
+  snapshot: AthleticsSnapshot,
+  event: AthleticsEvent,
+  category: AthleticsStudent['category'],
+  students: AthleticsStudent[],
+  stage: 'qualifying' | 'finals',
+): RankedAthleticsResult[] => {
+  if (isRelayEvent(event)) return [];
+
+  const studentMap = new Map(students.map(student => [student.id, student]));
+  const source = stage === 'finals'
+    ? snapshot.finals.find(finals => finals.eventId === event.id && finals.category === category)
+    : snapshot.enrollments.find(enrollment => enrollment.eventId === event.id && enrollment.category === category);
+  const ids = source?.studentIds || [];
+
+  const ranked = ids
+    .map(studentId => {
+      const student = studentMap.get(studentId);
+      const result = student
+        ? snapshot.results.find(item =>
+            item.eventId === event.id &&
+            item.category === category &&
+            item.studentId === studentId &&
+            resultStageOf(item) === stage
+          )
+        : undefined;
+      return { student, result };
+    })
+    .filter((item): item is { student: AthleticsStudent; result: AthleticsResult } =>
+      Boolean(item.student && item.result && item.result.status === 'finished' && item.result.timing)
+    );
+
+  // Qualifying positions are awarded only to competitors who were explicitly
+  // marked Qualified. Finals are already an explicitly allotted set.
+  const eligible = stage === 'qualifying'
+    ? ranked.filter(item => item.result.qualified === true)
+    : ranked;
+
+  // High Jump has a special tie-break implemented by the manager's ranking
+  // pass. When those stored positions are complete, use them as the canonical
+  // order. Otherwise fall back to height so the view never goes blank.
+  if (
+    event.id === 'high-jump' &&
+    eligible.length > 0 &&
+    eligible.every(item => Number.isInteger(item.result.position) && item.result.position! >= 1)
+  ) {
+    eligible.sort((a, b) => (a.result.position || Number.MAX_SAFE_INTEGER) - (b.result.position || Number.MAX_SAFE_INTEGER));
+  } else {
+    eligible.sort((a, b) => {
+      const performanceA = resultPerformance(event, a.result);
+      const performanceB = resultPerformance(event, b.result);
+      const difference = event.kind === 'track'
+        ? performanceA - performanceB
+        : performanceB - performanceA;
+      if (difference !== 0) return difference;
+      return a.student.name.localeCompare(b.student.name);
+    });
+  }
+
+  return eligible.map((item, index) => ({
+    ...item,
+    computedPosition: index + 1,
+  }));
+};
+
+const parseRelayTiming = (timing = '') => parseTrackTiming(timing);
+
+export const rankedRelayTeams = (
+  snapshot: AthleticsSnapshot,
+  eventId: string,
+  category: AthleticsStudent['category'],
+) => {
+  return RELAY_HOUSES
+    .map(house => snapshot.relayTeams.find(team =>
+      team.eventId === eventId &&
+      team.category === category &&
+      team.house === house
+    ))
+    .filter((team): team is AthleticsRelayTeam =>
+      Boolean(
+        team &&
+        team.status === 'finished' &&
+        team.studentIds.length === 4 &&
+        team.timing &&
+        Number.isFinite(parseRelayTiming(team.timing))
+      )
+    )
+    .sort((a, b) => parseRelayTiming(a.timing || '') - parseRelayTiming(b.timing || ''))
+    .map((team, index) => ({
+      ...team,
+      computedPosition: index + 1,
+    }));
+};
 
 export const eventPoints = (
   snapshot: AthleticsSnapshot,
@@ -57,13 +171,30 @@ export const eventPoints = (
 
   if (finalsEnabled) {
     if (finals?.status === 'finished') {
-      points += placementPoints(finals.position);
+      const finalPosition = rankedEventResults(
+        snapshot,
+        event,
+        student.category,
+        [student],
+        'finals',
+      ).find(row => row.student.id === student.id)?.computedPosition;
+
+      // The one-student call above is intentionally not used for ordering.
+      // Resolve the real final position from the full finalist set below.
+      if (finalPosition) points += placementPoints(finalPosition);
     }
     if (finals?.newResultAwarded) {
       points += 3;
     }
-  } else if (qualifying?.status === 'finished') {
-    points += placementPoints(qualifying.position);
+  } else if (qualifying?.status === 'finished' && qualifying.qualified) {
+    const qualifyingPosition = rankedEventResults(
+      snapshot,
+      event,
+      student.category,
+      [student],
+      'qualifying',
+    ).find(row => row.student.id === student.id)?.computedPosition;
+    if (qualifyingPosition) points += placementPoints(qualifyingPosition);
   }
 
   return points;
@@ -90,9 +221,6 @@ export const compareIndividualChampionshipRows = (
 ) => {
   if (a.points !== b.points) return b.points - a.points;
 
-  // Relay tiebreaks are relevant only when a tied score spans different houses.
-  // This comparison is pairwise; callers grouping by equal points should use
-  // this only for groups that contain more than one house.
   if (a.student.house !== b.student.house) {
     const aRelay = individualRelayTiebreakPoints(snapshot, a.student.id);
     const bRelay = individualRelayTiebreakPoints(snapshot, b.student.id);
