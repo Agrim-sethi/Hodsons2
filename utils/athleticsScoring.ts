@@ -1,4 +1,4 @@
-import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, AthleticsRelayTeam, isRelayEvent, relayHousePoints, relayTiebreakPointsForStudent, RELAY_HOUSES } from './athleticsStorage';
+import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, isRelayEvent, relayHousePoints, relayTiebreakPointsForStudent } from './athleticsStorage';
 
 export const placementPoints = (position?: number) =>
   position === 1 ? 4 :
@@ -117,37 +117,6 @@ export const rankedEventResults = (
       return student ? { ...row, student } : null;
     })
     .filter((row): row is RankedAthleticsResult => Boolean(row));
-};
-
-const parseRelayTiming = (timing = '') => parseTrackTiming(timing);
-
-export type RankedRelayTeam = AthleticsRelayTeam & { computedPosition: number };
-
-export const rankedRelayTeams = (
-  snapshot: AthleticsSnapshot,
-  eventId: string,
-  category: AthleticsStudent['category'],
-): RankedRelayTeam[] => {
-  return RELAY_HOUSES
-    .map(house => snapshot.relayTeams.find(team =>
-      team.eventId === eventId &&
-      team.category === category &&
-      team.house === house
-    ))
-    .filter((team): team is AthleticsRelayTeam =>
-      Boolean(
-        team &&
-        team.status === 'finished' &&
-        team.studentIds.length === 4 &&
-        team.timing &&
-        Number.isFinite(parseRelayTiming(team.timing))
-      )
-    )
-    .sort((a, b) => parseRelayTiming(a.timing || '') - parseRelayTiming(b.timing || ''))
-    .map((team, index) => ({
-      ...team,
-      computedPosition: index + 1,
-    }));
 };
 
 export const eventPoints = (
