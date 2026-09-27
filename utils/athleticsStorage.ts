@@ -194,25 +194,44 @@ const parseRelayTiming = (timing = '') => {
 
 export type RankedRelayTeam = AthleticsRelayTeam & { computedPosition: number };
 
+const positionsAreComplete = (positions: Array<number | undefined>) => {
+  if (positions.length === 0 || positions.some(position => !Number.isInteger(position) || position! < 1)) return false;
+  const sorted = positions.map(position => position as number).sort((a, b) => a - b);
+  return sorted.every((position, index) => position === index + 1);
+};
+
 export const rankedRelayTeams = (
   snapshot: AthleticsSnapshot,
   eventId: string,
   category: AthleticsCategory,
-): RankedRelayTeam[] => RELAY_HOUSES
-  .map(house => snapshot.relayTeams.find(team =>
-    team.eventId === eventId &&
-    team.category === category &&
-    team.house === house
-  ))
-  .filter((team): team is AthleticsRelayTeam => Boolean(
-    team &&
-    team.status === 'finished' &&
-    team.studentIds.length === 4 &&
-    team.timing &&
-    Number.isFinite(parseRelayTiming(team.timing))
-  ))
-  .sort((a, b) => parseRelayTiming(a.timing || '') - parseRelayTiming(b.timing || ''))
-  .map((team, index) => ({ ...team, computedPosition: index + 1 }));
+): RankedRelayTeam[] => {
+  const teams = RELAY_HOUSES
+    .map(house => snapshot.relayTeams.find(team =>
+      team.eventId === eventId &&
+      team.category === category &&
+      team.house === house
+    ))
+    .filter((team): team is AthleticsRelayTeam => Boolean(
+      team &&
+      team.status === 'finished' &&
+      team.studentIds.length === 4 &&
+      team.timing &&
+      Number.isFinite(parseRelayTiming(team.timing))
+    ));
+
+  if (positionsAreComplete(teams.map(team => team.position))) {
+    return [...teams]
+      .sort((a, b) => (a.position || Number.MAX_SAFE_INTEGER) - (b.position || Number.MAX_SAFE_INTEGER))
+      .map((team, index) => ({ ...team, computedPosition: index + 1 }));
+  }
+
+  return [...teams]
+    .sort((a, b) => {
+      const difference = parseRelayTiming(a.timing || '') - parseRelayTiming(b.timing || '');
+      return difference !== 0 ? difference : a.house.localeCompare(b.house);
+    })
+    .map((team, index) => ({ ...team, computedPosition: index + 1 }));
+};
 
 export const relayHousePoints = (snapshot: AthleticsSnapshot, house: AthleticsHouse, department?: AthleticsDepartment) =>
   snapshot.relayTeams.reduce((sum, team) => {
