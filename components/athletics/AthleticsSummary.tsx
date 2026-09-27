@@ -65,12 +65,17 @@ const buildEventSummary = (category: AthleticsCategory, event: AthleticsEvent, s
   const finalsEnabled = Boolean(finalsConfig?.enabled);
   const stage: 'qualifying' | 'finals' = finalsEnabled ? 'finals' : 'qualifying';
   const ranked = rankedEventResults(snapshot, event, category, students, stage);
-  const podium = ranked.slice(0, 3).map((entry, index) => ({
+  const podium = ranked.slice(0, 3).map((entry) => ({
     student: entry.student,
     result: entry.result.timing || '—',
     stage: stage === 'finals' ? 'Finals' : 'Qualifying',
     points: eventPoints(snapshot, entry.student, event),
-    newResultAwarded: entry.result.newResultAwarded === true,
+    newResultAwarded: snapshot.results.some(result =>
+      result.eventId === event.id &&
+      result.category === category &&
+      result.studentId === entry.student.id &&
+      result.newResultAwarded === true
+    ),
   }));
 
   return {
