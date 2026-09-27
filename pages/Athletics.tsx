@@ -23,7 +23,6 @@ const Athletics: React.FC = () => {
   const [pageTab, setPageTab] = React.useState<PageTab>('view');
   const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = React.useState<AthleticsCategory>('PDB Under 11');
-  const [showDuplicateAudit, setShowDuplicateAudit] = React.useState(false);
   const students = React.useMemo(() => getPrepAthleticsStudents(studentClasses as Record<string, string>), []);
 
   React.useEffect(() => { setSnapshot(getAthleticsSnapshot()); return subscribeToAthleticsData(setSnapshot); }, []);
@@ -39,62 +38,11 @@ const Athletics: React.FC = () => {
   const visibleEvents = React.useMemo(() => ATHLETICS_EVENTS.filter(event => { const allowed = EXCLUSIVE_EVENT_CATEGORIES[event.id]; return !allowed || allowed.includes(selectedCategory); }), [selectedCategory]);
   const selectedEvent = React.useMemo(() => ATHLETICS_EVENTS.find(event => event.id === selectedEventId) || null, [selectedEventId]);
   const handleSave = React.useCallback((nextSnapshot: AthleticsSnapshot, _title: string, _description: string) => { setSnapshot(nextSnapshot); void saveAthleticsSnapshot(nextSnapshot); }, []);
-  const duplicateCategoryEntries = React.useMemo(() => {
-    const byEventStudent = new Map<string, Map<string, Set<string>>>();
-    snapshot.enrollments.forEach(entry => {
-      const studentsForEvent = byEventStudent.get(entry.eventId) || new Map<string, Set<string>>();
-      entry.studentIds.forEach(studentId => {
-        const categories = studentsForEvent.get(studentId) || new Set<string>();
-        categories.add(entry.category);
-        studentsForEvent.set(studentId, categories);
-      });
-      byEventStudent.set(entry.eventId, studentsForEvent);
-    });
-    const issues: { eventId: string; eventName: string; studentId: string; studentName: string; categories: string[] }[] = [];
-    byEventStudent.forEach((studentsForEvent, eventId) => studentsForEvent.forEach((categories, studentId) => {
-      if (categories.size < 2) return;
-      const student = students.find(item => item.id === studentId);
-      issues.push({
-        eventId,
-        eventName: ATHLETICS_EVENTS.find(event => event.id === eventId)?.name || eventId,
-        studentId,
-        studentName: student?.name || 'Unknown student',
-        categories: [...categories].sort(),
-      });
-    }));
-    return issues.sort((a,b) => a.studentName.localeCompare(b.studentName) || a.eventName.localeCompare(b.eventName));
-  }, [snapshot.enrollments, students]);
-
-  const downloadDuplicateAudit = () => {
-    const header = ['Student ID','Student Name','Event ID','Event','Conflicting Categories'];
-    const rows = duplicateCategoryEntries.map(row => [row.studentId,row.studentName,row.eventId,row.eventName,row.categories.join('; ')]);
-    const csv = [header,...rows].map(row => row.map(value => '"' + String(value).replace(/"/g,'""') + '"').join(',')).join('\\r\\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'athletics-duplicate-category-enrollments.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-
   return (
     <div className="mx-auto max-w-[1500px] space-y-7 pb-12">
       <section className="flex flex-col gap-5 border-b border-primary/10 pb-6 xl:flex-row xl:items-end xl:justify-between"><div><div className="royal-kicker mb-2">Track & Field Desk</div><h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">Athletics 2026</h1><p className="mt-2 max-w-4xl text-sm leading-relaxed text-slate-400">Athletics events organised by exact department and age category.</p></div><div className={`rounded-xl border px-4 py-3 text-xs font-black uppercase ${isLoggedIn ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/5 text-slate-400'}`}>{isLoggedIn ? 'Staff Editing Active' : 'Read Only Mode'}</div></section>
 
       <section className="flex items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1"><button type="button" onClick={() => setPageTab('view')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'view' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>View Events</button>{isLoggedIn && <button type="button" onClick={() => setPageTab('manage')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'manage' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Manage Events</button>}<button type="button" onClick={() => setPageTab('leaderboard')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'leaderboard' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Leaderboard</button><button type="button" onClick={() => setPageTab('summary')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'summary' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Summary</button><button type="button" onClick={() => setPageTab('analytics')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'analytics' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Analytics</button></div><div className="hidden text-xs text-slate-500 sm:block">Scoring updates live.</div></section>
-
-      <section className="rounded-2xl border border-amber-400/20 bg-amber-500/[0.035] p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><div className="text-xs font-black uppercase tracking-wider text-amber-300">Temporary data integrity tool</div><p className="mt-1 text-sm text-slate-400">Find students enrolled in multiple age categories for the same event.</p></div>
-          <button type="button" onClick={() => setShowDuplicateAudit(value => !value)} className="rounded-xl border border-amber-400/30 px-4 py-2 text-xs font-black uppercase text-amber-200">{showDuplicateAudit ? 'Hide duplicate check' : 'Check duplicate entries'} ({duplicateCategoryEntries.length})</button>
-        </div>
-        {showDuplicateAudit && <div className="mt-4 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-400">Only same-event entries across different categories are listed. Normal participation in different events is not flagged.</p><button type="button" disabled={duplicateCategoryEntries.length===0} onClick={downloadDuplicateAudit} className="rounded-lg bg-primary/15 px-3 py-2 text-xs font-black text-primary disabled:opacity-40">Download CSV</button></div>
-          {duplicateCategoryEntries.length===0 ? <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm font-bold text-emerald-300">No cross-category duplicate enrollments found.</div> : <div className="overflow-x-auto rounded-xl border border-white/10"><table className="w-full min-w-[650px] text-left text-sm"><thead className="bg-white/[0.04] text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="p-3">Student</th><th className="p-3">ID</th><th className="p-3">Event</th><th className="p-3">Conflicting categories</th></tr></thead><tbody>{duplicateCategoryEntries.map((row,index)=><tr key={row.eventId+':'+row.studentId} className="border-t border-white/5"><td className="p-3 font-bold text-white">{row.studentName}</td><td className="p-3 font-mono text-xs text-slate-400">{row.studentId}</td><td className="p-3 text-slate-300">{row.eventName}</td><td className="p-3"><div className="flex flex-wrap gap-1">{row.categories.map(category=><span key={category} className="rounded-md bg-amber-500/10 px-2 py-1 text-xs font-bold text-amber-200">{category}</span>)}</div></td></tr>)}</tbody></table></div>}
-        </div>}
-      </section>
 
       {pageTab === 'view' && <AthleticsViewEvents students={students} snapshot={snapshot} />}
       {pageTab === 'leaderboard' && <AthleticsLeaderboard students={students} snapshot={snapshot} />}
