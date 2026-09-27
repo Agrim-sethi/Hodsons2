@@ -486,10 +486,11 @@ const AthleticsEventManager: React.FC<Props> = ({
             return nextResult;
           }
 
-          // A New Record is awarded only once per event/category, so any
-          // ranking-affecting edit in either round invalidates the event-wide
-          // record bonus for every stage.
-          return rankingInputsChanged
+          // Record bonuses are scoped to a stage for record-setting purposes,
+          // but the scoring engine counts an athlete's qualifying/finals record
+          // bonuses only once in total for the event. A ranking-affecting edit
+          // invalidates the record bonus in the edited stage only.
+          return rankingInputsChanged && resultStageOf(result) === resultStage
             ? { ...result, newResultAwarded: false }
             : result;
         })
@@ -652,17 +653,15 @@ const AthleticsEventManager: React.FC<Props> = ({
         return result;
       }
 
-      return {
-        ...result,
-        ...(resultStageOf(result) === stage
-          ? {
-              status: result.status === 'finished' ? 'pending' as AthleticsResultStatus : result.status,
-              timing: '',
-              position: undefined,
-            }
-          : {}),
-        newResultAwarded: false,
-      };
+      return resultStageOf(result) === stage
+        ? {
+            ...result,
+            status: result.status === 'finished' ? 'pending' as AthleticsResultStatus : result.status,
+            timing: '',
+            position: undefined,
+            newResultAwarded: false,
+          }
+        : result;
     });
 
     saveSnapshot({ ...snapshot, highJump, results }, title, description);
