@@ -23,7 +23,7 @@ const resolveStudentEventCategory = (
     .filter(entry => entry.eventId === event.id && entry.studentIds?.includes(student.id))
     .map(entry => entry.category);
   const candidates = [...new Set([...resultCategories, ...enrollmentCategories, ...finalsCategories])];
-  if (candidates.includes(student.category)) return student.category;
+  if (resultCategories.includes(student.category)) return student.category;
 
   // Some open events use a competition category (for example, "BD Opens")
   // that differs from the athlete's usual age category. Score the category
@@ -37,6 +37,9 @@ const resolveStudentEventCategory = (
     )
   );
   if (withFinalsResult) return withFinalsResult;
+  const withAnyResult = resultCategories[0];
+  if (withAnyResult) return withAnyResult;
+  if (candidates.includes(student.category)) return student.category;
   return candidates[0] || student.category;
 };
 
