@@ -152,7 +152,7 @@ export const eventPointBreakdown = (
   const finals = finalsEnabled
     ? snapshot.results.find(result =>
         result.eventId === event.id &&
-        result.category === student.category &&
+        result.category === category &&
         result.studentId === student.id &&
         resultStageOf(result) === 'finals'
       )
