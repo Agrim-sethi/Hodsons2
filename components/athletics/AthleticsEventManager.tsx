@@ -477,19 +477,21 @@ const AthleticsEventManager: React.FC<Props> = ({
       ? snapshot.results.map((result) => {
           if (
             result.eventId !== event.id ||
-            result.category !== category ||
-            resultStageOf(result) !== resultStage
+            result.category !== category
           ) {
             return result;
           }
 
-          if (rankingInputsChanged) {
-            return result.studentId === studentId
-              ? nextResult
-              : { ...result, newResultAwarded: false };
+          if (result.studentId === studentId && resultStageOf(result) === resultStage) {
+            return nextResult;
           }
 
-          return result.studentId === studentId ? nextResult : result;
+          // A New Record is awarded only once per event/category, so any
+          // ranking-affecting edit in either round invalidates the event-wide
+          // record bonus for every stage.
+          return rankingInputsChanged
+            ? { ...result, newResultAwarded: false }
+            : result;
         })
       : [...snapshot.results, nextResult];
 
@@ -646,15 +648,19 @@ const AthleticsEventManager: React.FC<Props> = ({
     });
 
     const results = snapshot.results.map((result) => {
-      if (result.eventId !== event.id || result.category !== category || resultStageOf(result) !== stage) {
+      if (result.eventId !== event.id || result.category !== category) {
         return result;
       }
 
       return {
         ...result,
-        status: result.status === 'finished' ? 'pending' as AthleticsResultStatus : result.status,
-        timing: '',
-        position: undefined,
+        ...(resultStageOf(result) === stage
+          ? {
+              status: result.status === 'finished' ? 'pending' as AthleticsResultStatus : result.status,
+              timing: '',
+              position: undefined,
+            }
+          : {}),
         newResultAwarded: false,
       };
     });
