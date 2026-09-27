@@ -397,7 +397,7 @@ const AthleticsEventManager: React.FC<Props> = ({
     const current = splitTrackTiming(team.timing);
     const next = { ...current, [key]: String(clampNumber(value, max)) };
     const timing = [clampNumber(next.minutes, 999), clampNumber(next.seconds, 59), clampNumber(next.milliseconds, 999)].join(':');
-    updateRelayTeam(house, { timing }, 'Relay Time Saved', `${house} ${event.name} time updated.`);
+    updateRelayTeam(house, { timing, position: undefined }, 'Relay Time Saved', `${house} ${event.name} time updated; position cleared for re-ranking.`);
   };
 
   const updateRelayStatus = (house: (typeof HOUSES)[number], status: 'pending' | 'finished' | 'dnf') => {
@@ -445,6 +445,11 @@ const AthleticsEventManager: React.FC<Props> = ({
         resultStageOf(result) === resultStage,
     );
 
+    const performanceChanged =
+      Object.prototype.hasOwnProperty.call(patch, 'timing') ||
+      Object.prototype.hasOwnProperty.call(patch, 'attempts');
+    const positionWasExplicitlyPatched = Object.prototype.hasOwnProperty.call(patch, 'position');
+
     const nextResult: AthleticsResult = {
       eventId: event.id,
       category,
@@ -456,6 +461,11 @@ const AthleticsEventManager: React.FC<Props> = ({
       position: existing?.position,
       qualified: existing?.qualified || false,
       ...patch,
+      position: positionWasExplicitlyPatched
+        ? patch.position
+        : performanceChanged
+          ? undefined
+          : existing?.position,
     };
 
     const results = existing
