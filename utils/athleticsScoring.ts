@@ -31,6 +31,12 @@ const parseFieldDistance = (distance = '') => {
 const resultPerformance = (event: AthleticsEvent, result: AthleticsResult) =>
   event.kind === 'track' ? parseTrackTiming(result.timing || '') : parseFieldDistance(result.timing || '');
 
+const positionsAreComplete = (positions: Array<number | undefined>) => {
+  if (positions.length === 0 || positions.some(position => !Number.isInteger(position) || position! < 1)) return false;
+  const sorted = positions.map(position => position as number).sort((a, b) => a - b);
+  return sorted.every((position, index) => position === index + 1);
+};
+
 type RankedResultRow = {
   studentId: string;
   result: AthleticsResult;
@@ -70,14 +76,11 @@ const rankedResultRows = (
     ? rows.filter(item => item.result.qualified === true)
     : rows;
 
-  // High Jump has a special tie-break implemented by the manager's ranking
-  // pass. When those stored positions are complete, use them as the canonical
-  // order. Otherwise fall back to height.
-  if (
-    event.id === 'high-jump' &&
-    eligible.length > 0 &&
-    eligible.every(item => Number.isInteger(item.result.position) && item.result.position! >= 1)
-  ) {
+  // A complete, valid set of stored positions is authoritative. This keeps
+  // manually corrected/auto-ranked results identical across Manager, Summary,
+  // View Events, and scoring. If positions are missing, duplicated, or contain
+  // gaps, rebuild the order from the recorded performance.
+  if (positionsAreComplete(eligible.map(item => item.result.position))) {
     eligible.sort((a, b) => (a.result.position || Number.MAX_SAFE_INTEGER) - (b.result.position || Number.MAX_SAFE_INTEGER));
   } else {
     eligible.sort((a, b) => {
