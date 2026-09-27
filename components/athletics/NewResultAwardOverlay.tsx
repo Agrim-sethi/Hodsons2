@@ -4,6 +4,7 @@ import { Icon } from '../Icon';
 import { useToast } from '../ui/ToastProvider';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
 import { AthleticsEvent, AthleticsSnapshot, AthleticsStage, AthleticsStudent } from '../../utils/athleticsStorage';
+import { rankedEventResults } from '../../utils/athleticsScoring';
 
 type Props = {
   event: AthleticsEvent;
@@ -14,54 +15,13 @@ type Props = {
   onSave: (snapshot: AthleticsSnapshot, title: string, description: string) => void;
 };
 
-const parseTrackTiming = (value = '') => {
-  const parts = value.trim().split(':').map(Number);
-  if (parts.length !== 3 || parts.some(Number.isNaN)) return Number.POSITIVE_INFINITY;
-  return parts[0] * 60 + parts[1] + parts[2] / 1000;
-};
-
-const parseFieldDistance = (value = '') => {
-  const number = Number(value.trim().replace(',', '.'));
-  return Number.isFinite(number) ? number : Number.NEGATIVE_INFINITY;
-};
-
-const resultStageOf = (result: { stage?: AthleticsStage }) => result.stage || 'qualifying';
-
 const getWinner = (
   event: AthleticsEvent,
   category: AthleticsCategory,
   stage: AthleticsStage,
   students: AthleticsStudent[],
   snapshot: AthleticsSnapshot,
-) => {
-  const studentMap = new Map(students.map(student => [student.id, student]));
-  const source = stage === 'finals'
-    ? snapshot.finals.find(item => item.eventId === event.id && item.category === category)
-    : snapshot.enrollments.find(item => item.eventId === event.id && item.category === category);
-  const ids = source?.studentIds || [];
-
-  const ranked = ids
-    .map(id => ({
-      student: studentMap.get(id),
-      result: snapshot.results.find(result =>
-        result.eventId === event.id &&
-        result.category === category &&
-        result.studentId === id &&
-        resultStageOf(result) === stage,
-      ),
-    }))
-    .filter((item): item is { student: AthleticsStudent; result: NonNullable<typeof item.result> } => {
-      if (!item.student || !item.result || item.result.status !== 'finished' || !item.result.timing) return false;
-      if (stage === 'qualifying' && item.result.qualified !== true) return false;
-      return true;
-    });
-
-  ranked.sort((a, b) => event.kind === 'track'
-    ? parseTrackTiming(a.result.timing) - parseTrackTiming(b.result.timing)
-    : parseFieldDistance(b.result.timing) - parseFieldDistance(a.result.timing));
-
-  return ranked[0] || null;
-};
+) => rankedEventResults(snapshot, event, category, students, stage)[0] || null;
 
 const findResultsRow = () => {
   if (typeof document === 'undefined') return null;
