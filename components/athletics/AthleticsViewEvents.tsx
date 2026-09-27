@@ -12,7 +12,6 @@ type AthleticsStudent = { id: string; name: string; house: AthleticsHouse; categ
 type Stage = 'qualifying' | 'finals';
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = { '3000m': ['BD Opens'], '110m-hurdles': ['BD Opens'], 'triple-jump': ['BD Opens'], 'javelin-throw': ['BD Opens'] };
-const resultStageOf = (result: AthleticsResult): Stage => result.stage || 'qualifying';
 const isTrack = (event: AthleticsEvent) => event.kind === 'track';
 const displayResult = (_event: AthleticsEvent, result?: AthleticsResult) => (!result || result.status !== 'finished' || !result.timing) ? '—' : result.timing;
 const RelayPodiumTile: React.FC<{ house?: AthleticsHouse; position: number; timing?: string; runnerCount: number }> = ({ house, position, timing, runnerCount }) => {
@@ -60,7 +59,7 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
 
     const makePlayer = (entry: ReturnType<typeof rankedResults>[number] | undefined): PodiumPlayer | null => {
         if (!entry) return null;
-        return { id: entry.student.id, name: entry.student.name, house: entry.student.house, position: entry.result.position ?? entry.computedPosition, rank: entry.computedPosition, timing: entry.result.timing };
+        return { id: entry.student.id, name: entry.student.name, house: entry.student.house, position: entry.computedPosition, rank: entry.computedPosition, timing: entry.result.timing };
     };
 
     const modal = selectedEvent ? (
@@ -103,7 +102,6 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
 
     return <><section className="space-y-4"><div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><div className="royal-kicker mb-1">Age Category Results</div><h2 className="text-2xl font-black text-white">Athletics Event Results</h2><p className="mt-1 text-sm text-slate-400">Published results for every event, organised by department and age category.</p></div><div className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">{visibleEvents.length} events</div></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{ATHLETICS_CATEGORIES.map(item=><button key={item} onClick={()=>setCategory(item)} className={`rounded-xl border px-3 py-3 text-left ${category===item?'border-primary/50 bg-primary/10 text-white':'border-white/10 bg-white/[0.02] text-slate-400'}`}><div className="text-sm font-black">{item}</div><div className="mt-1 text-[10px] uppercase tracking-wider opacity-70">{students.filter(student=>student.category===item).length} students</div></button>)}</div></section><section className="space-y-4"><div className="flex items-end justify-between gap-3"><div><div className="royal-kicker mb-1">{category}</div><h2 className="text-2xl font-black text-white">Event Results</h2></div><div className="text-xs text-slate-400">Click a card for full results</div></div><div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">{visibleEvents.map(event=>{
   if (isRelayEvent(event)) {
-    const teams = RELAY_HOUSES.map(house => snapshot.relayTeams.find(team => team.eventId === event.id && team.category === category && team.house === house));
     const rankedTeams = rankedRelayTeams(snapshot, event.id, category);
     const byPosition = new Map(rankedTeams.map(team => [team.computedPosition, team]));
     return <button key={event.id} onClick={() => openEvent(event)} className="glass-panel group rounded-2xl border border-primary/10 p-5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40">
