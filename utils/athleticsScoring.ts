@@ -8,6 +8,38 @@ export const placementPoints = (position?: number) =>
 
 const resultStageOf = (result: AthleticsResult) => result.stage || 'qualifying';
 
+const resolveStudentEventCategory = (
+  snapshot: AthleticsSnapshot,
+  student: AthleticsStudent,
+  event: AthleticsEvent,
+): AthleticsStudent['category'] => {
+  const resultCategories = snapshot.results
+    .filter(result => result.eventId === event.id && result.studentId === student.id)
+    .map(result => result.category);
+  const enrollmentCategories = snapshot.enrollments
+    .filter(entry => entry.eventId === event.id && entry.studentIds?.includes(student.id))
+    .map(entry => entry.category);
+  const finalsCategories = snapshot.finals
+    .filter(entry => entry.eventId === event.id && entry.studentIds?.includes(student.id))
+    .map(entry => entry.category);
+  const candidates = [...new Set([...resultCategories, ...enrollmentCategories, ...finalsCategories])];
+  if (candidates.includes(student.category)) return student.category;
+
+  // Some open events use a competition category (for example, "BD Opens")
+  // that differs from the athlete's usual age category. Score the category
+  // in which the athlete was actually entered/resulted for this event.
+  const withFinalsResult = candidates.find(category =>
+    snapshot.results.some(result =>
+      result.eventId === event.id &&
+      result.studentId === student.id &&
+      result.category === category &&
+      resultStageOf(result) === 'finals'
+    )
+  );
+  if (withFinalsResult) return withFinalsResult;
+  return candidates[0] || student.category;
+};
+
 const departmentForCategory = (category: string): AthleticsStudent['department'] =>
   category.startsWith('PDB') ? 'PDB' :
   category.startsWith('PDG') ? 'PDG' :
@@ -130,7 +162,7 @@ export const eventPointBreakdown = (
   event: AthleticsEvent,
   categoryOverride?: AthleticsStudent['category'],
 ): EventPointBreakdown => {
-  const category = categoryOverride || student.category;
+  const category = categoryOverride || resolveStudentEventCategory(snapshot, student, event);
   // Relay points are house/team points only. They never enter an individual's
   // event or championship tally.
   if (isRelayEvent(event)) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
