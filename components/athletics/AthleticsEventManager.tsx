@@ -475,24 +475,18 @@ const AthleticsEventManager: React.FC<Props> = ({
           if (
             result.eventId !== event.id ||
             result.category !== category ||
-            result.studentId !== studentId ||
             resultStageOf(result) !== resultStage
           ) {
             return result;
           }
 
-          if (
-            positionChanged &&
-            result.eventId === event.id &&
-            result.category === category &&
-            resultStageOf(result) === resultStage
-          ) {
+          if (performanceChanged || positionChanged) {
             return result.studentId === studentId
               ? nextResult
               : { ...result, newResultAwarded: false };
           }
 
-          return nextResult;
+          return result.studentId === studentId ? nextResult : result;
         })
       : [...snapshot.results, nextResult];
 
