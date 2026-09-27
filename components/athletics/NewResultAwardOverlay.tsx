@@ -6,6 +6,8 @@ import { AthleticsCategory } from '../../utils/athleticsCategories';
 import { AthleticsEvent, AthleticsSnapshot, AthleticsStage, AthleticsStudent } from '../../utils/athleticsStorage';
 import { rankedEventResults } from '../../utils/athleticsScoring';
 
+const resultStageOf = (result: { stage?: AthleticsStage }) => result.stage || 'qualifying';
+
 type Props = {
   event: AthleticsEvent;
   category: AthleticsCategory;
@@ -96,7 +98,6 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
   const awardedResult = snapshot.results.find(result =>
     result.eventId === event.id &&
     result.category === category &&
-    resultStageOf(result) === effectiveStage &&
     result.newResultAwarded === true,
   );
   const awarded = Boolean(awardedResult);
@@ -109,7 +110,7 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
       if (!window.confirm(`Undo NEW RECORD for ${student?.name || 'this winner'}?\n\nThis removes the extra +3 championship points from the athlete and +3 from their house.`)) return;
 
       const nextResults = snapshot.results.map(result => {
-        if (result.eventId === event.id && result.category === category && resultStageOf(result) === effectiveStage) {
+        if (result.eventId === event.id && result.category === category) {
           return { ...result, newResultAwarded: false };
         }
         return result;
@@ -128,10 +129,15 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
     if (!window.confirm(`Award NEW RECORD to ${winner.student.name}?\n\nThis gives +3 championship points to ${winner.student.name} and +3 to ${winner.student.house}.`)) return;
 
     const nextResults = snapshot.results.map(result => {
-      if (result.eventId === event.id && result.category === category && result.studentId === winner.student.id && resultStageOf(result) === effectiveStage) {
+      if (result.eventId !== event.id || result.category !== category) return result;
+
+      if (result.studentId === winner.student.id && resultStageOf(result) === effectiveStage) {
         return { ...result, newResultAwarded: true };
       }
-      return result;
+
+      // New Record is one +3 award for the whole event/category. Never leave
+      // a second stage or another athlete with a simultaneous bonus.
+      return { ...result, newResultAwarded: false };
     });
 
     onSave({ ...snapshot, results: nextResults }, 'New Record Awarded', `${winner.student.name} receives +3 points and ${winner.student.house} receives +3 for ${event.name} ${effectiveStage}.`);
