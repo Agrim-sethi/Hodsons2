@@ -1,4 +1,4 @@
-import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, isRelayEvent, relayHousePoints, relayTiebreakPointsForStudent } from './athleticsStorage';
+import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, isRelayEvent, relayHousePoints } from './athleticsStorage';
 
 export const placementPoints = (position?: number) =>
   position === 1 ? 4 :
@@ -127,8 +127,8 @@ export const eventPoints = (
   student: AthleticsStudent,
   event: AthleticsEvent,
 ) => {
-  // Relay points are house/team points and never enter a student's displayed
-  // individual event tally. They are used separately as a cross-house tiebreak.
+  // Relay points are house/team points only. They never enter an individual's
+  // event or championship tally.
   if (isRelayEvent(event)) return 0;
   if (!eventAllowedForStudent(event, student)) return 0;
 
@@ -154,26 +154,30 @@ export const eventPoints = (
       )
     : undefined;
 
-  let points = qualifying && (qualifying.qualified || qualifying.status === 'finished') ? 1 : 0;
-
-  if (qualifying?.newResultAwarded) {
-    points += 3;
-  }
+  // Qualification is a first-round achievement worth exactly +1. A finished
+  // but unqualified result earns no participation point.
+  let points = qualifying?.qualified === true ? 1 : 0;
 
   if (finalsEnabled) {
+    // Finals award only placement points. There is no additional +1 for
+    // appearing in, finishing, or qualifying for the second round.
     if (finals?.status === 'finished') {
       const finalPosition = rankedResultRows(snapshot, event, student.category, 'finals')
         .find(row => row.studentId === student.id)?.computedPosition;
       if (finalPosition) points += placementPoints(finalPosition);
     }
-    if (finals?.newResultAwarded) {
-      points += 3;
-    }
-  } else if (qualifying?.status === 'finished' && qualifying.qualified) {
+  } else if (qualifying?.status === 'finished' && qualifying?.qualified === true) {
+    // Without finals, qualifying is the scored round.
     const qualifyingPosition = rankedResultRows(snapshot, event, student.category, 'qualifying')
       .find(row => row.studentId === student.id)?.computedPosition;
     if (qualifyingPosition) points += placementPoints(qualifyingPosition);
   }
+
+  // A New Record is an event-level bonus, not a per-stage bonus. Even when
+  // records are marked in both qualifying and finals, the athlete receives
+  // only one +3 for this event.
+  const hasNewRecord = Boolean(qualifying?.newResultAwarded || finals?.newResultAwarded);
+  if (hasNewRecord) points += 3;
 
   return points;
 };
@@ -188,23 +192,16 @@ export const houseChampionshipPoints = (snapshot: AthleticsSnapshot, house: Athl
   return relayHousePoints(snapshot, house, department);
 };
 
-export const individualRelayTiebreakPoints = (snapshot: AthleticsSnapshot, studentId: string) => {
-  return relayTiebreakPointsForStudent(snapshot, studentId);
-};
+export const individualRelayTiebreakPoints = (_snapshot: AthleticsSnapshot, _studentId: string) => 0;
 
+// Equal individual championship scores are true ties, including across houses.
+// Relay results do not break the tie.
 export const compareIndividualChampionshipRows = (
-  snapshot: AthleticsSnapshot,
+  _snapshot: AthleticsSnapshot,
   a: { student: AthleticsStudent; points: number },
   b: { student: AthleticsStudent; points: number },
 ) => {
   if (a.points !== b.points) return b.points - a.points;
-
-  if (a.student.house !== b.student.house) {
-    const aRelay = individualRelayTiebreakPoints(snapshot, a.student.id);
-    const bRelay = individualRelayTiebreakPoints(snapshot, b.student.id);
-    if (aRelay !== bRelay) return bRelay - aRelay;
-  }
-
   return a.student.name.localeCompare(b.student.name);
 };
 
@@ -221,35 +218,19 @@ export const sortIndividualChampionshipRows = (
 
   return Array.from(grouped.keys())
     .sort((a, b) => b - a)
-    .flatMap(points => {
-      const group = grouped.get(points) || [];
-      const multipleHouses = new Set(group.map(row => row.student.house)).size > 1;
-      return [...group].sort((a, b) => {
-        if (multipleHouses) {
-          const aRelay = individualRelayTiebreakPoints(snapshot, a.student.id);
-          const bRelay = individualRelayTiebreakPoints(snapshot, b.student.id);
-          if (aRelay !== bRelay) return bRelay - aRelay;
-        }
-        return a.student.name.localeCompare(b.student.name);
-      });
-    });
+    .flatMap(points => [...(grouped.get(points) || [])]
+      .sort((a, b) => a.student.name.localeCompare(b.student.name)));
 };
 
 export const topIndividualChampionshipRows = (
-  snapshot: AthleticsSnapshot,
+  _snapshot: AthleticsSnapshot,
   rows: Array<{ student: AthleticsStudent; points: number }>,
 ) => {
   if (rows.length === 0) return [];
-
   const maxPoints = Math.max(...rows.map(row => row.points));
-  const tied = rows.filter(row => row.points === maxPoints);
-  const houses = new Set(tied.map(row => row.student.house));
-
-  if (houses.size <= 1) return tied.sort((a, b) => a.student.name.localeCompare(b.student.name));
-
-  const maxRelayTiebreak = Math.max(...tied.map(row => individualRelayTiebreakPoints(snapshot, row.student.id)));
-  return tied
-    .filter(row => individualRelayTiebreakPoints(snapshot, row.student.id) === maxRelayTiebreak)
+  // Return every co-champion with the maximum score, regardless of house.
+  return rows
+    .filter(row => row.points === maxPoints)
     .sort((a, b) => a.student.name.localeCompare(b.student.name));
 };
 
