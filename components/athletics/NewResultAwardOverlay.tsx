@@ -110,7 +110,13 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
     result.newResultAwarded === true
   );
   const awardedResult = winnerRecord || stageRecord;
+  const anyAwardedResult = snapshot.results.find(result =>
+    result.eventId === event.id &&
+    result.category === category &&
+    result.newResultAwarded === true
+  );
   const awarded = Boolean(awardedResult);
+  const bonusAlreadyAwardedElsewhere = Boolean(anyAwardedResult && !awarded);
 
   const toggleRecord = () => {
     if (!isLoggedIn) return;
@@ -132,6 +138,16 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
 
       onSave({ ...snapshot, results: nextResults }, 'New Record Undone', `${student?.name || 'Winner'} no longer has the New Record award for ${event.name}.`);
       showToast({ title: 'New Record Undone', description: 'The New Record bonus has been removed.' });
+      return;
+    }
+
+    if (bonusAlreadyAwardedElsewhere) {
+      const awardedStudent = students.find(item => item.id === anyAwardedResult?.studentId);
+      const awardedStage = resultStageOf(anyAwardedResult!);
+      showToast({
+        title: 'New Record Bonus Already Awarded',
+        description: awardedStudent?.name + ' already has the single +3 New Record bonus for this event from the ' + awardedStage + ' stage.',
+      });
       return;
     }
 
@@ -166,12 +182,12 @@ const NewResultAwardOverlay: React.FC<Props> = ({ event, category, students, sna
     <button
       type="button"
       onClick={toggleRecord}
-      disabled={!awarded && !winner}
-      title={awarded ? 'Undo New Record' : 'Award New Record'}
+      disabled={!awarded && (!winner || bonusAlreadyAwardedElsewhere)}
+      title={awarded ? 'Undo New Record' : bonusAlreadyAwardedElsewhere ? 'New Record bonus already awarded for this event' : 'Award New Record'}
       className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] transition ${awarded ? 'border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15' : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40'}`}
     >
       <Icon name={awarded ? 'undo' : 'add_circle'} size="13" />
-      {awarded ? 'Undo New Record' : 'New Record'}
+      {awarded ? 'Undo New Record' : bonusAlreadyAwardedElsewhere ? 'Bonus Already Awarded' : 'New Record'}
     </button>,
     buttonGroup,
   );
