@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
-import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent, relayHousePoints } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent, relayHousePoints, rankedRelayTeams, relayPointsForPosition } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
 import { studentPointsAcrossEvents } from '../../utils/athleticsScoring';
 
@@ -98,6 +98,8 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
         if (houseFilter !== 'All' && stu.house !== houseFilter) return;
         if (deptFilter !== 'All' && dept !== deptFilter) return;
         addParticipation(stu);
+        const categoryStats = byCategory[team.category];
+        if (categoryStats) categoryStats.enrolled += 1;
         if (team.status === 'dnf') addDnf(stu);
         else { addQualified(stu); if (team.status === 'finished') addFinished(stu); }
       });
@@ -128,7 +130,17 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
 
     ATHLETICS_CATEGORIES.forEach(cat => {
       const inCategory = filteredStudents.filter(student => student.category === cat);
-      byCategory[cat].points = inCategory.reduce((sum, student) => sum + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS), 0);
+      const individualPoints = inCategory.reduce((sum, student) => sum + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS), 0);
+      const relayPoints = snapshot.relayTeams.reduce((sum, team) => {
+        if (team.category !== cat || team.status !== 'finished') return sum;
+        if (houseFilter !== 'All' && team.house !== houseFilter) return sum;
+        const teamStudents = team.studentIds.map(sid => students.find(student => student.id === sid)).filter((student): student is AthleticsStudent => Boolean(student));
+        if (deptFilter !== 'All' && !teamStudents.some(student => departmentOfStudent(student) === deptFilter)) return sum;
+        const position = rankedRelayTeams(snapshot, team.eventId, team.category)
+          .find(rankedTeam => rankedTeam.house === team.house)?.computedPosition;
+        return sum + relayPointsForPosition(position);
+      }, 0);
+      byCategory[cat].points = individualPoints + relayPoints;
     });
     const totalPoints = HOUSES_LIST.reduce((sum, house) => sum + byHouse[house].points, 0);
     return { totalEnrolled, totalQualified, totalFinished, totalDnf, totalAbsent, totalMed, totalPending, totalPoints, byHouse, byDept, byCategory };
