@@ -31,53 +31,48 @@ const parseFieldDistance = (distance = '') => {
 const resultPerformance = (event: AthleticsEvent, result: AthleticsResult) =>
   event.kind === 'track' ? parseTrackTiming(result.timing || '') : parseFieldDistance(result.timing || '');
 
-export type RankedAthleticsResult = {
-  student: AthleticsStudent;
+type RankedResultRow = {
+  studentId: string;
   result: AthleticsResult;
   computedPosition: number;
 };
 
-export const rankedEventResults = (
+const rankedResultRows = (
   snapshot: AthleticsSnapshot,
   event: AthleticsEvent,
   category: AthleticsStudent['category'],
-  students: AthleticsStudent[],
   stage: 'qualifying' | 'finals',
-): RankedAthleticsResult[] => {
+): RankedResultRow[] => {
   if (isRelayEvent(event)) return [];
 
-  const studentMap = new Map(students.map(student => [student.id, student]));
   const source = stage === 'finals'
     ? snapshot.finals.find(finals => finals.eventId === event.id && finals.category === category)
     : snapshot.enrollments.find(enrollment => enrollment.eventId === event.id && enrollment.category === category);
   const ids = source?.studentIds || [];
 
-  const ranked = ids
-    .map(studentId => {
-      const student = studentMap.get(studentId);
-      const result = student
-        ? snapshot.results.find(item =>
-            item.eventId === event.id &&
-            item.category === category &&
-            item.studentId === studentId &&
-            resultStageOf(item) === stage
-          )
-        : undefined;
-      return { student, result };
-    })
-    .filter((item): item is { student: AthleticsStudent; result: AthleticsResult } =>
-      Boolean(item.student && item.result && item.result.status === 'finished' && item.result.timing)
+  const rows = ids
+    .map(studentId => ({
+      studentId,
+      result: snapshot.results.find(item =>
+        item.eventId === event.id &&
+        item.category === category &&
+        item.studentId === studentId &&
+        resultStageOf(item) === stage
+      ),
+    }))
+    .filter((item): item is { studentId: string; result: AthleticsResult } =>
+      Boolean(item.result && item.result.status === 'finished' && item.result.timing)
     );
 
   // Qualifying positions are awarded only to competitors who were explicitly
   // marked Qualified. Finals are already an explicitly allotted set.
   const eligible = stage === 'qualifying'
-    ? ranked.filter(item => item.result.qualified === true)
-    : ranked;
+    ? rows.filter(item => item.result.qualified === true)
+    : rows;
 
   // High Jump has a special tie-break implemented by the manager's ranking
   // pass. When those stored positions are complete, use them as the canonical
-  // order. Otherwise fall back to height so the view never goes blank.
+  // order. Otherwise fall back to height.
   if (
     event.id === 'high-jump' &&
     eligible.length > 0 &&
@@ -92,7 +87,7 @@ export const rankedEventResults = (
         ? performanceA - performanceB
         : performanceB - performanceA;
       if (difference !== 0) return difference;
-      return a.student.name.localeCompare(b.student.name);
+      return a.studentId.localeCompare(b.studentId);
     });
   }
 
@@ -102,13 +97,37 @@ export const rankedEventResults = (
   }));
 };
 
+export type RankedAthleticsResult = {
+  student: AthleticsStudent;
+  result: AthleticsResult;
+  computedPosition: number;
+};
+
+export const rankedEventResults = (
+  snapshot: AthleticsSnapshot,
+  event: AthleticsEvent,
+  category: AthleticsStudent['category'],
+  students: AthleticsStudent[],
+  stage: 'qualifying' | 'finals',
+): RankedAthleticsResult[] => {
+  const studentMap = new Map(students.map(student => [student.id, student]));
+  return rankedResultRows(snapshot, event, category, stage)
+    .map(row => {
+      const student = studentMap.get(row.studentId);
+      return student ? { ...row, student } : null;
+    })
+    .filter((row): row is RankedAthleticsResult => Boolean(row));
+};
+
 const parseRelayTiming = (timing = '') => parseTrackTiming(timing);
+
+export type RankedRelayTeam = AthleticsRelayTeam & { computedPosition: number };
 
 export const rankedRelayTeams = (
   snapshot: AthleticsSnapshot,
   eventId: string,
   category: AthleticsStudent['category'],
-) => {
+): RankedRelayTeam[] => {
   return RELAY_HOUSES
     .map(house => snapshot.relayTeams.find(team =>
       team.eventId === eventId &&
@@ -171,29 +190,16 @@ export const eventPoints = (
 
   if (finalsEnabled) {
     if (finals?.status === 'finished') {
-      const finalPosition = rankedEventResults(
-        snapshot,
-        event,
-        student.category,
-        [student],
-        'finals',
-      ).find(row => row.student.id === student.id)?.computedPosition;
-
-      // The one-student call above is intentionally not used for ordering.
-      // Resolve the real final position from the full finalist set below.
+      const finalPosition = rankedResultRows(snapshot, event, student.category, 'finals')
+        .find(row => row.studentId === student.id)?.computedPosition;
       if (finalPosition) points += placementPoints(finalPosition);
     }
     if (finals?.newResultAwarded) {
       points += 3;
     }
   } else if (qualifying?.status === 'finished' && qualifying.qualified) {
-    const qualifyingPosition = rankedEventResults(
-      snapshot,
-      event,
-      student.category,
-      [student],
-      'qualifying',
-    ).find(row => row.student.id === student.id)?.computedPosition;
+    const qualifyingPosition = rankedResultRows(snapshot, event, student.category, 'qualifying')
+      .find(row => row.studentId === student.id)?.computedPosition;
     if (qualifyingPosition) points += placementPoints(qualifyingPosition);
   }
 
