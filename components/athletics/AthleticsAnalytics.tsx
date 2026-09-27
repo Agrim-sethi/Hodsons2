@@ -306,8 +306,10 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
             </tbody>
           </table>
         </div>
+      </div>
+
       {/* PPP by Age Category */}
-      <div className="glass-panel rounded-2xl border border-primary/15 p-5">
+      <div className="glass-panel rounded-2xl border border-primary/15 p-5 mt-6">
         <div className="flex items-center gap-2 mb-4">
           <Icon name="groups" size="18" className="text-primary" />
           <h3 className="text-sm font-black text-white">Points Per Participation (PPP) — By Age Category</h3>
