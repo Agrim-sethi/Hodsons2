@@ -333,7 +333,6 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
           </table>
         </div>
       </div>
-      </div>
     </section>
   );
 };
