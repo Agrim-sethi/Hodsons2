@@ -12,6 +12,7 @@ import {
   StudentCategory,
   StudentDepartment,
   saveManagedStudent,
+  subscribeToManagedStudents,
 } from '../../utils/studentStorage';
 
 const emptyForm = {
@@ -41,14 +42,17 @@ export default function StudentManager() {
   const [message, setMessage] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [studentRoster, setStudentRoster] = React.useState<ManagedStudent[]>(() => getManagedStudents());
+
+  React.useEffect(() => subscribeToManagedStudents(setStudentRoster), []);
 
   const managedStudents = React.useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return [];
-    return getManagedStudents()
+    return studentRoster
       .filter((student) => student.id.includes(term) || student.name.toLowerCase().includes(term))
       .slice(0, 8);
-  }, [search, open]);
+  }, [search, open, studentRoster]);
 
   const calculatedCategory = form.dob
     ? getAthleticsCategoryForStudent(form.department, form.dob)
