@@ -256,14 +256,6 @@ export const relayHousePoints = (snapshot: AthleticsSnapshot, house: AthleticsHo
     return sum + relayPointsForPosition(position);
   }, 0);
 
-export const relayTiebreakPointsForStudent = (snapshot: AthleticsSnapshot, studentId: string) =>
-  snapshot.relayTeams.reduce((sum, team) => {
-    if (team.status !== 'finished' || !team.studentIds.includes(studentId)) return sum;
-    const position = rankedRelayTeams(snapshot, team.eventId, team.category)
-      .find(rankedTeam => rankedTeam.house === team.house)?.computedPosition;
-    return sum + relayPointsForPosition(position);
-  }, 0);
-
 export const getAthleticsStudents=(baseClasses:Record<string,string>={}):AthleticsStudent[]=>{const classes=getAllHodsonsClasses(baseClasses);return getAthleticsCategoryStudents().map(s=>({...s,className:classes[s.id]||'N/A',department:s.department})).filter((s,i,a)=>a.findIndex(x=>`${x.id}|${x.name.trim()}`===`${s.id}|${s.name.trim()}`)===i);};
 export const getPrepAthleticsStudents=getAthleticsStudents;
 export const getAthleticsDepartment=(category:AthleticsCategory):AthleticsDepartment=>category.startsWith('PDB')?'PDB':category.startsWith('PDG')?'PDG':category.startsWith('BD')?'BD':'GD';
