@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, runTransaction } from 'firebase/firestore';
 import { ALL_STUDENTS } from './studentsData';
 
 export type StudentDepartment = 'PDB' | 'PDG' | 'BD' | 'GD';
@@ -341,74 +341,95 @@ const getStoredStudents = (): ManagedStudent[] | null => {
   if (!stored) return null;
   try {
     const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : null;
+    return Array.isArray(parsed) ? parsed as ManagedStudent[] : null;
   } catch {
     return null;
   }
 };
 
-export const getManagedStudents = (): ManagedStudent[] => {
-  const stored = getStoredStudents();
-  const source = stored ? [...stored] : [...baseStudents];
+// localStorage is only a startup cache. Firestore is authoritative once its
+// listener has delivered the current document.
+export const getManagedStudents = (): ManagedStudent[] =>
+  getStoredStudents() || [...baseStudents];
 
-  // Ensure the Aug 30 additions exist locally and carry the exact verified details.
-  seededStudents.forEach((seeded) => {
-    const index = source.findIndex((student) => String(student.id) === String(seeded.id));
-    if (index >= 0) source[index] = seeded;
-    else source.push(seeded);
-  });
-
-  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(source));
-  return source;
+const cacheManagedStudents = (students: ManagedStudent[]) => {
+  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
 };
+
+export const subscribeToManagedStudents = (
+  callback: (students: ManagedStudent[]) => void
+) => onSnapshot(
+  doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH),
+  (snapshot) => {
+    const data = snapshot.exists() ? snapshot.data() : {};
+    const students = Array.isArray(data.students)
+      ? data.students as ManagedStudent[]
+      : [...baseStudents];
+    cacheManagedStudents(students);
+    callback(students);
+  },
+  (error) => {
+    console.error('Student roster listener error:', error);
+  }
+);
 
 export const getManagedStudentById = (id: string) =>
   getManagedStudents().find((student) => String(student.id) === String(id)) || null;
 
+// Safe one-time initialization: only create the roster field if it does not
+// exist. Never merge seeded rows into an established roster, since doing so
+// would undo intentional deletions. Other fields in the shared document stay
+// untouched.
 export const syncAug30StudentsToFirestore = async (): Promise<void> => {
   const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH);
-  const current = await getDoc(ref);
-  const existingStudents = current.exists() && Array.isArray(current.data()?.students)
-    ? current.data()?.students as ManagedStudent[]
-    : [];
-
-  const byId = new Map(existingStudents.map((student) => [String(student.id), student]));
-  seededStudents.forEach((student) => byId.set(String(student.id), student));
-
-  const merged = Array.from(byId.values());
-  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(getManagedStudents()));
-  await setDoc(ref, sanitize({ students: merged }), { merge: true });
+  await runTransaction(db, async (transaction) => {
+    const current = await transaction.get(ref);
+    const data = current.exists() ? current.data() : {};
+    if (Array.isArray(data.students)) return;
+    transaction.set(ref, { students: [...baseStudents] }, { merge: true });
+  });
 };
 
 export const saveManagedStudent = async (student: ManagedStudent): Promise<void> => {
-  const students = [...getManagedStudents()];
-  const index = students.findIndex((existing) => String(existing.id) === String(student.id));
-  if (index >= 0) students[index] = student;
-  else students.push(student);
-
-  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
-  await setDoc(
-    doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH),
-    sanitize({ students }),
-    { merge: true }
-  );
+  const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH);
+  const saved = await runTransaction(db, async (transaction) => {
+    const current = await transaction.get(ref);
+    const data = current.exists() ? current.data() : {};
+    const students = Array.isArray(data.students)
+      ? [...data.students as ManagedStudent[]]
+      : [...baseStudents];
+    const index = students.findIndex((existing) => String(existing.id) === String(student.id));
+    if (index >= 0) students[index] = student;
+    else students.push(student);
+    transaction.set(ref, { students: sanitize(students) }, { merge: true });
+    return students;
+  });
+  cacheManagedStudents(saved);
 };
 
 export const deleteManagedStudent = async (id: string): Promise<void> => {
-  const students = getManagedStudents().filter((student) => String(student.id) !== String(id));
-  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
-  await setDoc(
-    doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH),
-    sanitize({ students }),
-    { merge: true }
-  );
+  const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH);
+  const saved = await runTransaction(db, async (transaction) => {
+    const current = await transaction.get(ref);
+    const data = current.exists() ? current.data() : {};
+    const students = Array.isArray(data.students)
+      ? data.students as ManagedStudent[]
+      : [...baseStudents];
+    const next = students.filter((student) => String(student.id) !== String(id));
+    transaction.set(ref, { students: sanitize(next) }, { merge: true });
+    return next;
+  });
+  cacheManagedStudents(saved);
 };
 
 export const replaceManagedStudents = async (students: ManagedStudent[]): Promise<void> => {
-  localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
-  await setDoc(
-    doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH),
-    sanitize({ students }),
-    { merge: true }
-  );
+  const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH);
+  const safeStudents = sanitize(students);
+  await runTransaction(db, async (transaction) => {
+    const current = await transaction.get(ref);
+    // Preserve the shared document and replace only its students field.
+    if (current.exists()) transaction.update(ref, { students: safeStudents });
+    else transaction.set(ref, { students: safeStudents }, { merge: true });
+  });
+  cacheManagedStudents(students);
 };
