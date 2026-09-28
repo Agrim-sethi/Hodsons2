@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon';
 import { useStaffAuth } from '../components/auth/StaffAuthProvider';
 import studentClasses from '../utils/studentClasses.json';
 import { ATHLETICS_EVENTS, AthleticsSnapshot, getAthleticsSnapshot, getPrepAthleticsStudents, saveAthleticsSnapshot, subscribeToAthleticsData, RELAY_HOUSES } from '../utils/athleticsStorage';
-import { syncAug30StudentsToFirestore } from '../utils/studentStorage';
+import { subscribeToManagedStudents, syncAug30StudentsToFirestore } from '../utils/studentStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../utils/athleticsCategories';
 import AthleticsLeaderboard from '../components/athletics/AthleticsLeaderboard';
 import AthleticsSummary from '../components/athletics/AthleticsSummary';
@@ -23,9 +23,12 @@ const Athletics: React.FC = () => {
   const [pageTab, setPageTab] = React.useState<PageTab>('view');
   const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = React.useState<AthleticsCategory>('PDB Under 11');
-  const students = React.useMemo(() => getPrepAthleticsStudents(studentClasses as Record<string, string>), []);
+  const [students, setStudents] = React.useState(() => getPrepAthleticsStudents(studentClasses as Record<string, string>));
 
   React.useEffect(() => { setSnapshot(getAthleticsSnapshot()); return subscribeToAthleticsData(setSnapshot); }, []);
+  React.useEffect(() => subscribeToManagedStudents(() => {
+    setStudents(getPrepAthleticsStudents(studentClasses as Record<string, string>));
+  }), []);
   React.useEffect(() => { if (!isLoggedIn && pageTab === 'manage') setPageTab('view'); }, [isLoggedIn, pageTab]);
 
   React.useEffect(() => {
