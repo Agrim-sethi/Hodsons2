@@ -50,7 +50,23 @@ const Athletics: React.FC = () => {
     <div className="mx-auto max-w-[1500px] space-y-7 pb-12">
       <section className="flex flex-col gap-5 border-b border-primary/10 pb-6 xl:flex-row xl:items-end xl:justify-between"><div><div className="royal-kicker mb-2">Track & Field Desk</div><h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">Athletics 2026</h1><p className="mt-2 max-w-4xl text-sm leading-relaxed text-slate-400">Athletics events organised by exact department and age category.</p></div><div className={`rounded-xl border px-4 py-3 text-xs font-black uppercase ${isLoggedIn ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/5 text-slate-400'}`}>{isLoggedIn ? 'Staff Editing Active' : 'Read Only Mode'}</div></section>
 
-      <section className="flex items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1"><button type="button" onClick={() => setPageTab('view')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'view' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>View Events</button>{isLoggedIn && <button type="button" onClick={() => setPageTab('manage')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'manage' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Manage Events</button>}<button type="button" onClick={() => setPageTab('leaderboard')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'leaderboard' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Leaderboard</button><button type="button" onClick={() => setPageTab('summary')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'summary' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Summary</button><button type="button" onClick={() => setPageTab('analytics')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase ${pageTab === 'analytics' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}>Analytics</button></div><div className="hidden text-xs text-slate-500 sm:block">Scoring updates live.</div></section>
+      <section className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex w-full gap-1.5 overflow-x-auto rounded-2xl border border-primary/10 bg-slate-950/25 p-1.5 shadow-inner shadow-black/10 sm:gap-2 xl:w-auto">
+          {([
+            { id: 'view', label: 'View Events', icon: 'calendar' },
+            ...(isLoggedIn ? [{ id: 'manage', label: 'Manage Events', icon: 'settings' }] : []),
+            { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
+            { id: 'summary', label: 'Summary', icon: 'clipboard-list' },
+            { id: 'analytics', label: 'Analytics', icon: 'chart-line' },
+          ] as { id: PageTab; label: string; icon: string }[]).map(tab => (
+            <button key={tab.id} type="button" onClick={() => setPageTab(tab.id)} className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.14em] transition-all duration-200 sm:px-4 sm:text-[11px] ${pageTab === tab.id ? 'bg-primary text-slate-950 shadow-lg shadow-primary/15' : 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-100'}`}>
+              <Icon name={tab.icon} className="text-base" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="hidden text-xs font-medium text-slate-500 sm:block">Scoring updates live.</div>
+      </section>
 
       {pageTab === 'view' && <AthleticsViewEvents students={students} snapshot={snapshot} />}
       {pageTab === 'leaderboard' && <AthleticsLeaderboard students={students} snapshot={snapshot} />}
