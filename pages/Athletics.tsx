@@ -15,7 +15,7 @@ import StudentManager from '../components/student/StudentManager';
 import NewResultAwardOverlay from '../components/athletics/NewResultAwardOverlay';
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = { '3000m': ['BD Opens'], '110m-hurdles': ['BD Opens'], 'triple-jump': ['BD Opens'], 'javelin-throw': ['BD Opens'] };
-type PageTab = 'view' | 'manage' | 'leaderboard' | 'summary' | 'analytics';
+type PageTab = 'view' | 'manage' | 'leaderboard' | 'summary' | 'analytics' | 'points';
 type AthleticsDepartmentFilter = 'BD' | 'GD' | 'PD';
 const departmentForAthleticsCategory = (category: AthleticsCategory): AthleticsDepartmentFilter => category.startsWith('BD') ? 'BD' : category.startsWith('GD') ? 'GD' : 'PD';
 
@@ -58,6 +58,7 @@ const Athletics: React.FC = () => {
             { id: 'leaderboard', label: 'Leaderboard', icon: 'emoji_events' },
             { id: 'summary', label: 'Summary', icon: 'summarize' },
             { id: 'analytics', label: 'Analytics', icon: 'monitoring' },
+            { id: 'points', label: 'Points System', icon: 'calculate' },
           ] as { id: PageTab; label: string; icon: string }[]).map(tab => (
             <button key={tab.id} type="button" onClick={() => setPageTab(tab.id)} className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.14em] transition-all duration-200 sm:px-4 sm:text-[11px] ${pageTab === tab.id ? 'bg-primary text-slate-950 shadow-lg shadow-primary/15' : 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-100'}`}>
               <Icon name={tab.icon} className="text-base" />
@@ -72,6 +73,37 @@ const Athletics: React.FC = () => {
       {pageTab === 'leaderboard' && <AthleticsLeaderboard students={students} snapshot={snapshot} />}
       {pageTab === 'summary' && <AthleticsSummary students={students} snapshot={snapshot} />}
       {pageTab === 'analytics' && <AthleticsAnalytics students={students} snapshot={snapshot} />}
+      {pageTab === 'points' && <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex items-center gap-3"><div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/[0.08] text-primary"><Icon name="calculate" className="text-2xl" /></div><div><div className="royal-kicker mb-1">Athletics Championship</div><h2 className="text-3xl font-black tracking-tight text-white">Points Permutations</h2><p className="mt-1 text-sm text-slate-400">A breakdown of how individual and house championship points are awarded.</p></div></div>
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div className="glass-panel relative overflow-hidden rounded-[28px] border border-primary/15 bg-blue-950/20 p-6 lg:p-8">
+            <div className="mb-5 flex items-center justify-between"><span className="rounded-full border border-primary/20 bg-primary/[0.08] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-primary">Phase 1</span><Icon name="timer" className="text-xl text-primary/20" /></div>
+            <h3 className="text-2xl font-black text-white">Qualifying Phase</h3><p className="mt-2 text-sm leading-relaxed text-slate-400">Points earned during department heats and trials.</p>
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.025] p-4"><div><div className="font-black text-white">Qualified and finished</div><p className="mt-1 text-xs leading-relaxed text-slate-500">A qualifying result marked Qualified earns the qualification point.</p></div><span className="shrink-0 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm font-black text-emerald-300">+1 pt</span></div>
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.025] p-4"><div><div className="font-black text-white">Qualifying-only event</div><p className="mt-1 text-xs leading-relaxed text-slate-500">If finals are not enabled, qualified finishers also receive placement points based on their qualifying rank.</p></div><span className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-300">+ placement</span></div>
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.025] p-4"><div><div className="font-black text-white">Progression to finals</div><p className="mt-1 text-xs leading-relaxed text-slate-500">Qualifying placement is replaced by finals placement when finals are enabled. The +1 qualification point remains.</p></div><span className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-300">No extra pts</span></div>
+            </div>
+          </div>
+          <div className="glass-panel relative overflow-hidden rounded-[28px] border border-primary/15 bg-blue-950/20 p-6 lg:p-8">
+            <div className="mb-5 flex items-center justify-between"><span className="rounded-full border border-primary/20 bg-primary/[0.08] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-primary">Phase 2</span><Icon name="emoji_events" className="text-xl text-primary/20" /></div>
+            <h3 className="text-2xl font-black text-white">Finals Phase</h3><p className="mt-2 text-sm leading-relaxed text-slate-400">Placement points are awarded from the finals results when finals are enabled.</p>
+            <div className="mt-6 rounded-2xl border border-primary/15 bg-white/[0.025] p-4">
+              <div className="mb-3 flex items-center justify-between gap-3"><span className="text-xs font-black uppercase tracking-[0.16em] text-amber-400">Positional Score</span><span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Individual events</span></div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{place:'1st',pts:4},{place:'2nd',pts:3},{place:'3rd',pts:2},{place:'4th',pts:1}].map(item=><div key={item.place} className="rounded-xl border border-white/5 bg-slate-950/25 px-3 py-4 text-center"><div className="text-[10px] font-bold text-slate-500">{item.place}</div><div className="mt-1 text-2xl font-black text-white">+{item.pts}</div></div>)}</div>
+              <p className="mt-3 text-center text-xs italic text-slate-500">Ranks beyond 4th receive no placement points.</p>
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.025] p-4"><div><div className="font-black text-white">New record bonus</div><p className="mt-1 text-xs leading-relaxed text-slate-500">Awarded once per athlete per event, even if a record is broken in both rounds.</p></div><span className="shrink-0 rounded-lg bg-amber-500/10 px-3 py-2 text-sm font-black text-amber-300">+3 pts</span></div>
+          </div>
+        </div>
+        <div className="glass-panel rounded-[28px] border border-primary/15 p-6 lg:p-8">
+          <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl border border-primary/10 bg-primary/[0.06] text-primary"><Icon name="groups" className="text-xl" /></div><div><div className="royal-kicker mb-1">House Championship</div><h3 className="text-xl font-black text-white">Relay Points</h3></div></div>
+          <p className="mt-2 text-sm text-slate-400">Relays contribute to house standings only, not individual student totals. A finished relay team with four listed students is ranked for its event and category.</p>
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">{[{place:'1st',pts:8},{place:'2nd',pts:6},{place:'3rd',pts:4},{place:'4th',pts:2}].map(item=><div key={item.place} className="rounded-2xl border border-white/5 bg-white/[0.025] p-4 text-center"><div className="text-[10px] font-black uppercase tracking-wider text-slate-500">{item.place}</div><div className="mt-1 text-2xl font-black text-primary">+{item.pts}</div><div className="text-[9px] font-bold uppercase text-slate-500">House pts</div></div>)}</div>
+          <div className="mt-5 rounded-xl border border-white/5 bg-white/[0.02] p-4 text-sm leading-relaxed text-slate-400"><span className="font-bold text-white">Ties:</span> Students with equal championship points share the same position. Relay points do not break individual championship ties. For event rankings, equal recorded performances share a position.</div>
+        </div>
+        <p className="text-xs text-slate-500">This tab explains the current scoring rules. It does not edit or write to the athletics database.</p>
+      </section>}
 
       {pageTab === 'manage' && <>
         <section className="space-y-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="royal-kicker mb-1">Event Management</div><h2 className="text-2xl font-black text-white">Choose a department & age group</h2></div><StudentManager /></div><div className="grid grid-cols-1 gap-3 md:grid-cols-3">{([{id:"BD",title:"Boys’ Department",count:4},{id:"GD",title:"Girls’ Department",count:4},{id:"PD",title:"Prep Department",count:4}] as const).map(dept => <button key={dept.id} type="button" onClick={() => chooseDepartment(dept.id)} className={`rounded-2xl border p-4 text-left transition-all ${selectedDepartment===dept.id?"border-primary/40 bg-primary/[0.08] shadow-lg shadow-primary/5":"border-white/10 bg-white/[0.02] hover:border-primary/25"}`}><div className="flex items-center justify-between"><span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Department</span><span className="text-[9px] font-black text-slate-500">{dept.id}</span></div><div className="mt-2 text-base font-black text-white">{dept.title}</div><div className="mt-1 text-xs text-slate-400">{dept.count} age categories</div></button>)}</div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{departmentCategories.map(category => <button key={category} type="button" onClick={() => setSelectedCategory(category)} className={`rounded-xl border px-3 py-3 text-left ${selectedCategory === category ? 'border-primary/50 bg-primary/10 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'}`}><div className="text-sm font-black">{category}</div><div className="mt-1 text-[10px] uppercase tracking-wider opacity-70">{students.filter(student => student.category === category).length} students</div></button>)}</div></section>
