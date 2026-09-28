@@ -119,7 +119,7 @@ const normalizeSnapshot=(raw:Partial<AthleticsSnapshot>|null|undefined):Athletic
       enrollmentMap.set(enrollmentKey(entry.eventId,entry.category),Array.from(new Set(Array.isArray(entry.studentIds)?entry.studentIds:[])));
     }else{
       (Array.isArray(entry.studentIds)?entry.studentIds:[]).forEach((studentId:string)=>{
-        const student=ATHLETICS_STUDENT_BY_ID.get(studentId);
+        const student=getAthleticsCategoryStudents().find(student => student.id === studentId);
         if(!student)return;
         const key=enrollmentKey(entry.eventId,student.category);
         const list=enrollmentMap.get(key)||[];
@@ -149,7 +149,7 @@ const normalizeSnapshot=(raw:Partial<AthleticsSnapshot>|null|undefined):Athletic
 
   const resultMap=new Map<string,AthleticsResult>();
   rawResults.forEach((r:any)=>{
-    const category=r.category||ATHLETICS_STUDENT_BY_ID.get(r.studentId)?.category;
+    const category=r.category||getAthleticsCategoryStudents().find(student => student.id === r.studentId)?.category;
     if (!category) return;
     const normalizedResult:AthleticsResult={
       ...r,
