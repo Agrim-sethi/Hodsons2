@@ -53,11 +53,11 @@ const Athletics: React.FC = () => {
       <section className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex w-full gap-1.5 overflow-x-auto rounded-2xl border border-primary/10 bg-slate-950/25 p-1.5 shadow-inner shadow-black/10 sm:gap-2 xl:w-auto">
           {([
-            { id: 'view', label: 'View Events', icon: 'calendar' },
+            { id: 'view', label: 'View Events', icon: 'calendar_month' },
             ...(isLoggedIn ? [{ id: 'manage', label: 'Manage Events', icon: 'settings' }] : []),
-            { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
-            { id: 'summary', label: 'Summary', icon: 'clipboard-list' },
-            { id: 'analytics', label: 'Analytics', icon: 'chart-line' },
+            { id: 'leaderboard', label: 'Leaderboard', icon: 'emoji_events' },
+            { id: 'summary', label: 'Summary', icon: 'summarize' },
+            { id: 'analytics', label: 'Analytics', icon: 'monitoring' },
           ] as { id: PageTab; label: string; icon: string }[]).map(tab => (
             <button key={tab.id} type="button" onClick={() => setPageTab(tab.id)} className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.14em] transition-all duration-200 sm:px-4 sm:text-[11px] ${pageTab === tab.id ? 'bg-primary text-slate-950 shadow-lg shadow-primary/15' : 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-100'}`}>
               <Icon name={tab.icon} className="text-base" />
