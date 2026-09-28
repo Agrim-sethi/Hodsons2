@@ -16,6 +16,8 @@ import NewResultAwardOverlay from '../components/athletics/NewResultAwardOverlay
 
 const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = { '3000m': ['BD Opens'], '110m-hurdles': ['BD Opens'], 'triple-jump': ['BD Opens'], 'javelin-throw': ['BD Opens'] };
 type PageTab = 'view' | 'manage' | 'leaderboard' | 'summary' | 'analytics';
+type AthleticsDepartmentFilter = 'BD' | 'GD' | 'PD';
+const departmentForAthleticsCategory = (category: AthleticsCategory): AthleticsDepartmentFilter => category.startsWith('BD') ? 'BD' : category.startsWith('GD') ? 'GD' : 'PD';
 
 const Athletics: React.FC = () => {
   const { isLoggedIn } = useStaffAuth();
@@ -23,6 +25,9 @@ const Athletics: React.FC = () => {
   const [pageTab, setPageTab] = React.useState<PageTab>('view');
   const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = React.useState<AthleticsCategory>('PDB Under 11');
+  const [selectedDepartment, setSelectedDepartment] = React.useState<AthleticsDepartmentFilter>('PD');
+  const departmentCategories = ATHLETICS_CATEGORIES.filter(category => departmentForAthleticsCategory(category) === selectedDepartment);
+  const chooseDepartment = (department: AthleticsDepartmentFilter) => { setSelectedDepartment(department); setSelectedCategory(ATHLETICS_CATEGORIES.find(category => departmentForAthleticsCategory(category) === department) as AthleticsCategory); };
   const [students, setStudents] = React.useState(() => getPrepAthleticsStudents(studentClasses as Record<string, string>));
 
   React.useEffect(() => { setSnapshot(getAthleticsSnapshot()); return subscribeToAthleticsData(setSnapshot); }, []);
@@ -53,7 +58,7 @@ const Athletics: React.FC = () => {
       {pageTab === 'analytics' && <AthleticsAnalytics students={students} snapshot={snapshot} />}
 
       {pageTab === 'manage' && <>
-        <section className="space-y-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="royal-kicker mb-1">Event Management</div><h2 className="text-2xl font-black text-white">Choose a department & age group</h2></div><StudentManager /></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{ATHLETICS_CATEGORIES.map(category => <button key={category} type="button" onClick={() => setSelectedCategory(category)} className={`rounded-xl border px-3 py-3 text-left ${selectedCategory === category ? 'border-primary/50 bg-primary/10 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'}`}><div className="text-sm font-black">{category}</div><div className="mt-1 text-[10px] uppercase tracking-wider opacity-70">{students.filter(student => student.category === category).length} students</div></button>)}</div></section>
+        <section className="space-y-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="royal-kicker mb-1">Event Management</div><h2 className="text-2xl font-black text-white">Choose a department & age group</h2></div><StudentManager /></div><div className="grid grid-cols-1 gap-3 md:grid-cols-3">{([{id:"BD",title:"Boys’ Department",count:4},{id:"GD",title:"Girls’ Department",count:4},{id:"PD",title:"Prep Department",count:4}] as const).map(dept => <button key={dept.id} type="button" onClick={() => chooseDepartment(dept.id)} className={`rounded-2xl border p-4 text-left transition-all ${selectedDepartment===dept.id?"border-primary/40 bg-primary/[0.08] shadow-lg shadow-primary/5":"border-white/10 bg-white/[0.02] hover:border-primary/25"}`}><div className="flex items-center justify-between"><span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Department</span><span className="text-[9px] font-black text-slate-500">{dept.id}</span></div><div className="mt-2 text-base font-black text-white">{dept.title}</div><div className="mt-1 text-xs text-slate-400">{dept.count} age categories</div></button>)}</div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{departmentCategories.map(category => <button key={category} type="button" onClick={() => setSelectedCategory(category)} className={`rounded-xl border px-3 py-3 text-left ${selectedCategory === category ? 'border-primary/50 bg-primary/10 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'}`}><div className="text-sm font-black">{category}</div><div className="mt-1 text-[10px] uppercase tracking-wider opacity-70">{students.filter(student => student.category === category).length} students</div></button>)}</div></section>
 
         <section className="space-y-4"><div className="flex items-end justify-between"><div><div className="royal-kicker mb-1">{selectedCategory}</div><h2 className="text-2xl font-black text-white">Event Cards</h2></div><div className="text-xs text-slate-400">{visibleEvents.length} events</div></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{visibleEvents.map(event => {
           if (event.kind === 'relay') {
