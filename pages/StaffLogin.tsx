@@ -84,12 +84,6 @@ const StaffLogin: React.FC = () => {
               </div>
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => navigate('/hodsons')}
-                  className="px-5 py-3 rounded-xl royal-primary-btn font-black text-xs uppercase tracking-widest"
-                >
-                  Go To Hodsons
-                </button>
-                <button
                   onClick={handleLogout}
                   className="px-5 py-3 rounded-xl royal-secondary-btn font-black text-xs uppercase tracking-widest"
                 >
