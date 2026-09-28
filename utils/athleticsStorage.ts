@@ -1,7 +1,7 @@
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { getAllHodsonsClasses } from './hodsonsStorage';
-import { ATHLETICS_CATEGORY_STUDENTS, ATHLETICS_STUDENT_BY_ID, ATHLETICS_CATEGORIES, AthleticsCategory, AthleticsDepartment } from './athleticsCategories';
+import { getAthleticsCategoryStudents, ATHLETICS_CATEGORIES, AthleticsCategory, AthleticsDepartment } from './athleticsCategories';
 
 export type AthleticsHouse = 'Vindhya' | 'Himalaya' | 'Nilgiri' | 'Siwalik';
 export type AthleticsResultStatus = 'pending' | 'finished' | 'dnf' | 'absent' | 'medically_excused';
@@ -264,6 +264,6 @@ export const relayTiebreakPointsForStudent = (snapshot: AthleticsSnapshot, stude
     return sum + relayPointsForPosition(position);
   }, 0);
 
-export const getAthleticsStudents=(baseClasses:Record<string,string>={}):AthleticsStudent[]=>{const classes=getAllHodsonsClasses(baseClasses);return ATHLETICS_CATEGORY_STUDENTS.map(s=>({...s,className:classes[s.id]||'N/A',department:s.department})).filter((s,i,a)=>a.findIndex(x=>`${x.id}|${x.name.trim()}`===`${s.id}|${s.name.trim()}`)===i);};
+export const getAthleticsStudents=(baseClasses:Record<string,string>={}):AthleticsStudent[]=>{const classes=getAllHodsonsClasses(baseClasses);return getAthleticsCategoryStudents().map(s=>({...s,className:classes[s.id]||'N/A',department:s.department})).filter((s,i,a)=>a.findIndex(x=>`${x.id}|${x.name.trim()}`===`${s.id}|${s.name.trim()}`)===i);};
 export const getPrepAthleticsStudents=getAthleticsStudents;
 export const getAthleticsDepartment=(category:AthleticsCategory):AthleticsDepartment=>category.startsWith('PDB')?'PDB':category.startsWith('PDG')?'PDG':category.startsWith('BD')?'BD':'GD';
