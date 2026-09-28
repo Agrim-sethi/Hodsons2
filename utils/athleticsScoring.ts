@@ -129,10 +129,11 @@ const rankedResultRows = (
     });
   }
 
-  return eligible.map((item, index) => ({
-    ...item,
-    computedPosition: index + 1,
-  }));
+  return eligible.map((item, index) => {
+    const previous = eligible[index - 1];
+    const tied = Boolean(previous && resultPerformance(event, previous.result) === resultPerformance(event, item.result));
+    return { ...item, computedPosition: tied ? (index === 0 ? 1 : (index + 1) - (eligible.slice(0, index).filter((row, priorIndex) => priorIndex === 0 || resultPerformance(event, eligible[priorIndex - 1].result) !== resultPerformance(event, row.result)).length)) : index + 1 };
+  });
 };
 
 export type RankedAthleticsResult = {
