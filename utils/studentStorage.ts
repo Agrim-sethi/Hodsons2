@@ -326,16 +326,6 @@ const baseStudents: ManagedStudent[] = (ALL_STUDENTS as any[]).map((student) => 
   };
 });
 
-const seededStudents: ManagedStudent[] = Object.entries(AUG30_STUDENT_DETAILS).map(([id, seeded]) => ({
-  id,
-  name: seeded.name,
-  house: seeded.house,
-  department: seeded.department,
-  category: seeded.category,
-  dob: seeded.dob,
-  className: seeded.className,
-}));
-
 const getStoredStudents = (): ManagedStudent[] | null => {
   const stored = localStorage.getItem(STUDENTS_STORAGE_KEY);
   if (!stored) return null;
@@ -386,7 +376,8 @@ export const syncAug30StudentsToFirestore = async (): Promise<void> => {
     const current = await transaction.get(ref);
     const data = current.exists() ? current.data() : {};
     if (Array.isArray(data.students)) return;
-    transaction.set(ref, { students: [...baseStudents] }, { merge: true });
+    const initialStudents = getStoredStudents() || [...baseStudents];
+    transaction.set(ref, { students: sanitize(initialStudents) }, { merge: true });
   });
 };
 
