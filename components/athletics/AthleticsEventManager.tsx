@@ -467,7 +467,6 @@ const AthleticsEventManager: React.FC<Props> = ({
       status: existing?.status || 'pending',
       timing: existing?.timing || '',
       attempts: existing?.attempts,
-      position: existing?.position,
       qualified: existing?.qualified || false,
       ...patch,
       position: positionWasExplicitlyPatched
@@ -536,6 +535,21 @@ const AthleticsEventManager: React.FC<Props> = ({
     });
   };
 
+  const sanitizeFieldInput = (value: string, key: 'metres' | 'centimetres', currentValue: string): string => {
+    let raw = value.replace(/\D/g, '');
+    if (key === 'metres') {
+      return raw.slice(0, 3);
+    }
+    // For centimetres: if current value was '00' or '0' and user typed a digit (making length > 2),
+    // strip the old leading zeros so typing immediately replaces the zeros rather than being truncated.
+    if ((currentValue === '00' || currentValue === '0') && raw.length > 2 && raw.startsWith('0')) {
+      raw = raw.slice(currentValue === '00' ? 2 : 1);
+    } else if (raw.length > 2) {
+      raw = raw.slice(-2);
+    }
+    return raw;
+  };
+
   const updateFieldPart = (
     studentId: string,
     resultStage: AthleticsStage,
@@ -543,7 +557,7 @@ const AthleticsEventManager: React.FC<Props> = ({
     value: string,
   ) => {
     const current = splitFieldDistance(getResult(studentId, resultStage).timing);
-    const nextValue = value.replace(/\D/g, '').slice(0, key === 'metres' ? 3 : 2);
+    const nextValue = sanitizeFieldInput(value, key, current[key]);
     const next = {
       ...current,
       [key]: nextValue,
@@ -553,7 +567,9 @@ const AthleticsEventManager: React.FC<Props> = ({
       timing:
         next.metres === '' && next.centimetres === ''
           ? ''
-          : `${next.metres || '0'}.${(next.centimetres || '0').padStart(2, '0')}`,
+          : next.centimetres === ''
+            ? next.metres
+            : `${next.metres || '0'}.${next.centimetres}`,
     });
   };
 
@@ -578,7 +594,7 @@ const AthleticsEventManager: React.FC<Props> = ({
     const attempts = Array.from({ length: slotCount }, (_, index) => existing.attempts?.[index] || '');
 
     const current = splitFieldDistance(attempts[attemptIndex]);
-    const nextValue = value.replace(/\D/g, '').slice(0, key === 'metres' ? 3 : 2);
+    const nextValue = sanitizeFieldInput(value, key, current[key]);
     const nextPart = {
       ...current,
       [key]: nextValue,
@@ -587,7 +603,9 @@ const AthleticsEventManager: React.FC<Props> = ({
     attempts[attemptIndex] =
       nextPart.metres === '' && nextPart.centimetres === ''
         ? ''
-        : `${nextPart.metres || '0'}.${(nextPart.centimetres || '0').padStart(2, '0')}`;
+        : nextPart.centimetres === ''
+          ? nextPart.metres
+          : `${nextPart.metres || '0'}.${nextPart.centimetres}`;
 
     updateResult(studentId, resultStage, {
       attempts,
@@ -1559,6 +1577,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                                 type="number"
                                 min="0"
                                 value={track.minutes}
+                                onFocus={(eventObject) => eventObject.target.select()}
                                 onChange={(eventObject) =>
                                   updateTrackPart(
                                     student.id,
@@ -1577,6 +1596,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                                 min="0"
                                 max="59"
                                 value={track.seconds}
+                                onFocus={(eventObject) => eventObject.target.select()}
                                 onChange={(eventObject) =>
                                   updateTrackPart(
                                     student.id,
@@ -1595,6 +1615,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                                 min="0"
                                 max="999"
                                 value={track.milliseconds}
+                                onFocus={(eventObject) => eventObject.target.select()}
                                 onChange={(eventObject) =>
                                   updateTrackPart(
                                     student.id,
@@ -1621,9 +1642,13 @@ const AthleticsEventManager: React.FC<Props> = ({
                                     </span>
                                     <input
                                       disabled={!isLoggedIn}
-                                      type="number"
-                                      min="0"
+                                      type="text"
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      placeholder="0"
+                                      maxLength={3}
                                       value={attemptSplit.metres}
+                                      onFocus={(eventObject) => eventObject.target.select()}
                                       onChange={(eventObject) =>
                                         updateFieldAttempt(
                                           student.id,
@@ -1638,10 +1663,13 @@ const AthleticsEventManager: React.FC<Props> = ({
                                     <span>.</span>
                                     <input
                                       disabled={!isLoggedIn}
-                                      type="number"
-                                      min="0"
-                                      max="99"
+                                      type="text"
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      placeholder="00"
+                                      maxLength={2}
                                       value={attemptSplit.centimetres}
+                                      onFocus={(eventObject) => eventObject.target.select()}
                                       onChange={(eventObject) =>
                                         updateFieldAttempt(
                                           student.id,
@@ -1683,9 +1711,13 @@ const AthleticsEventManager: React.FC<Props> = ({
                             <div className="flex min-w-[220px] items-center gap-2">
                               <input
                                 disabled={!isLoggedIn}
-                                type="number"
-                                min="0"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                placeholder="0"
+                                maxLength={3}
                                 value={field.metres}
+                                onFocus={(eventObject) => eventObject.target.select()}
                                 onChange={(eventObject) =>
                                   updateFieldPart(
                                     student.id,
@@ -1699,10 +1731,13 @@ const AthleticsEventManager: React.FC<Props> = ({
                               <span>.</span>
                               <input
                                 disabled={!isLoggedIn}
-                                type="number"
-                                min="0"
-                                max="99"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                placeholder="00"
+                                maxLength={2}
                                 value={field.centimetres}
+                                onFocus={(eventObject) => eventObject.target.select()}
                                 onChange={(eventObject) =>
                                   updateFieldPart(
                                     student.id,
