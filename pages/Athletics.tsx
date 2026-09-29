@@ -145,7 +145,7 @@ const Athletics: React.FC = () => {
               <Icon name={event.kind==='track'?'directions_run':'sports_handball'} className="text-[27px] text-primary" />
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <div className="rounded-lg border border-white/5 bg-white/[0.03] p-3"><div className="text-[9px] font-black uppercase text-slate-500">Enrolled</div><div className="mt-0.5 text-lg font-black text-white">{enrollment?.studentIds.length||0}</div></div>
+              <div className="rounded-lg border border-white/5 bg-white/[0.03] p-3"><div className="text-[9px] font-black uppercase text-slate-500">Enrolled</div><div className="mt-0.5 text-lg font-black text-white">{enrollment?.studentIds.filter(id => students.some(student => student.id === id && student.category === selectedCategory)).length || 0}</div></div>
               <div className="rounded-lg border border-white/5 bg-white/[0.03] p-3"><div className="text-[9px] font-black uppercase text-slate-500">Finals</div><div className={`mt-1 text-sm font-black ${finals?.enabled?'text-emerald-300':'text-slate-500'}`}>{finals?.enabled?'Allotted':'Qualifying only'}</div></div>
             </div>
             <div className="mt-4 text-[10px] font-black uppercase tracking-wider text-primary">Open event →</div>
