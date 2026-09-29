@@ -105,7 +105,7 @@ const AthleticsRaceChart: React.FC<{
             <YAxis dataKey="name" type="category" width={featured ? 104 : 82} tick={{ fill: '#fff', fontSize: featured ? 14 : 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
             <Tooltip cursor={{ fill: 'rgba(201,163,74,0.055)' }} contentStyle={{ backgroundColor: 'rgba(10, 20, 34, 0.96)', borderColor: 'rgba(201,163,74,0.28)', color: '#fff7e4', borderRadius: '12px', padding: '10px 12px', boxShadow: '0 14px 32px rgba(0,0,0,0.42)' }} itemStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '12px' }} formatter={(value: number) => [`${value} pts`, 'Points']} />
             <ReferenceLine x={0} stroke="rgba(255,255,255,0.18)" />
-            <Bar dataKey="points" radius={[0, 8, 8, 0]} barSize={featured ? 29 : 21} animationDuration={1000} cursor={onSelectHouse ? 'pointer' : 'default'}>
+            <Bar dataKey="points" radius={[0, 8, 8, 0]} barSize={featured ? 29 : 21} animationDuration={1000} cursor={onSelectHouse ? 'pointer' : 'default'} onClick={(entry: any) => { const house = entry?.house || entry?.payload?.house; if (house) onSelectHouse?.(house); }}>
               {data.map((entry, index) => <Cell key={`${entry.name}-${index}`} fill={`url(#athletics_${gradientPrefix}_${entry.name})`} onClick={() => onSelectHouse?.(entry.house)} />)}
             </Bar>
           </BarChart>
@@ -122,7 +122,7 @@ const AthleticsRaceChart: React.FC<{
             return (
               <button type="button" key={entry.house} onClick={() => onSelectHouse?.(entry.house)} disabled={!onSelectHouse} aria-label={`Open ${entry.house} points validation`} className={`text-left rounded-2xl border border-primary/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(201,163,74,0.03))] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,244,214,0.04)] transition ${onSelectHouse ? 'cursor-pointer hover:border-primary/40 hover:bg-primary/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary' : 'cursor-default'}`}>
                 <div className="flex items-center justify-between gap-2"><span className={`truncate text-[8px] font-black uppercase tracking-[0.12em] ${config.text}`}>{entry.house}</span><span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: config.hex }} /></div>
-                <div className={`mt-1 text-xl font-black ${entry.points > 0 ? 'text-[#f4dfac]' : 'text-slate-500'}`}>{entry.points > 0 ? `+${entry.points}` : entry.points}</div>
+                <div className={`mt-1 text-xl font-black ${entry.points > 0 ? 'text-[#f4dfac]' : 'text-slate-500'}`}>{entry.points > 0 ? `+${entry.points}` : entry.points}</div><div className="mt-2 text-[9px] font-black uppercase tracking-[0.14em] text-primary">View points audit →</div>
                 <div className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.04em] leading-tight text-slate-500 break-words">{onSelectHouse ? 'Click to audit points' : 'Championship Pts'}</div>
               </button>
             );
