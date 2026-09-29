@@ -261,6 +261,7 @@ export default function StudentManager() {
                   </div>
                   <button onClick={handleVerify} className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20">Verify Category</button>
                 </div>
+                {existingStudent && calculatedCategory && existingStudent.category !== calculatedCategory && <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] p-3 text-xs leading-relaxed text-amber-200"><strong>Category change detected:</strong> {existingStudent.category} → {calculatedCategory}. Saving updates the student roster only. Existing event enrollments and results are not deleted or moved; entries in the former category will be hidden from active lists and will not score. Review historical records separately before making any manual changes.</div>}
                 {message && <p className="text-xs text-slate-400 mt-3">{message}</p>}
               </div>
 
