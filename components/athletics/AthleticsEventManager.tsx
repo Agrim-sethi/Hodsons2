@@ -179,7 +179,12 @@ const AthleticsEventManager: React.FC<Props> = ({
 
   const finalsEnabled = Boolean(finalsConfig?.enabled);
   const finalistIds = finalsConfig?.studentIds || [];
-  const currentIds = stage === 'finals' ? finalistIds : enrollment;
+  // Treat the live managed roster as the authority for current age-category eligibility.
+  // Keep stale IDs in the stored snapshot untouched, but exclude them from visible counts and rows.
+  const eligibleStudentIds = new Set(students.filter(student => student.category === category).map(student => student.id));
+  const activeEnrollmentIds = [...new Set(enrollment)].filter(id => eligibleStudentIds.has(id));
+  const activeFinalistIds = [...new Set(finalistIds)].filter(id => eligibleStudentIds.has(id));
+  const currentIds = stage === 'finals' ? activeFinalistIds : activeEnrollmentIds;
 
   const isHighJump = event.id === 'high-jump';
   const isRelay = event.kind === 'relay';
@@ -1180,7 +1185,7 @@ const AthleticsEventManager: React.FC<Props> = ({
               }`}
             >
               Qualifying
-              <span className="ml-1 opacity-70">{enrollment.length}</span>
+              <span className="ml-1 opacity-70">{activeEnrollmentIds.length}</span>
             </button>
 
             {finalsEnabled && (
@@ -1194,7 +1199,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                 }`}
               >
                 Finals
-                <span className="ml-1 opacity-70">{finalistIds.length}</span>
+                <span className="ml-1 opacity-70">{activeFinalistIds.length}</span>
               </button>
             )}
           </div>
@@ -1226,7 +1231,7 @@ const AthleticsEventManager: React.FC<Props> = ({
           </div>
         </div>
 
-        {enrollment.length === 0 ? (
+        {activeEnrollmentIds.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-12 text-center">
             <Icon
               name="group_add"
