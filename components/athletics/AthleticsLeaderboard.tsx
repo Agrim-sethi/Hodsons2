@@ -66,135 +66,92 @@ const AthleticsRaceChart: React.FC<{
   subtitle: string;
   data: { name: string; house: string; points: number }[];
   featured?: boolean;
-  onSelectHouse?: (house: string) => void;
-}> = ({ title, subtitle, data, featured = false, onSelectHouse }) => {
+}> = ({ title, subtitle, data, featured = false }) => {
   const chartHeight = featured ? 320 : 220;
   const gradientPrefix = featured ? 'overall' : title.replace(/[^a-zA-Z0-9]/g, '');
-
   return (
     <div className={`glass-panel royal-chart-panel rounded-[28px] border relative overflow-hidden ${featured ? 'p-7 lg:p-8 border-primary/20 min-h-[525px]' : 'p-5 lg:p-6 border-white/8 min-h-[405px]'}`}>
-      <div className="absolute top-0 right-0 p-5 opacity-[0.035] pointer-events-none">
-        <Icon name="bar_chart" className={featured ? 'text-[170px]' : 'text-[120px]'} />
-      </div>
+      <div className="absolute top-0 right-0 p-5 opacity-[0.035] pointer-events-none"><Icon name="bar_chart" className={featured ? 'text-[170px]' : 'text-[120px]'} /></div>
       <div className="relative z-10 flex items-start gap-3 mb-5">
-        <div className={`${featured ? 'size-12' : 'size-10'} shrink-0 rounded-2xl bg-primary/10 border border-primary/10 flex items-center justify-center text-primary`}>
-          <Icon name={featured ? 'leaderboard' : 'account_tree'} size={featured ? '25' : '21'} />
-        </div>
-        <div className="min-w-0">
-          <div className="royal-kicker mb-1">{featured ? 'Championship Race' : 'Department Race'}</div>
-          <h3 className={`${featured ? 'text-2xl' : 'text-lg'} font-black tracking-tight text-white`}>{title}</h3>
-          <p className="text-xs text-slate-400 mt-1">{subtitle}</p>
-        </div>
-        <div className="ml-auto hidden sm:flex items-center gap-2 rounded-full border border-primary/10 bg-white/[0.025] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
-          {data.reduce((sum, item) => sum + item.points, 0)} total pts
-        </div>
+        <div className={`${featured ? 'size-12' : 'size-10'} shrink-0 rounded-2xl bg-primary/10 border border-primary/10 flex items-center justify-center text-primary`}><Icon name={featured ? 'leaderboard' : 'account_tree'} size={featured ? '25' : '21'} /></div>
+        <div className="min-w-0"><div className="royal-kicker mb-1">{featured ? 'Championship Race' : 'Department Race'}</div><h3 className={`${featured ? 'text-2xl' : 'text-lg'} font-black tracking-tight text-white`}>{title}</h3><p className="text-xs text-slate-400 mt-1">{subtitle}</p></div>
+        <div className="ml-auto hidden sm:flex items-center gap-2 rounded-full border border-primary/10 bg-white/[0.025] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">{data.reduce((sum, item) => sum + item.points, 0)} total pts</div>
       </div>
       <div className="relative z-10 w-full" style={{ height: chartHeight }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 4, right: featured ? 34 : 22, left: 10, bottom: 2 }}>
-            <defs>
-              {data.map((entry, index) => (
-                <linearGradient key={`${gradientPrefix}-${entry.name}-${index}`} id={`athletics_${gradientPrefix}_${entry.name}`} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor={houseConfig(entry.house).hex} stopOpacity={0.58} />
-                  <stop offset="100%" stopColor={houseConfig(entry.house).hex} stopOpacity={1} />
-                </linearGradient>
-              ))}
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal vertical={false} />
-            <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: featured ? 12 : 10, fontWeight: 'bold' }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <YAxis dataKey="name" type="category" width={featured ? 104 : 82} tick={{ fill: '#fff', fontSize: featured ? 14 : 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-            <Tooltip cursor={{ fill: 'rgba(201,163,74,0.055)' }} contentStyle={{ backgroundColor: 'rgba(10, 20, 34, 0.96)', borderColor: 'rgba(201,163,74,0.28)', color: '#fff7e4', borderRadius: '12px', padding: '10px 12px', boxShadow: '0 14px 32px rgba(0,0,0,0.42)' }} itemStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '12px' }} formatter={(value: number) => [`${value} pts`, 'Points']} />
-            <ReferenceLine x={0} stroke="rgba(255,255,255,0.18)" />
-            <Bar dataKey="points" radius={[0, 8, 8, 0]} barSize={featured ? 29 : 21} animationDuration={1000} cursor={onSelectHouse ? 'pointer' : 'default'} onClick={(entry: any) => { const house = entry?.house || entry?.payload?.house; if (house) onSelectHouse?.(house); }}>
-              {data.map((entry, index) => <Cell key={`${entry.name}-${index}`} fill={`url(#athletics_${gradientPrefix}_${entry.name})`} onClick={() => onSelectHouse?.(entry.house)} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div className={`relative z-10 mt-5 border-t border-primary/10 ${featured ? 'pt-5' : 'pt-4'}`}>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-primary/80">Per House Points</span>
-          <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">Quick Counter</span>
-        </div>
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-          {data.map(entry => {
-            const config = houseConfig(entry.house);
-            return (
-              <button type="button" key={entry.house} onClick={() => onSelectHouse?.(entry.house)} disabled={!onSelectHouse} aria-label={`Open ${entry.house} points validation`} className={`text-left rounded-2xl border border-primary/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(201,163,74,0.03))] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,244,214,0.04)] transition ${onSelectHouse ? 'cursor-pointer hover:border-primary/40 hover:bg-primary/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary' : 'cursor-default'}`}>
-                <div className="flex items-center justify-between gap-2"><span className={`truncate text-[8px] font-black uppercase tracking-[0.12em] ${config.text}`}>{entry.house}</span><span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: config.hex }} /></div>
-                <div className={`mt-1 text-xl font-black ${entry.points > 0 ? 'text-[#f4dfac]' : 'text-slate-500'}`}>{entry.points > 0 ? `+${entry.points}` : entry.points}</div><div className="mt-2 text-[9px] font-black uppercase tracking-[0.14em] text-primary">View points audit →</div>
-                <div className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.04em] leading-tight text-slate-500 break-words">{onSelectHouse ? 'Click to audit points' : 'Championship Pts'}</div>
-              </button>
-            );
-          })}
-        </div>
+        <ResponsiveContainer width="100%" height="100%"><BarChart data={data} layout="vertical" margin={{ top: 4, right: featured ? 34 : 22, left: 10, bottom: 2 }}>
+          <defs>{data.map((entry, index) => <linearGradient key={`${gradientPrefix}-${entry.name}-${index}`} id={`athletics_${gradientPrefix}_${entry.name}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={houseConfig(entry.house).hex} stopOpacity={0.58} /><stop offset="100%" stopColor={houseConfig(entry.house).hex} stopOpacity={1} /></linearGradient>)}</defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal vertical={false} />
+          <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: featured ? 12 : 10, fontWeight: 'bold' }} axisLine={false} tickLine={false} allowDecimals={false} />
+          <YAxis dataKey="name" type="category" width={featured ? 104 : 82} tick={{ fill: '#fff', fontSize: featured ? 14 : 11, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+          <Tooltip cursor={{ fill: 'rgba(201,163,74,0.055)' }} contentStyle={{ backgroundColor: 'rgba(10, 20, 34, 0.96)', borderColor: 'rgba(201,163,74,0.28)', color: '#fff7e4', borderRadius: '12px', padding: '10px 12px', boxShadow: '0 14px 32px rgba(0,0,0,0.42)' }} itemStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '12px' }} formatter={(value: number) => [`${value} pts`, 'Points']} />
+          <ReferenceLine x={0} stroke="rgba(255,255,255,0.18)" />
+          <Bar dataKey="points" radius={[0, 8, 8, 0]} barSize={featured ? 29 : 21} animationDuration={1000}>{data.map((entry, index) => <Cell key={`${entry.name}-${index}`} fill={`url(#athletics_${gradientPrefix}_${entry.name})`} />)}</Bar>
+        </BarChart></ResponsiveContainer>
       </div>
     </div>
   );
 };
 
-const PointsValidationModal: React.FC<{ house: string; students: AthleticsStudent[]; snapshot: AthleticsSnapshot; onClose: () => void }> = ({ house, students, snapshot, onClose }) => {
-  const [category, setCategory] = React.useState<AthleticsCategory>(ATHLETICS_CATEGORIES[0]);
-  const [eventId, setEventId] = React.useState(ATHLETICS_EVENTS[0]?.id || '');
-  const event = ATHLETICS_EVENTS.find(item => item.id === eventId) || ATHLETICS_EVENTS[0];
-  const eligibleStudents = students.filter(student => student.house === house && student.category === category);
-  const rows = event && !isRelayEvent(event) ? eligibleStudents.map(student => ({
-    student,
-    points: eventPointBreakdown(snapshot, student, event, category),
-  })).filter(row => row.points.total > 0).sort((a,b) => b.points.total-a.points.total || a.student.name.localeCompare(b.student.name)) : [];
-  const displayedTotal = rows.reduce((sum,row)=>sum+row.points.total,0);
-  // Mirror the View Events > Points Log participant set and house-total calculation.
-  const enrollment = event ? snapshot.enrollments.find(entry => entry.eventId === event.id && entry.category === category) : undefined;
-  const finals = event ? snapshot.finals.find(entry => entry.eventId === event.id && entry.category === category) : undefined;
-  const resultIds = event ? snapshot.results.filter(item => item.eventId === event.id && item.category === category).map(item => item.studentId) : [];
-  const auditIds = [...new Set([...(enrollment?.studentIds || []), ...(finals?.studentIds || []), ...resultIds])];
-  const auditTotal = event && !isRelayEvent(event) ? auditIds.reduce((sum,id) => {
-    const student = students.find(item => item.id === id);
-    return sum + (student && student.house === house ? eventPointBreakdown(snapshot, student, event, category).total : 0);
-  },0) : 0;
-  const matches = displayedTotal === auditTotal;
+const PointsVerificationDropdown: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  const checks = React.useMemo(() => ATHLETICS_CATEGORIES.flatMap(category => ATHLETICS_EVENTS.filter(event => eventAllowedForCategory(event, category)).map(event => {
+    if (isRelayEvent(event)) return { category, event, relay: true as const, total: 0, logTotal: 0, rows: [] as any[], matches: true };
+    const enrolled = snapshot.enrollments.find(item => item.eventId === event.id && item.category === category);
+    const finals = snapshot.finals.find(item => item.eventId === event.id && item.category === category);
+    const resultIds = snapshot.results.filter(item => item.eventId === event.id && item.category === category).map(item => item.studentId);
+    const ids = [...new Set([...(enrolled?.studentIds || []), ...(finals?.studentIds || []), ...resultIds])];
+    const logStudents = ids.map(id => students.find(student => student.id === id)).filter((student): student is AthleticsStudent => Boolean(student && student.category === category));
+    const logRows = logStudents.map(student => ({ student, points: eventPointBreakdown(snapshot, student, event, category) })).filter(row => row.points.total !== 0);
+    const logTotal = logRows.reduce((sum, row) => sum + row.points.total, 0);
+    const allRows = students.filter(student => student.category === category).map(student => ({ student, points: eventPointBreakdown(snapshot, student, event, category) })).filter(row => row.points.total !== 0);
+    const total = allRows.reduce((sum, row) => sum + row.points.total, 0);
+    return { category, event, relay: false as const, total, logTotal, rows: allRows, matches: total === logTotal };
+  })), [students, snapshot]);
+  const scoredChecks = checks.filter(check => !check.relay);
+  const mismatches = scoredChecks.filter(check => !check.matches).length;
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 p-3 sm:p-6" onClick={onClose}>
-      <section role="dialog" aria-modal="true" aria-label={house + ' points validation'} className="glass-panel w-full max-w-4xl max-h-[88vh] overflow-y-auto rounded-[28px] border border-primary/25 bg-[#0c1729] shadow-2xl" onClick={e=>e.stopPropagation()}>
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/10 bg-[#0c1729] p-5 sm:p-6">
-          <div><div className="royal-kicker mb-1">Scoring integrity check</div><h2 className="text-2xl font-black text-white">{house} Points Breakdown</h2><p className="mt-1 text-xs text-slate-400">Choose an age category and event to inspect individual points and compare with the View Events Points Log.</p></div>
-          <button type="button" onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">✕</button>
-        </div>
-        <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 sm:p-6">
-          <label className="block"><span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-primary">Age category</span><select value={category} onChange={e=>setCategory(e.target.value as AthleticsCategory)} className="royal-input w-full rounded-xl px-3 py-3 text-sm">{ATHLETICS_CATEGORIES.map(item=><option key={item} value={item}>{item}</option>)}</select></label>
-          <label className="block"><span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-primary">Event</span><select value={eventId} onChange={e=>setEventId(e.target.value)} className="royal-input w-full rounded-xl px-3 py-3 text-sm">{ATHLETICS_EVENTS.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        </div>
-        <div className="px-5 pb-5 sm:px-6">
-          {event && isRelayEvent(event) ? <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-4 text-sm text-amber-200">Relay points are house/team points and are not included in the individual athlete Points Log comparison.</div> : <>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-              <div><div className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recalculated individual total</div><div className="mt-1 text-2xl font-black text-primary">{displayedTotal} pts</div><div className="mt-1 text-[10px] text-slate-500">{rows.length} scoring student{rows.length===1?'':'s'} • {category} • {event?.name}</div></div>
-              <div className={'rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-wider '+(matches?'border-emerald-400/25 bg-emerald-500/10 text-emerald-300':'border-rose-400/25 bg-rose-500/10 text-rose-300')}>{matches?'✓ Matches Points Log':'! Mismatch'}</div>
+    <section className="glass-panel overflow-hidden rounded-[24px] border border-primary/20">
+      <button type="button" onClick={() => setExpanded(value => !value)} aria-expanded={expanded} className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-white/[0.025] sm:p-5">
+        <div><div className="royal-kicker mb-1">Scoring Integrity</div><h3 className="text-lg font-black text-white">Verify All Points Against Points Logs</h3><p className="mt-1 text-xs text-slate-400">One complete category-by-category and event-by-event audit. Open the dropdown to inspect every breakdown.</p></div>
+        <div className="flex shrink-0 items-center gap-2"><span className={`rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-wider ${mismatches ? 'border-rose-400/25 bg-rose-500/10 text-rose-300' : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300'}`}>{mismatches ? `${mismatches} mismatches` : 'All match'}</span><Icon name={expanded ? 'expand_less' : 'expand_more'} size="20" /></div>
+      </button>
+      {expanded && <div className="space-y-3 border-t border-white/10 p-3 sm:p-5">
+        <p className="text-[10px] leading-relaxed text-slate-500">For each individual event/category, this compares points recalculated across current category students with the participant IDs referenced by enrollment, finals, and results, matching the participant source used in View Events → Points Log. Relay events are excluded here because their points are awarded to houses.</p>
+        {ATHLETICS_CATEGORIES.map(category => {
+          const categoryChecks = checks.filter(check => check.category === category);
+          return <details key={category} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.015]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-white"><span>{category}</span><span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{categoryChecks.filter(c=>!c.relay).length} individual checks</span></summary>
+            <div className="space-y-2 border-t border-white/5 p-3">
+              {categoryChecks.map(check => <details key={check.event.id} className="rounded-lg border border-white/8 bg-black/10">
+                <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-3 text-xs font-bold text-slate-200"><span>{check.event.name}{check.relay ? ' · Relay' : ''}</span>{check.relay ? <span className="rounded-full border border-slate-500/20 px-2 py-1 text-[8px] font-black uppercase text-slate-500">House points</span> : <span className={`rounded-full border px-2 py-1 text-[8px] font-black uppercase ${check.matches?'border-emerald-400/25 bg-emerald-500/10 text-emerald-300':'border-rose-400/25 bg-rose-500/10 text-rose-300'}`}>{check.matches?'✓ Matches Points Log':'! Mismatch'}</span>}</summary>
+                {check.relay ? <div className="px-3 pb-3 text-[10px] text-slate-500">Relay points are recorded as house/team points and are not part of the individual Points Log.</div> : <div className="overflow-x-auto border-t border-white/5">
+                  <div className="min-w-[560px]">
+                    <div className="grid grid-cols-[minmax(0,1fr)_76px_repeat(4,64px)] gap-2 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-slate-500"><span>Student</span><span>House</span><span>Qual.</span><span>Place</span><span>Record</span><span>Total</span></div>
+                    {check.rows.length===0?<div className="px-3 py-5 text-center text-[10px] text-slate-500">No points recorded.</div>:check.rows.map(({student,points})=><div key={student.id} className="grid grid-cols-[minmax(0,1fr)_76px_repeat(4,64px)] gap-2 border-t border-white/5 px-3 py-2 text-[10px]"><span className="truncate font-bold text-slate-200">{student.name} <span className="text-slate-600">#{student.id}</span></span><span className="text-slate-400">{student.house}</span><span>{points.qualification}</span><span>{points.placement}</span><span>{points.newRecord}</span><strong className="text-primary">{points.total}</strong></div>)}
+                    <div className="flex justify-end gap-5 border-t border-white/10 px-3 py-3 text-[10px]"><span className="text-slate-500">Current students: <strong className="text-slate-300">{check.total}</strong></span><span className="text-slate-500">Points Log IDs: <strong className="text-slate-300">{check.logTotal}</strong></span></div>
+                  </div>
+                </div>}
+              </details>)}
             </div>
-            <div className="overflow-x-auto rounded-2xl border border-white/10"><div className="min-w-[600px]">
-              <div className="grid grid-cols-[minmax(0,1fr)_70px_repeat(4,70px)] gap-2 bg-white/[0.03] px-4 py-3 text-[9px] font-black uppercase tracking-wider text-slate-500"><span>Student</span><span>House</span><span>Qual.</span><span>Place</span><span>Record</span><span>Total</span></div>
-              {rows.length===0?<div className="px-4 py-8 text-center text-sm text-slate-500">No individual points recorded for this house, category and event.</div>:rows.map(({student,points})=><div key={student.id} className="grid grid-cols-[minmax(0,1fr)_70px_repeat(4,70px)] items-center gap-2 border-t border-white/5 px-4 py-3 text-xs"><span className="truncate font-bold text-slate-200">{student.name} <span className="text-slate-600">#{student.id}</span></span><span className="text-slate-400">{student.house}</span><span>{points.qualification}</span><span>{points.placement}</span><span>{points.newRecord}</span><strong className="text-primary">{points.total}</strong></div>)}
-            </div></div>
-            <p className="mt-3 text-[10px] leading-relaxed text-slate-500">Comparison uses the same participant IDs and scoring breakdown as the View Events Points Log, then checks the selected house's summed total. This validates cross-screen consistency, not the underlying scoring formula independently.</p>
-          </>}
-        </div>
-      </section>
-    </div>
+          </details>;
+        })}
+      </div>}
+    </section>
   );
 };
 
 const HousePerformance: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
-  const [selectedHouse, setSelectedHouse] = React.useState<string | null>(null);
   const overall = buildHouseRows(students, snapshot);
   const bd = buildHouseRows(students, snapshot, 'BD');
   const gd = buildHouseRows(students, snapshot, 'GD');
   const pd = buildHouseRows(students, snapshot, 'PD');
   const maxOverall = Math.max(...overall.map(row => row.points), 0);
-
   return (
     <section className="space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><div className="royal-kicker mb-1">Athletics Championship</div><h2 className="text-3xl font-black text-white tracking-tight">Championship Leaderboards</h2><p className="mt-1 max-w-3xl text-sm text-slate-400">House race across every eligible event, with separate BD, GD, and PD department standings.</p></div><div className="rounded-xl border border-primary/10 bg-primary/[0.04] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{maxOverall} pts leading house</div></div>
-      <AthleticsRaceChart title="Overall House Standings" subtitle="Cumulative championship points across all Athletics events • Click a bar to audit points" data={overall} featured onSelectHouse={setSelectedHouse} />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5"><AthleticsRaceChart title="BD Department Standings" subtitle="Boys Department race across eligible categories" data={bd} onSelectHouse={setSelectedHouse} /><AthleticsRaceChart title="GD Department Standings" subtitle="Girls Department race across eligible categories" data={gd} onSelectHouse={setSelectedHouse} /><AthleticsRaceChart title="PD Department Standings" subtitle="Prep Department race across PDB + PDG" data={pd} onSelectHouse={setSelectedHouse} /></div>{selectedHouse && <PointsValidationModal house={selectedHouse} students={students} snapshot={snapshot} onClose={()=>setSelectedHouse(null)} />}
+      <PointsVerificationDropdown students={students} snapshot={snapshot} />
+      <AthleticsRaceChart title="Overall House Standings" subtitle="Cumulative championship points across all Athletics events" data={overall} featured />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5"><AthleticsRaceChart title="BD Department Standings" subtitle="Boys Department race across eligible categories" data={bd} /><AthleticsRaceChart title="GD Department Standings" subtitle="Girls Department race across eligible categories" data={gd} /><AthleticsRaceChart title="PD Department Standings" subtitle="Prep Department race across PDB + PDG" data={pd} /></div>
     </section>
   );
 };
