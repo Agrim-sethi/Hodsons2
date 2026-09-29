@@ -92,64 +92,387 @@ const AthleticsRaceChart: React.FC<{
   );
 };
 
-const PointsVerificationDropdown: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
-  const [expanded, setExpanded] = React.useState(false);
-  const checks = React.useMemo(() => ATHLETICS_CATEGORIES.flatMap(category => ATHLETICS_EVENTS.filter(event => eventAllowedForCategory(event, category)).map(event => {
-    if (isRelayEvent(event)) return { category, event, relay: true as const, total: 0, logTotal: 0, rows: [] as any[], matches: true };
-    const enrolled = snapshot.enrollments.find(item => item.eventId === event.id && item.category === category);
-    const finals = snapshot.finals.find(item => item.eventId === event.id && item.category === category);
-    const resultIds = snapshot.results.filter(item => item.eventId === event.id && item.category === category).map(item => item.studentId);
-    const ids = [...new Set([...(enrolled?.studentIds || []), ...(finals?.studentIds || []), ...resultIds])];
-    const logStudents = ids.map(id => students.find(student => student.id === id)).filter((student): student is AthleticsStudent => Boolean(student && student.category === category));
-    const logRows = logStudents.map(student => ({ student, points: eventPointBreakdown(snapshot, student, event, category) })).filter(row => row.points.total !== 0);
-    const logTotal = logRows.reduce((sum, row) => sum + row.points.total, 0);
-    const allRows = students.filter(student => student.category === category).map(student => ({ student, points: eventPointBreakdown(snapshot, student, event, category) })).filter(row => row.points.total !== 0);
-    const total = allRows.reduce((sum, row) => sum + row.points.total, 0);
-    return { category, event, relay: false as const, total, logTotal, rows: allRows, matches: total === logTotal };
-  })), [students, snapshot]);
-  const scoredChecks = checks.filter(check => !check.relay);
-  const mismatches = scoredChecks.filter(check => !check.matches).length;
+// ─────────────────────────────────────────────────────────────────────────────
+// Scoring Integrity – staff-only deep audit panel
+// ─────────────────────────────────────────────────────────────────────────────
+
+type HouseIntegritySummary = {
+  house: typeof HOUSES[number];
+  leaderboardPts: number;
+  auditPts: number;
+  match: boolean;
+  departments: {
+    dept: Department;
+    leaderboardPts: number;
+    auditPts: number;
+    match: boolean;
+    categories: {
+      category: AthleticsCategory;
+      events: {
+        event: AthleticsEvent;
+        pts: number;
+      }[];
+      total: number;
+      relayPts: number;
+    }[];
+  }[];
+};
+
+const DEPT_LABELS: Record<Department, string> = { BD: "Boys' Department", GD: "Girls' Department", PD: 'Prep Department' };
+const DEPT_CATEGORIES: Record<Department, AthleticsCategory[]> = {
+  BD: ATHLETICS_CATEGORIES.filter(c => c.startsWith('BD')) as AthleticsCategory[],
+  GD: ATHLETICS_CATEGORIES.filter(c => c.startsWith('GD')) as AthleticsCategory[],
+  PD: ATHLETICS_CATEGORIES.filter(c => c.startsWith('PD')) as AthleticsCategory[],
+};
+
+const buildIntegrityData = (
+  students: AthleticsStudent[],
+  snapshot: AthleticsSnapshot,
+  leaderboardRows: Record<Department, { name: string; house: string; points: number }[]>,
+): HouseIntegritySummary[] => {
+  return HOUSES.map(house => {
+    const deptSummaries = (['BD', 'GD', 'PD'] as Department[]).map(dept => {
+      const leaderboardPts = leaderboardRows[dept].find(r => r.house === house)?.points ?? 0;
+
+      const categorySummaries = DEPT_CATEGORIES[dept].map(category => {
+        const inScope = students.filter(s => s.house === house && s.category === category);
+        const nonRelayEvents = ATHLETICS_EVENTS.filter(e => !isRelayEvent(e) && eventAllowedForCategory(e, category));
+        const eventBreakdowns = nonRelayEvents.map(event => {
+          const pts = inScope.reduce((sum, s) => sum + eventPointBreakdown(snapshot, s, event, category).total, 0);
+          return { event, pts };
+        }).filter(e => e.pts > 0);
+        const individualTotal = eventBreakdowns.reduce((s, e) => s + e.pts, 0);
+
+        // relay points for this category's department bucket
+        const relayPts = dept === 'PD'
+          ? (relayHousePoints(snapshot, house, 'PDB') + relayHousePoints(snapshot, house, 'PDG'))
+          : relayHousePoints(snapshot, house, dept);
+
+        return { category, events: eventBreakdowns, total: individualTotal, relayPts };
+      });
+
+      // audit total = sum of all individual event pts across categories + relay pts for dept
+      const individualAuditTotal = categorySummaries.reduce((s, c) => s + c.total, 0);
+      // relay is counted once per dept, not per category – compute at dept level
+      const deptRelayPts = dept === 'PD'
+        ? relayHousePoints(snapshot, house, 'PDB') + relayHousePoints(snapshot, house, 'PDG')
+        : relayHousePoints(snapshot, house, dept);
+      const auditPts = individualAuditTotal + deptRelayPts;
+
+      return {
+        dept,
+        leaderboardPts,
+        auditPts,
+        match: leaderboardPts === auditPts,
+        categories: categorySummaries,
+      };
+    });
+
+    const overallLeaderboard = buildHouseRows(students, snapshot).find(r => r.house === house)?.points ?? 0;
+    const overallAudit = deptSummaries.reduce((s, d) => s + d.auditPts, 0);
+
+    return {
+      house,
+      leaderboardPts: overallLeaderboard,
+      auditPts: overallAudit,
+      match: overallLeaderboard === overallAudit,
+      departments: deptSummaries,
+    };
+  });
+};
+
+const ScoringIntegrityPanel: React.FC<{
+  students: AthleticsStudent[];
+  snapshot: AthleticsSnapshot;
+  leaderboardRows: Record<Department, { name: string; house: string; points: number }[]>;
+}> = ({ students, snapshot, leaderboardRows }) => {
+  const [open, setOpen] = React.useState(false);
+  const [selectedHouse, setSelectedHouse] = React.useState<typeof HOUSES[number]>('Vindhya');
+  const [selectedDept, setSelectedDept] = React.useState<Department>('BD');
+
+  const data = React.useMemo(
+    () => buildIntegrityData(students, snapshot, leaderboardRows),
+    [students, snapshot, leaderboardRows],
+  );
+
+  const totalMismatches = data.reduce(
+    (sum, h) => sum + h.departments.filter(d => !d.match).length,
+    0,
+  );
+
+  const activeHouse = data.find(h => h.house === selectedHouse)!;
+  const activeDept = activeHouse.departments.find(d => d.dept === selectedDept)!;
+  const houseCfg = houseConfig(selectedHouse);
+
   return (
-    <section className="glass-panel overflow-hidden rounded-[24px] border border-primary/20">
-      <button type="button" onClick={() => setExpanded(value => !value)} aria-expanded={expanded} className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-white/[0.025] sm:p-5">
-        <div><div className="royal-kicker mb-1">Scoring Integrity</div><h3 className="text-lg font-black text-white">Verify All Points Against Points Logs</h3><p className="mt-1 text-xs text-slate-400">One complete category-by-category and event-by-event audit. Open the dropdown to inspect every breakdown.</p></div>
-        <div className="flex shrink-0 items-center gap-2"><span className={`rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-wider ${mismatches ? 'border-rose-400/25 bg-rose-500/10 text-rose-300' : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300'}`}>{mismatches ? `${mismatches} mismatches` : 'All match'}</span><Icon name={expanded ? 'expand_less' : 'expand_more'} size="20" /></div>
+    <section className="overflow-hidden rounded-[24px] border border-rose-400/20 bg-rose-500/[0.03]">
+      {/* ── Header / toggle ── */}
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-white/[0.025] sm:p-5"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-rose-400/20 bg-rose-500/10 text-rose-400">
+            <Icon name="verified_user" size="20" />
+          </div>
+          <div>
+            <div className="text-[9px] font-black uppercase tracking-[0.22em] text-rose-400 mb-0.5">Staff Only</div>
+            <h3 className="text-base font-black text-white">Scoring Integrity</h3>
+            <p className="mt-0.5 text-xs text-slate-400">
+              House-wise point totals from the points log — compared against leaderboard values per department.
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-wider ${totalMismatches ? 'border-rose-400/25 bg-rose-500/10 text-rose-300' : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300'}`}>
+            {totalMismatches ? `${totalMismatches} mismatch${totalMismatches > 1 ? 'es' : ''}` : 'All verified'}
+          </span>
+          <Icon name={open ? 'expand_less' : 'expand_more'} size="20" />
+        </div>
       </button>
-      {expanded && <div className="space-y-3 border-t border-white/10 p-3 sm:p-5">
-        <p className="text-[10px] leading-relaxed text-slate-500">For each individual event/category, this compares points recalculated across current category students with the participant IDs referenced by enrollment, finals, and results, matching the participant source used in View Events → Points Log. Relay events are excluded here because their points are awarded to houses.</p>
-        {ATHLETICS_CATEGORIES.map(category => {
-          const categoryChecks = checks.filter(check => check.category === category);
-          return <details key={category} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.015]">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-white"><span>{category}</span><span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{categoryChecks.filter(c=>!c.relay).length} individual checks</span></summary>
-            <div className="space-y-2 border-t border-white/5 p-3">
-              {categoryChecks.map(check => <details key={check.event.id} className="rounded-lg border border-white/8 bg-black/10">
-                <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-3 text-xs font-bold text-slate-200"><span>{check.event.name}{check.relay ? ' · Relay' : ''}</span>{check.relay ? <span className="rounded-full border border-slate-500/20 px-2 py-1 text-[8px] font-black uppercase text-slate-500">House points</span> : <span className={`rounded-full border px-2 py-1 text-[8px] font-black uppercase ${check.matches?'border-emerald-400/25 bg-emerald-500/10 text-emerald-300':'border-rose-400/25 bg-rose-500/10 text-rose-300'}`}>{check.matches?'✓ Matches Points Log':'! Mismatch'}</span>}</summary>
-                {check.relay ? <div className="px-3 pb-3 text-[10px] text-slate-500">Relay points are recorded as house/team points and are not part of the individual Points Log.</div> : <div className="overflow-x-auto border-t border-white/5">
-                  <div className="min-w-[560px]">
-                    <div className="grid grid-cols-[minmax(0,1fr)_76px_repeat(4,64px)] gap-2 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-slate-500"><span>Student</span><span>House</span><span>Qual.</span><span>Place</span><span>Record</span><span>Total</span></div>
-                    {check.rows.length===0?<div className="px-3 py-5 text-center text-[10px] text-slate-500">No points recorded.</div>:check.rows.map(({student,points})=><div key={student.id} className="grid grid-cols-[minmax(0,1fr)_76px_repeat(4,64px)] gap-2 border-t border-white/5 px-3 py-2 text-[10px]"><span className="truncate font-bold text-slate-200">{student.name} <span className="text-slate-600">#{student.id}</span></span><span className="text-slate-400">{student.house}</span><span>{points.qualification}</span><span>{points.placement}</span><span>{points.newRecord}</span><strong className="text-primary">{points.total}</strong></div>)}
-                    <div className="flex justify-end gap-5 border-t border-white/10 px-3 py-3 text-[10px]"><span className="text-slate-500">Current students: <strong className="text-slate-300">{check.total}</strong></span><span className="text-slate-500">Points Log IDs: <strong className="text-slate-300">{check.logTotal}</strong></span></div>
-                  </div>
-                </div>}
-              </details>)}
+
+      {open && (
+        <div className="border-t border-white/10">
+          {/* ── Quick overview: all houses × all depts ── */}
+          <div className="p-4 sm:p-5">
+            <p className="mb-4 text-[10px] leading-relaxed text-slate-500">
+              Each cell shows <strong className="text-slate-300">Audit pts</strong> (recomputed from the points log, event-by-event) vs{' '}
+              <strong className="text-slate-300">Leaderboard pts</strong> (what the bar chart shows). A green cell means they match exactly.
+            </p>
+
+            {/* Overview grid */}
+            <div className="overflow-x-auto rounded-xl border border-white/8">
+              <table className="min-w-[520px] w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="px-4 py-2.5 text-left font-black text-slate-500 uppercase tracking-wider text-[9px]">House</th>
+                    {(['BD', 'GD', 'PD'] as Department[]).map(dept => (
+                      <th key={dept} className="px-3 py-2.5 text-center font-black text-slate-500 uppercase tracking-wider text-[9px]">{dept}</th>
+                    ))}
+                    <th className="px-4 py-2.5 text-center font-black text-slate-500 uppercase tracking-wider text-[9px]">Overall</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map(h => {
+                    const cfg = houseConfig(h.house);
+                    return (
+                      <tr key={h.house} className="border-b border-white/5 last:border-0">
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedHouse(h.house)}
+                            className={`flex items-center gap-2 rounded-lg px-2 py-1 transition-all ${selectedHouse === h.house ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                          >
+                            <span className="size-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.hex }} />
+                            <span className={`font-black ${cfg.text}`}>{h.house}</span>
+                          </button>
+                        </td>
+                        {h.departments.map(dept => (
+                          <td key={dept.dept} className="px-3 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedHouse(h.house); setSelectedDept(dept.dept); }}
+                              className={`inline-flex flex-col items-center rounded-lg px-2.5 py-1.5 transition-all w-full ${dept.match ? 'bg-emerald-500/10 border border-emerald-400/15 hover:bg-emerald-500/15' : 'bg-rose-500/10 border border-rose-400/20 hover:bg-rose-500/15'}`}
+                            >
+                              <span className={`text-sm font-black ${dept.match ? 'text-emerald-300' : 'text-rose-300'}`}>
+                                {dept.auditPts}
+                              </span>
+                              <span className="text-[8px] text-slate-500 font-bold">
+                                vs {dept.leaderboardPts}
+                              </span>
+                            </button>
+                          </td>
+                        ))}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-black ${h.match ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>
+                            {h.match ? <Icon name="check_circle" size="13" /> : <Icon name="error" size="13" />}
+                            {h.auditPts}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </details>;
-        })}
-      </div>}
+
+            {/* Legend */}
+            <div className="mt-3 flex flex-wrap items-center gap-4 text-[9px] font-bold uppercase tracking-wider text-slate-600">
+              <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-emerald-400/50" /> Audit pts = Leaderboard pts</span>
+              <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-rose-400/50" /> Mismatch detected</span>
+              <span className="text-slate-700">Click a cell to inspect the breakdown</span>
+            </div>
+          </div>
+
+          {/* ── Drill-down: house × dept breakdown ── */}
+          <div className="border-t border-white/10 p-4 sm:p-5 space-y-5">
+            {/* House selector */}
+            <div className="flex flex-wrap gap-2">
+              {HOUSES.map(house => {
+                const cfg = houseConfig(house);
+                const hd = data.find(h => h.house === house)!;
+                const hasMismatch = hd.departments.some(d => !d.match);
+                return (
+                  <button
+                    key={house}
+                    type="button"
+                    onClick={() => setSelectedHouse(house)}
+                    className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-black transition-all ${selectedHouse === house ? 'border-primary/40 bg-primary/10 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20'}`}
+                  >
+                    <span className="size-2 rounded-full" style={{ backgroundColor: cfg.hex }} />
+                    {house}
+                    {hasMismatch && <span className="size-1.5 rounded-full bg-rose-400" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Dept selector */}
+            <div className="flex gap-2">
+              {(['BD', 'GD', 'PD'] as Department[]).map(dept => {
+                const deptData = activeHouse.departments.find(d => d.dept === dept)!;
+                return (
+                  <button
+                    key={dept}
+                    type="button"
+                    onClick={() => setSelectedDept(dept)}
+                    className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-black transition-all ${selectedDept === dept ? 'border-primary/40 bg-primary/10 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20'}`}
+                  >
+                    {dept}
+                    <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black ${deptData.match ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
+                      {deptData.auditPts} pts
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Comparison header card */}
+            <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center gap-4 ${activeDept.match ? 'border-emerald-400/20 bg-emerald-500/[0.06]' : 'border-rose-400/25 bg-rose-500/[0.06]'}`}>
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="size-10 shrink-0 rounded-2xl border" style={{ borderColor: houseCfg.hex + '44', backgroundColor: houseCfg.hex + '18' }}>
+                  <div className="w-full h-full flex items-center justify-center font-black text-sm" style={{ color: houseCfg.hex }}>
+                    {selectedHouse.slice(0, 2).toUpperCase()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">{DEPT_LABELS[selectedDept]}</div>
+                  <div className={`font-black text-base ${houseCfg.text}`}>{selectedHouse}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-5 shrink-0">
+                <div className="text-center">
+                  <div className="text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">Audit (log)</div>
+                  <div className={`text-2xl font-black ${activeDept.match ? 'text-emerald-300' : 'text-rose-300'}`}>{activeDept.auditPts}</div>
+                </div>
+                <div className="text-slate-600 font-black text-lg">vs</div>
+                <div className="text-center">
+                  <div className="text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">Leaderboard</div>
+                  <div className="text-2xl font-black text-white">{activeDept.leaderboardPts}</div>
+                </div>
+                <div className={`size-9 rounded-xl flex items-center justify-center ${activeDept.match ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
+                  <Icon name={activeDept.match ? 'check' : 'close'} size="20" />
+                </div>
+              </div>
+            </div>
+
+            {/* Category × event breakdown */}
+            <div className="space-y-3">
+              {/* Relay row */}
+              <div className="rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Icon name="groups" size="16" className="text-slate-500" />
+                    <span className="text-xs font-black text-slate-300">Relay Events</span>
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-slate-600 rounded-full border border-slate-700 px-1.5 py-0.5">House pts</span>
+                  </div>
+                  <span className="text-xs font-black text-primary">{activeDept.categories[0]?.relayPts ?? 0} pts</span>
+                </div>
+                <div className="border-t border-white/5 px-4 py-2 text-[10px] text-slate-500">
+                  4×100m Relay + 4×400m Relay — points awarded to the house, not individual students.
+                </div>
+              </div>
+
+              {/* Per-category event breakdown */}
+              {activeDept.categories.map(cat => (
+                <details key={cat.category} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.015]">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                    <span className="text-xs font-black text-white">{cat.category}</span>
+                    <div className="flex items-center gap-2">
+                      {cat.events.length === 0 && (
+                        <span className="text-[9px] font-bold text-slate-600">No points</span>
+                      )}
+                      <span className="text-xs font-black text-primary">{cat.total} pts</span>
+                      <Icon name="expand_more" size="16" className="text-slate-500" />
+                    </div>
+                  </summary>
+
+                  <div className="border-t border-white/5">
+                    {cat.events.length === 0 ? (
+                      <div className="px-4 py-4 text-center text-[10px] text-slate-600">
+                        No individual points recorded for {selectedHouse} in this category.
+                      </div>
+                    ) : (
+                      <>
+                        {/* Column headers */}
+                        <div className="grid grid-cols-[1fr_64px] gap-2 border-b border-white/5 px-4 py-2 text-[8px] font-black uppercase tracking-wider text-slate-600">
+                          <span>Event</span>
+                          <span className="text-right">Pts</span>
+                        </div>
+                        {cat.events.map(({ event, pts }) => (
+                          <div key={event.id} className="grid grid-cols-[1fr_64px] gap-2 border-b border-white/5 px-4 py-2.5 text-[11px] last:border-0">
+                            <span className="text-slate-300 font-bold">{event.name}</span>
+                            <span className="text-right font-black text-primary">{pts}</span>
+                          </div>
+                        ))}
+                        {/* Category subtotal */}
+                        <div className="flex justify-end px-4 py-2.5 border-t border-white/10 text-[10px] font-black text-slate-400">
+                          Category total: <span className="ml-2 text-white">{cat.total}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </details>
+              ))}
+
+              {/* Grand audit total for this dept */}
+              <div className="flex items-center justify-between rounded-xl border border-white/12 bg-white/[0.03] px-4 py-3">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  Total (Individual + Relay)
+                </span>
+                <div className="flex items-center gap-3">
+                  <span className={`text-lg font-black ${activeDept.match ? 'text-emerald-300' : 'text-rose-300'}`}>
+                    {activeDept.auditPts}
+                  </span>
+                  <span className="text-slate-600 font-bold text-xs">audit</span>
+                  <span className="text-slate-700">/</span>
+                  <span className="text-lg font-black text-white">{activeDept.leaderboardPts}</span>
+                  <span className="text-slate-600 font-bold text-xs">chart</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
 
-const HousePerformance: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
+const HousePerformance: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot; isLoggedIn: boolean }> = ({ students, snapshot, isLoggedIn }) => {
   const overall = buildHouseRows(students, snapshot);
   const bd = buildHouseRows(students, snapshot, 'BD');
   const gd = buildHouseRows(students, snapshot, 'GD');
   const pd = buildHouseRows(students, snapshot, 'PD');
   const maxOverall = Math.max(...overall.map(row => row.points), 0);
+  const leaderboardRows: Record<Department, { name: string; house: string; points: number }[]> = { BD: bd, GD: gd, PD: pd };
   return (
     <section className="space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><div className="royal-kicker mb-1">Athletics Championship</div><h2 className="text-3xl font-black text-white tracking-tight">Championship Leaderboards</h2><p className="mt-1 max-w-3xl text-sm text-slate-400">House race across every eligible event, with separate BD, GD, and PD department standings.</p></div><div className="rounded-xl border border-primary/10 bg-primary/[0.04] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{maxOverall} pts leading house</div></div>
-      <PointsVerificationDropdown students={students} snapshot={snapshot} />
+      {isLoggedIn && (
+        <ScoringIntegrityPanel students={students} snapshot={snapshot} leaderboardRows={leaderboardRows} />
+      )}
       <AthleticsRaceChart title="Overall House Standings" subtitle="Cumulative championship points across all Athletics events" data={overall} featured />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5"><AthleticsRaceChart title="BD Department Standings" subtitle="Boys Department race across eligible categories" data={bd} /><AthleticsRaceChart title="GD Department Standings" subtitle="Girls Department race across eligible categories" data={gd} /><AthleticsRaceChart title="PD Department Standings" subtitle="Prep Department race across PDB + PDG" data={pd} /></div>
     </section>
@@ -181,6 +504,20 @@ const IndividualPerformance: React.FC<{ students: AthleticsStudent[]; snapshot: 
   );
 };
 
-export const AthleticsLeaderboard: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({students,snapshot}) => { const [tab,setTab]=React.useState<LeaderboardTab>('house'); return <div className="space-y-6"><div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1 w-fit"><button type="button" onClick={()=>setTab('house')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase tracking-wider ${tab==='house'?'bg-primary/15 text-primary':'text-slate-400'}`}>House Performance</button><button type="button" onClick={()=>setTab('individual')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase tracking-wider ${tab==='individual'?'bg-primary/15 text-primary':'text-slate-400'}`}>Individual Performance</button></div>{tab==='house'?<HousePerformance students={students} snapshot={snapshot}/>:<IndividualPerformance students={students} snapshot={snapshot}/>}</div>; };
+export const AthleticsLeaderboard: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot; isLoggedIn?: boolean }> = ({students,snapshot,isLoggedIn=false}) => {
+  const [tab,setTab]=React.useState<LeaderboardTab>('house');
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1 w-fit">
+        <button type="button" onClick={()=>setTab('house')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase tracking-wider ${tab==='house'?'bg-primary/15 text-primary':'text-slate-400'}`}>House Performance</button>
+        <button type="button" onClick={()=>setTab('individual')} className={`rounded-lg px-5 py-2.5 text-xs font-black uppercase tracking-wider ${tab==='individual'?'bg-primary/15 text-primary':'text-slate-400'}`}>Individual Performance</button>
+      </div>
+      {tab==='house'
+        ? <HousePerformance students={students} snapshot={snapshot} isLoggedIn={isLoggedIn} />
+        : <IndividualPerformance students={students} snapshot={snapshot} />
+      }
+    </div>
+  );
+};
 
 export default AthleticsLeaderboard;

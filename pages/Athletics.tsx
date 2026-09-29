@@ -70,7 +70,7 @@ const Athletics: React.FC = () => {
       </section>
 
       {pageTab === 'view' && <AthleticsViewEvents students={students} snapshot={snapshot} />}
-      {pageTab === 'leaderboard' && <AthleticsLeaderboard students={students} snapshot={snapshot} />}
+      {pageTab === 'leaderboard' && <AthleticsLeaderboard students={students} snapshot={snapshot} isLoggedIn={isLoggedIn} />}
       {pageTab === 'summary' && <AthleticsSummary students={students} snapshot={snapshot} />}
       {pageTab === 'analytics' && <AthleticsAnalytics students={students} snapshot={snapshot} />}
       {pageTab === 'points' && <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
