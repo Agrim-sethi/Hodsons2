@@ -172,6 +172,9 @@ export const eventPointBreakdown = (
   // Relay points are house/team points only. They never enter an individual's
   // event or championship tally.
   if (isRelayEvent(event)) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
+  // A student can score only in their currently verified DOB-derived category.
+  // Stale saved entries in a former category remain stored for audit/recovery, but do not score.
+  if (category !== student.category) return { qualification: 0, placement: 0, newRecord: 0, total: 0 };
   // Results alone must not award points: the athlete must be entered in this
   // event/category (or explicitly listed as a finalist). This prevents orphaned
   // or stale result documents from appearing on individual leaderboards.
