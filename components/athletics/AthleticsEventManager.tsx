@@ -1244,7 +1244,7 @@ const AthleticsEventManager: React.FC<Props> = ({
               Open the Enrollment tab to add competitors.
             </div>
           </div>
-        ) : stage === 'finals' && finalistIds.length === 0 ? (
+        ) : stage === 'finals' && activeFinalistIds.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-12 text-center text-sm text-slate-500">
             No finalists have been allotted yet.
           </div>
@@ -1825,7 +1825,7 @@ const AthleticsEventManager: React.FC<Props> = ({
               className={`rounded-lg px-4 py-2.5 text-xs font-black uppercase ${tab === 'enrollment' ? 'bg-primary/15 text-primary' : 'text-slate-400'}`}
             >
               {isRelay ? 'Teams' : 'Enrollment'}
-              {!isRelay && <span className="ml-1 opacity-70">{enrollment.length}</span>}
+              {!isRelay && <span className="ml-1 opacity-70">{activeEnrollmentIds.length}</span>}
             </button>
 
             <button
