@@ -54,10 +54,11 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     };
 
     snapshot.enrollments.forEach(entry => {
-      entry.studentIds.forEach(sid => {
+      [...new Set(entry.studentIds || [])].forEach(sid => {
         if (!filteredIds.has(sid)) return;
         const stu = students.find(s => s.id === sid);
-        if (!stu) return;
+        // Stale enrollments from a former age group must not inflate analytics.
+        if (!stu || stu.category !== entry.category) return;
         addParticipation(stu);
         const categoryStats = byCategory[entry.category];
         if (categoryStats) categoryStats.enrolled += 1;
@@ -90,10 +91,10 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     });
 
     snapshot.relayTeams.forEach(team => {
-      team.studentIds.forEach(sid => {
+      [...new Set(team.studentIds || [])].forEach(sid => {
         if (!filteredIds.has(sid)) return;
         const stu = students.find(s => s.id === sid);
-        if (!stu) return;
+        if (!stu || stu.category !== team.category) return;
         const dept = departmentOfStudent(stu);
         if (houseFilter !== 'All' && stu.house !== houseFilter) return;
         if (deptFilter !== 'All' && dept !== deptFilter) return;
@@ -150,9 +151,9 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
   const eventPpp = useMemo(() => ATHLETICS_EVENTS.map(event => {
     const stats = { enrolled: 0, qualified: 0, finished: 0, dnf: 0, absent: 0, med: 0, points: 0 };
     snapshot.enrollments.filter(entry => entry.eventId === event.id).forEach(entry => {
-      entry.studentIds.forEach(sid => {
+      [...new Set(entry.studentIds || [])].forEach(sid => {
         const student = filteredStudents.find(stu => stu.id === sid);
-        if (!student) return;
+        if (!student || student.category !== entry.category) return;
         stats.enrolled += 1;
         const finalsConfig = snapshot.finals.find(f => f.eventId === event.id && f.category === entry.category);
         const qualifying = snapshot.results.find(result =>
@@ -178,8 +179,8 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     snapshot.relayTeams.filter(team => team.eventId === event.id).forEach(team => {
       if (houseFilter !== 'All' && team.house !== houseFilter) return;
       if (categoryFilter !== 'All' && team.category !== categoryFilter) return;
-      const teamStudents = team.studentIds
-        .map(sid => filteredStudents.find(student => student.id === sid))
+      const teamStudents = [...new Set(team.studentIds || [])]
+        .map(sid => filteredStudents.find(student => student.id === sid && student.category === team.category))
         .filter((student): student is AthleticsStudent => Boolean(student));
       if (deptFilter !== 'All' && !teamStudents.some(student => departmentOfStudent(student) === deptFilter)) return;
       teamStudents.forEach(student => {
