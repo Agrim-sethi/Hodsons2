@@ -399,18 +399,93 @@ export const saveManagedStudent = async (student: ManagedStudent): Promise<void>
 };
 
 export const deleteManagedStudent = async (id: string): Promise<void> => {
-  const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH);
+  const rosterRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_PATH);
+  const athleticsRef = doc(db, 'athletics_2026_v1', 'data');
   const saved = await runTransaction(db, async (transaction) => {
-    const current = await transaction.get(ref);
-    const data = current.exists() ? current.data() : {};
-    const students = Array.isArray(data.students)
-      ? data.students as ManagedStudent[]
+    // Read both documents before writing so roster removal and Athletics cleanup
+    // commit atomically. A failed transaction leaves both datasets unchanged.
+    const [rosterSnapshot, athleticsSnapshot] = await Promise.all([
+      transaction.get(rosterRef),
+      transaction.get(athleticsRef),
+    ]);
+    const rosterData = rosterSnapshot.exists() ? rosterSnapshot.data() : {};
+    const roster = Array.isArray(rosterData.students)
+      ? rosterData.students as ManagedStudent[]
       : [...baseStudents];
-    const next = students.filter((student) => String(student.id) !== String(id));
-    transaction.set(ref, { students: sanitize(next) }, { merge: true });
-    return next;
+    const nextRoster = roster.filter((student) => String(student.id) !== String(id));
+
+    if (rosterSnapshot.exists()) {
+      transaction.update(rosterRef, { students: sanitize(nextRoster) });
+    } else {
+      transaction.set(rosterRef, { students: sanitize(nextRoster) }, { merge: true });
+    }
+
+    if (athleticsSnapshot.exists()) {
+      const athletics = athleticsSnapshot.data();
+      const withoutStudent = (ids: unknown) =>
+        Array.isArray(ids) ? ids.filter((studentId) => String(studentId) !== String(id)) : [];
+      const nextEnrollments = Array.isArray(athletics.enrollments)
+        ? athletics.enrollments.map((entry: any) => ({ ...entry, studentIds: withoutStudent(entry.studentIds) }))
+        : athletics.enrollments;
+      const nextFinals = Array.isArray(athletics.finals)
+        ? athletics.finals.map((entry: any) => ({ ...entry, studentIds: withoutStudent(entry.studentIds) }))
+        : athletics.finals;
+      const nextResults = Array.isArray(athletics.results)
+        ? athletics.results.filter((entry: any) => String(entry.studentId) !== String(id))
+        : athletics.results;
+      const nextHighJump = Array.isArray(athletics.highJump)
+        ? athletics.highJump.map((entry: any) => ({
+            ...entry,
+            attempts: Array.isArray(entry.attempts)
+              ? entry.attempts.filter((attempt: any) => String(attempt.studentId) !== String(id))
+              : entry.attempts,
+          }))
+        : athletics.highJump;
+      const nextRelayTeams = Array.isArray(athletics.relayTeams)
+        ? athletics.relayTeams.map((team: any) => {
+            const studentIds = withoutStudent(team.studentIds);
+            // A relay team with a deleted member is no longer a valid finished
+            // team. Clear its result so it cannot keep contributing house points.
+            return studentIds.length !== (Array.isArray(team.studentIds) ? team.studentIds.length : 0)
+              ? { ...team, studentIds, ...(studentIds.length < 4 ? { status: 'pending', timing: '', position: null } : {}) }
+              : team;
+          })
+        : athletics.relayTeams;
+
+      transaction.set(athleticsRef, {
+        ...(nextEnrollments !== undefined ? { enrollments: nextEnrollments } : {}),
+        ...(nextFinals !== undefined ? { finals: nextFinals } : {}),
+        ...(nextResults !== undefined ? { results: nextResults } : {}),
+        ...(nextHighJump !== undefined ? { highJump: nextHighJump } : {}),
+        ...(nextRelayTeams !== undefined ? { relayTeams: nextRelayTeams } : {}),
+      }, { merge: true });
+    }
+    return nextRoster;
   });
   cacheManagedStudents(saved);
+  // Keep this browser's startup cache aligned with the atomic Firestore cleanup.
+  try {
+    const key = 'sanawar_athletics_2026';
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const snapshot = JSON.parse(cached);
+      const withoutStudent = (ids: unknown) =>
+        Array.isArray(ids) ? ids.filter((studentId) => String(studentId) !== String(id)) : [];
+      if (Array.isArray(snapshot.enrollments)) snapshot.enrollments = snapshot.enrollments.map((entry: any) => ({ ...entry, studentIds: withoutStudent(entry.studentIds) }));
+      if (Array.isArray(snapshot.finals)) snapshot.finals = snapshot.finals.map((entry: any) => ({ ...entry, studentIds: withoutStudent(entry.studentIds) }));
+      if (Array.isArray(snapshot.results)) snapshot.results = snapshot.results.filter((entry: any) => String(entry.studentId) !== String(id));
+      if (Array.isArray(snapshot.highJump)) snapshot.highJump = snapshot.highJump.map((entry: any) => ({ ...entry, attempts: Array.isArray(entry.attempts) ? entry.attempts.filter((attempt: any) => String(attempt.studentId) !== String(id)) : entry.attempts }));
+      if (Array.isArray(snapshot.relayTeams)) snapshot.relayTeams = snapshot.relayTeams.map((team: any) => {
+        const studentIds = withoutStudent(team.studentIds);
+        return studentIds.length !== (Array.isArray(team.studentIds) ? team.studentIds.length : 0)
+          ? { ...team, studentIds, ...(studentIds.length < 4 ? { status: 'pending', timing: '', position: undefined } : {}) }
+          : team;
+      });
+      localStorage.setItem(key, JSON.stringify(snapshot));
+    }
+  } catch (error) {
+    console.warn('Could not refresh cached Athletics data after student deletion:', error);
+  }
 };
 
 export const replaceManagedStudents = async (students: ManagedStudent[]): Promise<void> => {
