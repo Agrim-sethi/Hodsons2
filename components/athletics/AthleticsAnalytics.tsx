@@ -52,6 +52,10 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
       const dept = departmentOfStudent(student);
       totalDnf += 1; byHouse[student.house].dnf += 1; byDept[dept].dnf += 1;
     };
+    const addPending = (student: AthleticsStudent) => {
+      const dept = departmentOfStudent(student);
+      totalPending += 1; byHouse[student.house].pending += 1; byDept[dept].pending += 1;
+    };
 
     snapshot.enrollments.forEach(entry => {
       [...new Set(entry.studentIds || [])].forEach(sid => {
@@ -62,31 +66,40 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
         addParticipation(stu);
         const categoryStats = byCategory[entry.category];
         if (categoryStats) categoryStats.enrolled += 1;
+
         const finalsConfig = snapshot.finals.find(f => f.eventId === entry.eventId && f.category === entry.category);
-        const stage = finalsConfig?.enabled ? 'finals' : 'qualifying';
         const qualifyingResult = snapshot.results.find(r =>
           r.eventId === entry.eventId &&
           r.category === entry.category &&
           r.studentId === sid &&
           (r.stage || 'qualifying') === 'qualifying'
         );
-        const result = snapshot.results.find(r =>
-          r.eventId === entry.eventId &&
-          r.category === entry.category &&
-          r.studentId === sid &&
-          (r.stage || 'qualifying') === stage
-        );
-        if (qualifyingResult?.qualified === true) { addQualified(stu); if (categoryStats) categoryStats.qualified += 1; }
-        // Pending tracks unresolved entries in the round actually being run.
-        // Once finals are enabled, enrolled athletes who were not selected as finalists
-        // are not pending in finals; their qualifying status is already accounted for.
-        if (finalsConfig?.enabled && !(finalsConfig.studentIds || []).includes(sid)) return;
+        const finalist = Boolean(finalsConfig?.enabled && (finalsConfig.studentIds || []).includes(sid));
+        const finalsResult = finalist
+          ? snapshot.results.find(r =>
+              r.eventId === entry.eventId &&
+              r.category === entry.category &&
+              r.studentId === sid &&
+              (r.stage || 'qualifying') === 'finals'
+            )
+          : undefined;
+
+        // Qualification is determined from the qualifying round itself. The
+        // status counter below uses finals only for athletes actually allotted
+        // to finals; non-finalists keep their qualifying status, so DNF/Absent
+        // cannot disappear simply because finals were enabled.
+        if (qualifyingResult?.status === 'finished' && qualifyingResult.qualified === true) {
+          addQualified(stu);
+          if (categoryStats) categoryStats.qualified += 1;
+        }
+
+        const result = finalsConfig?.enabled && finalist ? finalsResult : qualifyingResult;
         const status = result?.status || 'pending';
         if (status === 'finished') { addFinished(stu); if (categoryStats) categoryStats.finished += 1; }
         else if (status === 'dnf') { addDnf(stu); if (categoryStats) categoryStats.dnf += 1; }
         else if (status === 'absent') { totalAbsent += 1; byHouse[stu.house].absent += 1; byDept[departmentOfStudent(stu)].absent += 1; if (categoryStats) categoryStats.absent += 1; }
         else if (status === 'medically_excused') { totalMed += 1; byHouse[stu.house].med += 1; byDept[departmentOfStudent(stu)].med += 1; if (categoryStats) categoryStats.med += 1; }
-        else { totalPending += 1; }
+        else { addPending(stu); if (categoryStats) categoryStats.enrolled += 0; }
       });
     });
 
@@ -102,7 +115,8 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
         const categoryStats = byCategory[team.category];
         if (categoryStats) categoryStats.enrolled += 1;
         if (team.status === 'dnf') addDnf(stu);
-        else { addQualified(stu); if (team.status === 'finished') addFinished(stu); }
+        else if (team.status === 'finished') { addFinished(stu); addQualified(stu); }
+        else addPending(stu);
       });
     });
 
@@ -160,13 +174,15 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
           result.eventId === event.id && result.category === entry.category &&
           result.studentId === sid && (result.stage || 'qualifying') === 'qualifying'
         );
-        if (qualifying?.qualified === true) stats.qualified += 1;
-        if (finalsConfig?.enabled && !(finalsConfig.studentIds || []).includes(sid)) return;
-        const stage = finalsConfig?.enabled ? 'finals' : 'qualifying';
-        const result = snapshot.results.find(item =>
-          item.eventId === event.id && item.category === entry.category &&
-          item.studentId === sid && (item.stage || 'qualifying') === stage
-        );
+        const finalist = Boolean(finalsConfig?.enabled && (finalsConfig.studentIds || []).includes(sid));
+        const finalsResult = finalist
+          ? snapshot.results.find(item =>
+              item.eventId === event.id && item.category === entry.category &&
+              item.studentId === sid && (item.stage || 'qualifying') === 'finals'
+            )
+          : undefined;
+        if (qualifying?.status === 'finished' && qualifying.qualified === true) stats.qualified += 1;
+        const result = finalsConfig?.enabled && finalist ? finalsResult : qualifying;
         const status = result?.status || 'pending';
         if (status === 'finished') stats.finished += 1;
         else if (status === 'dnf') stats.dnf += 1;
@@ -357,8 +373,8 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
                     <td><span className={`font-black text-sm ${deptColors[d.name] || 'text-white'}`}>{d.name}</span></td>
                     <td className="text-center font-bold">{d.enrolled}</td>
                     <td className="text-center">
-                      <span className="text-emerald-400 font-bold">{d.qualified}</span>
-                      <span className="text-slate-500 text-xs ml-1">({pct(d.qualified, d.enrolled)})</span>
+                      <span className="text-emerald-400 font-bold">{d.finished}</span>
+                      <span className="text-slate-500 text-xs ml-1">({pct(d.finished, d.enrolled)})</span>
                     </td>
                     <td className="text-center font-black text-white">{d.points}</td>
                     <td className="text-center">
