@@ -19,6 +19,32 @@ const eventAllowedForCategory = (event: AthleticsEvent, category: AthleticsCateg
   return !allowed || allowed.includes(category);
 };
 
+const statusForParticipation = (
+  snapshot: AthleticsSnapshot,
+  eventId: string,
+  category: AthleticsCategory,
+  studentId: string,
+) => {
+  const qualifying = snapshot.results.find(result =>
+    result.eventId === eventId &&
+    result.category === category &&
+    result.studentId === studentId &&
+    (result.stage || 'qualifying') === 'qualifying'
+  );
+  const finals = snapshot.finals.find(item => item.eventId === eventId && item.category === category);
+  const finalist = Boolean(finals?.enabled && (finals.studentIds || []).includes(studentId));
+  if (finalist) {
+    const finalResult = snapshot.results.find(result =>
+      result.eventId === eventId &&
+      result.category === category &&
+      result.studentId === studentId &&
+      (result.stage || 'qualifying') === 'finals'
+    );
+    if (finalResult && finalResult.status !== 'pending') return finalResult.status;
+  }
+  return qualifying?.status || 'pending';
+};
+
 export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
   const [houseFilter, setHouseFilter] = useState<'All' | typeof HOUSES_LIST[number]>('All');
   const [deptFilter, setDeptFilter] = useState<'All' | 'BD' | 'GD' | 'PD'>('All');
@@ -67,8 +93,12 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
       totalPending += 1;
     };
 
+    const seenIndividualParticipations = new Set<string>();
     snapshot.enrollments.forEach(entry => {
       [...new Set(entry.studentIds || [])].forEach(sid => {
+        const participationKey = entry.eventId + '|' + entry.category + '|' + sid;
+        if (seenIndividualParticipations.has(participationKey)) return;
+        seenIndividualParticipations.add(participationKey);
         if (!filteredIds.has(sid)) return;
         const stu = students.find(s => s.id === sid);
         const event = ATHLETICS_EVENTS.find(item => item.id === entry.eventId);
@@ -79,34 +109,19 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
         const categoryStats = byCategory[entry.category];
         if (categoryStats) categoryStats.enrolled += 1;
 
-        const finalsConfig = snapshot.finals.find(f => f.eventId === entry.eventId && f.category === entry.category);
         const qualifyingResult = snapshot.results.find(r =>
           r.eventId === entry.eventId &&
           r.category === entry.category &&
           r.studentId === sid &&
           (r.stage || 'qualifying') === 'qualifying'
         );
-        const finalist = Boolean(finalsConfig?.enabled && (finalsConfig.studentIds || []).includes(sid));
-        const finalsResult = finalist
-          ? snapshot.results.find(r =>
-              r.eventId === entry.eventId &&
-              r.category === entry.category &&
-              r.studentId === sid &&
-              (r.stage || 'qualifying') === 'finals'
-            )
-          : undefined;
 
-        // Qualification is determined from the qualifying round itself. The
-        // status counter below uses finals only for athletes actually allotted
-        // to finals; non-finalists keep their qualifying status, so DNF/Absent
-        // cannot disappear simply because finals were enabled.
         if (qualifyingResult?.status === 'finished' && qualifyingResult.qualified === true) {
           addQualified(stu);
           if (categoryStats) categoryStats.qualified += 1;
         }
 
-        const result = finalsConfig?.enabled && finalist ? finalsResult : qualifyingResult;
-        const status = result?.status || 'pending';
+        const status = statusForParticipation(snapshot, entry.eventId, entry.category, sid);
         if (status === 'finished') { addFinished(stu); if (categoryStats) categoryStats.finished += 1; }
         else if (status === 'dnf') { addDnf(stu); if (categoryStats) categoryStats.dnf += 1; }
         else if (status === 'absent') { totalAbsent += 1; byHouse[stu.house].absent += 1; byDept[departmentOfStudent(stu)].absent += 1; if (categoryStats) categoryStats.absent += 1; }
@@ -176,30 +191,21 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
   // house, department, and age-category tables, including relay team points once.
   const eventPpp = useMemo(() => ATHLETICS_EVENTS.map(event => {
     const stats = { enrolled: 0, qualified: 0, finished: 0, dnf: 0, absent: 0, med: 0, points: 0 };
+    const seenEventParticipations = new Set<string>();
     snapshot.enrollments.filter(entry => entry.eventId === event.id).forEach(entry => {
       [...new Set(entry.studentIds || [])].forEach(sid => {
+        const participationKey = entry.eventId + '|' + entry.category + '|' + sid;
+        if (seenEventParticipations.has(participationKey)) return;
+        seenEventParticipations.add(participationKey);
         const student = filteredStudents.find(stu => stu.id === sid);
         if (!student || student.category !== entry.category || !eventAllowedForCategory(event, entry.category)) return;
         stats.enrolled += 1;
-        const finalsConfig = snapshot.finals.find(f => f.eventId === event.id && f.category === entry.category);
         const qualifying = snapshot.results.find(result =>
           result.eventId === event.id && result.category === entry.category &&
           result.studentId === sid && (result.stage || 'qualifying') === 'qualifying'
         );
-        const finalist = Boolean(finalsConfig?.enabled && (finalsConfig.studentIds || []).includes(sid));
-        const finalsResult = finalist
-          ? snapshot.results.find(item =>
-              item.eventId === event.id && item.category === entry.category &&
-              item.studentId === sid && (item.stage || 'qualifying') === 'finals'
-            )
-          : undefined;
         if (qualifying?.status === 'finished' && qualifying.qualified === true) stats.qualified += 1;
-        const result = finalsConfig?.enabled && finalist ? finalsResult : qualifying;
-        const status = result?.status || 'pending';
-        if (status === 'finished') stats.finished += 1;
-        else if (status === 'dnf') stats.dnf += 1;
-        else if (status === 'absent') stats.absent += 1;
-        else if (status === 'medically_excused') stats.med += 1;
+        const status = statusForParticipation(snapshot, event.id, entry.category, sid);
         stats.points += eventPointBreakdown(snapshot, student, event, entry.category).total;
       });
     });
