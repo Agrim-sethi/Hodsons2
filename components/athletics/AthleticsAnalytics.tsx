@@ -1,12 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
-import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent, relayHousePoints, rankedRelayTeams, relayPointsForPosition } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent, relayHousePoints, rankedRelayTeams, relayPointsForPosition, getAthleticsDepartment } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
 import { studentPointsAcrossEvents, eventPointBreakdown } from '../../utils/athleticsScoring';
 
 const houseConfig = (house: string) => HOUSE_COLORS[(house.toLowerCase() as keyof typeof HOUSE_COLORS)] ?? HOUSE_COLORS.nilgiri;
 const HOUSES_LIST = ['Vindhya', 'Himalaya', 'Nilgiri', 'Siwalik'] as const;
+const EXCLUSIVE_EVENT_CATEGORIES: Record<string, AthleticsCategory[]> = {
+  '3000m': ['BD Opens'],
+  '110m-hurdles': ['BD Opens'],
+  'javelin-throw': ['BD Opens'],
+  'triple-jump': ['BD Opens'],
+};
+const eventAllowedForCategory = (event: AthleticsEvent, category: AthleticsCategory) => {
+  if (!event.departments.includes(getAthleticsDepartment(category))) return false;
+  const allowed = EXCLUSIVE_EVENT_CATEGORIES[event.id];
+  return !allowed || allowed.includes(category);
+};
 
 export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
   const [houseFilter, setHouseFilter] = useState<'All' | typeof HOUSES_LIST[number]>('All');
@@ -60,8 +71,10 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
       [...new Set(entry.studentIds || [])].forEach(sid => {
         if (!filteredIds.has(sid)) return;
         const stu = students.find(s => s.id === sid);
-        // Stale enrollments from a former age group must not inflate analytics.
-        if (!stu || stu.category !== entry.category) return;
+        const event = ATHLETICS_EVENTS.find(item => item.id === entry.eventId);
+        // Stale enrollments, wrong-category records, and event/category combinations
+        // that are not legally offered must not inflate analytics.
+        if (!stu || stu.category !== entry.category || !event || !eventAllowedForCategory(event, entry.category)) return;
         addParticipation(stu);
         const categoryStats = byCategory[entry.category];
         if (categoryStats) categoryStats.enrolled += 1;
@@ -166,7 +179,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     snapshot.enrollments.filter(entry => entry.eventId === event.id).forEach(entry => {
       [...new Set(entry.studentIds || [])].forEach(sid => {
         const student = filteredStudents.find(stu => stu.id === sid);
-        if (!student || student.category !== entry.category) return;
+        if (!student || student.category !== entry.category || !eventAllowedForCategory(event, entry.category)) return;
         stats.enrolled += 1;
         const finalsConfig = snapshot.finals.find(f => f.eventId === event.id && f.category === entry.category);
         const qualifying = snapshot.results.find(result =>
