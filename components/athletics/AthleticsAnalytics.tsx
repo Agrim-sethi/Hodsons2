@@ -52,9 +52,8 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
       const dept = departmentOfStudent(student);
       totalDnf += 1; byHouse[student.house].dnf += 1; byDept[dept].dnf += 1;
     };
-    const addPending = (student: AthleticsStudent) => {
-      const dept = departmentOfStudent(student);
-      totalPending += 1; byHouse[student.house].pending += 1; byDept[dept].pending += 1;
+    const addPending = (_student: AthleticsStudent) => {
+      totalPending += 1;
     };
 
     snapshot.enrollments.forEach(entry => {
@@ -99,7 +98,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
         else if (status === 'dnf') { addDnf(stu); if (categoryStats) categoryStats.dnf += 1; }
         else if (status === 'absent') { totalAbsent += 1; byHouse[stu.house].absent += 1; byDept[departmentOfStudent(stu)].absent += 1; if (categoryStats) categoryStats.absent += 1; }
         else if (status === 'medically_excused') { totalMed += 1; byHouse[stu.house].med += 1; byDept[departmentOfStudent(stu)].med += 1; if (categoryStats) categoryStats.med += 1; }
-        else { addPending(stu); if (categoryStats) categoryStats.enrolled += 0; }
+        else { addPending(stu); }
       });
     });
 
@@ -221,7 +220,11 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     .sort((a, b) => Number(b.ppp) - Number(a.ppp)),
   [snapshot, filteredStudents, houseFilter, deptFilter, categoryFilter]);
 
-  const pct = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : '—';
+  const pct = (n: number, d: number) => {
+    if (d <= 0) return '—';
+    const value = (n / d) * 100;
+    return value < 10 ? value.toFixed(1) + '%' : Math.round(value) + '%';
+  };
 
   const housePpp = HOUSES_LIST.map(h => ({
     name: h,
