@@ -162,7 +162,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
       byDept[dept].points = HOUSES_LIST.reduce((sum, house) => {
         if (houseFilter !== 'All' && house !== houseFilter) return sum;
         const individual = students.filter(student => student.house === house && departmentOfStudent(student) === dept)
-          .reduce((inner, student) => inner + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS), 0);
+          .reduce((inner, student) => inner + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS, students), 0);
         const relay = dept === 'PD'
           ? relayHousePoints(snapshot, house, 'PDB') + relayHousePoints(snapshot, house, 'PDG')
           : relayHousePoints(snapshot, house, dept);
