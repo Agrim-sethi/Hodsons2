@@ -4,6 +4,7 @@ import { HOUSE_COLORS } from '../../constants';
 import { useToast } from '../ui/ToastProvider';
 import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, AthleticsRelayTeam, RELAY_HOUSES, relayEligibleCategories, hasClearedHighJumpFirstBar } from '../../utils/athleticsStorage';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
+import { rankedEventResults } from '../../utils/athleticsScoring';
 
 type AthleticsStudent = {
   id: string;
@@ -191,60 +192,23 @@ const AthleticsEventManager: React.FC<Props> = ({
 
   const highJumpRankings = React.useMemo(() => {
     if (!isHighJump) return [];
-    const config = snapshot.highJump?.find(entry => entry.category === category && entry.stage === stage);
-    const heights = [...(config?.heights || [])].sort((a, b) => parseFieldDistance(a) - parseFieldDistance(b));
 
-    const summaries = [...new Set(currentIds)].map(studentId => {
-      const rows = config?.attempts?.filter(row => row.studentId === studentId) || [];
-      let bestHeight = '';
-      let bestHeightValue = Number.NEGATIVE_INFINITY;
-      heights.forEach(height => {
-        const row = rows.find(item => item.height === height);
-        if (row?.attempts?.includes('cleared')) {
-          const value = parseFieldDistance(height);
-          if (value > bestHeightValue) {
-            bestHeightValue = value;
-            bestHeight = height;
-          }
-        }
-      });
-
-      const failureProfile = heights
-        .filter(height => parseFieldDistance(height) < bestHeightValue)
-        .sort((a, b) => parseFieldDistance(b) - parseFieldDistance(a))
-        .map(height => {
-          const row = rows.find(item => item.height === height);
-          return Array.isArray(row?.attempts)
-            ? row.attempts.filter(attempt => attempt === 'failed').length
-            : 0;
-        });
-
-      return {
-        studentId,
-        bestHeight,
-        bestHeightValue,
-        failureProfile,
-        name: students.find(student => student.id === studentId)?.name || studentId,
-      };
-    }).filter(row => row.bestHeight);
-
-    summaries.sort((a, b) => {
-      if (a.bestHeightValue !== b.bestHeightValue) return b.bestHeightValue - a.bestHeightValue;
-      for (let index = 0; index < Math.max(a.failureProfile.length, b.failureProfile.length); index += 1) {
-        const failureA = a.failureProfile[index] || 0;
-        const failureB = b.failureProfile[index] || 0;
-        if (failureA !== failureB) return failureA - failureB;
-      }
-      return a.name.localeCompare(b.name);
-    });
-
-    return summaries.map((row, index) => ({
+    // Use the same High Jump ranking engine as the published results,
+    // leaderboard, and points calculations. Keeping a second ranking
+    // implementation here caused Manage Events to disagree with the rest of
+    // the app when a countback tie occurred.
+    return rankedEventResults(
+      snapshot,
+      event,
+      category,
+      students,
+      stage,
+    ).map(row => ({
       studentId: row.studentId,
-      position: index + 1,
-      bestHeight: row.bestHeight,
+      position: row.computedPosition,
+      bestHeight: row.result.timing || '',
     }));
-  }, [isHighJump, snapshot, category, currentIds, students, stage]);
-
+  }, [isHighJump, snapshot, event, category, students, stage]);
   const highJumpConfig = React.useMemo(() => {
     return snapshot.highJump?.find((entry) => entry.category === category && entry.stage === stage);
   }, [snapshot.highJump, category, stage]);
