@@ -1,4 +1,4 @@
-import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, isRelayEvent, relayHousePoints, hasClearedHighJumpFirstBar } from './athleticsStorage';
+import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, isRelayEvent, relayHousePoints, hasClearedHighJumpFirstBar, highJumpBestClearedHeight } from './athleticsStorage';
 
 export const placementPoints = (position?: number) =>
   position === 1 ? 4 :
@@ -92,23 +92,41 @@ const rankedResultRows = (
   const ids = source?.studentIds || [];
 
   const rows = ids
-    .map(studentId => ({
-      studentId,
-      result: snapshot.results.find(item =>
+    .map(studentId => {
+      const stored = snapshot.results.find(item =>
         item.eventId === event.id &&
         item.category === category &&
         item.studentId === studentId &&
         resultStageOf(item) === stage
-      ),
-    }))
+      );
+      const derivedHighJumpHeight =
+        event.id === 'high-jump' && stage === 'qualifying'
+          ? highJumpBestClearedHeight(snapshot, category, studentId)
+          : '';
+      const result = stored || (derivedHighJumpHeight ? {
+        eventId: event.id,
+        category,
+        studentId,
+        stage,
+        status: 'finished' as const,
+        timing: derivedHighJumpHeight,
+        qualified: true,
+      } : undefined);
+      const effectiveResult = result && event.id === 'high-jump' && stage === 'qualifying' && derivedHighJumpHeight
+        ? { ...result, status: 'finished' as const, timing: derivedHighJumpHeight, qualified: true }
+        : result;
+      return { studentId, result: effectiveResult };
+    })
     .filter((item): item is { studentId: string; result: AthleticsResult } =>
       Boolean(item.result && item.result.status === 'finished' && item.result.timing)
     );
 
-  // Qualifying positions are awarded only to competitors who were explicitly
-  // marked Qualified. Finals are already an explicitly allotted set.
+  // Qualifying positions are awarded to explicitly qualified competitors,
+  // or automatically to High Jump athletes who cleared the first bar.
   const eligible = stage === 'qualifying'
-    ? rows.filter(item => item.result.qualified === true)
+    ? rows.filter(item => item.result.qualified === true || (
+        event.id === 'high-jump' && hasClearedHighJumpFirstBar(snapshot, category, item.studentId)
+      ))
     : rows;
 
   // A complete, valid set of stored positions is authoritative. This keeps
