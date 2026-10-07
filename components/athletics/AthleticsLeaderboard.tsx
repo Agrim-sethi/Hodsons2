@@ -706,18 +706,25 @@ const highJumpTieIssues = (students: AthleticsStudent[], snapshot: AthleticsSnap
       groups.forEach(group => {
         if (group.length < 2) return;
 
+        const positionedGroup = group.map(row => ({
+          id: row.studentId,
+          name: row.name,
+          house: students.find(student => student.id === row.studentId)?.house || '',
+          // Display the exact same position used everywhere else.
+          position: rankedMap.get(row.studentId) || 0,
+        }));
+
+        const topFour = positionedGroup.filter(row => row.position >= 1 && row.position <= 4);
+        const temporaryWinner = [...topFour].sort((a, b) => a.name.localeCompare(b.name))[0]?.id;
+
         issues.push({
           category,
           stage,
           bestHeight: group[0].bestHeight,
-          students: group
+          students: positionedGroup
             .map(row => ({
-              id: row.studentId,
-              name: row.name,
-              house: students.find(student => student.id === row.studentId)?.house || '',
-              // Display the exact same position used everywhere else.
-              position: rankedMap.get(row.studentId) || 0,
-              receivesPlacementPoints: false,
+              ...row,
+              receivesPlacementPoints: Boolean(temporaryWinner && temporaryWinner === row.id),
             }))
             .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name)),
         });
