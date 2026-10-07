@@ -37,7 +37,7 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
     const [selectedEvent, setSelectedEvent] = React.useState<AthleticsEvent | null>(null);
     const [stage, setStage] = React.useState<Stage>('qualifying');
     const [activeTab, setActiveTab] = React.useState<Stage | 'audit'>('qualifying');
-    const [positionFilter, setPositionFilter] = React.useState<string>('all');
+    const [positionSort, setPositionSort] = React.useState<'none' | 'ascending'>('none');
 
     const visibleEvents = React.useMemo(() => ATHLETICS_EVENTS.filter(event => { const allowedCategories = EXCLUSIVE_EVENT_CATEGORIES[event.id]; return !allowedCategories || allowedCategories.includes(category); }), [category]);
     const studentMap = React.useMemo(() => new Map(students.map(student => [student.id, student])), [students]);
@@ -60,7 +60,7 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
         return rankedResults(event, activeStage).slice(0, 3);
     }, [rankedResults, snapshot, category]);
 
-    const openEvent = (event: AthleticsEvent) => { const initial: Stage = finalsFor(event.id)?.enabled ? 'finals' : 'qualifying'; setSelectedEvent(event); setStage(initial); setActiveTab(initial); setPositionFilter('all'); };
+    const openEvent = (event: AthleticsEvent) => { const initial: Stage = finalsFor(event.id)?.enabled ? 'finals' : 'qualifying'; setSelectedEvent(event); setStage(initial); setActiveTab(initial); setPositionSort('none'); };
     const selectedFinalsEnabled = selectedEvent ? Boolean(finalsFor(selectedEvent.id)?.enabled) : false;
     const selectedRanked = selectedEvent && !isRelayEvent(selectedEvent) ? rankedResults(selectedEvent, stage) : [];
     const selectedStageParticipants = selectedEvent && !isRelayEvent(selectedEvent) ? (() => {
@@ -79,11 +79,14 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
           return { student, result: displayResultRow, position: ranked?.computedPosition };
         }).filter((row): row is NonNullable<typeof row> => Boolean(row));
     })() : [];
-    const filteredStageParticipants = selectedStageParticipants.filter(({ position }) => {
-        if (positionFilter === 'all') return true;
-        if (positionFilter === 'none') return !position;
-        return position === Number(positionFilter);
-    });
+    const displayedStageParticipants = React.useMemo(() => {
+        if (positionSort !== 'ascending') return selectedStageParticipants;
+        return [...selectedStageParticipants].sort((a, b) => {
+            const aPosition = a.position ?? Number.MAX_SAFE_INTEGER;
+            const bPosition = b.position ?? Number.MAX_SAFE_INTEGER;
+            return aPosition - bPosition;
+        });
+    }, [selectedStageParticipants, positionSort]);
 
     const selectedAudit = selectedEvent && !isRelayEvent(selectedEvent) ? (() => {
         const enrollment = snapshot.enrollments.find(entry => entry.eventId === selectedEvent.id && entry.category === category);
@@ -152,33 +155,11 @@ const AthleticsViewEvents: React.FC<{ students: AthleticsStudent[]; snapshot: At
                     </div>
                     {activeTab !== 'audit' && <div className="flex flex-wrap items-center justify-end gap-2">
                       <div className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">
-                        {filteredStageParticipants.length} of {selectedStageParticipants.length} student{selectedStageParticipants.length === 1 ? '' : 's'}
+                        {displayedStageParticipants.length} student{displayedStageParticipants.length === 1 ? '' : 's'}
                       </div>
-                      <select
-                        value={positionFilter}
-                        onChange={event => setPositionFilter(event.target.value)}
-                        className="royal-input rounded-lg px-2.5 py-2 text-[10px] font-black uppercase tracking-wider"
-                        aria-label="Filter students by position"
-                      >
-                        <option value="all">All Positions</option>
-                        {Array.from(
-                          new Set(
-                            selectedStageParticipants
-                              .map(row => row.position)
-                              .filter((position): position is number => Number.isInteger(position)),
-                          ),
-                        )
-                          .sort((a, b) => a - b)
-                          .map(position => (
-                            <option key={position} value={position}>Position #{position}</option>
-                          ))}
-                        {selectedStageParticipants.some(row => !row.position) && (
-                          <option value="none">No Position</option>
-                        )}
-                      </select>
                     </div>}
                   </div>
-                  {activeTab !== 'audit' && <div className="overflow-hidden rounded-2xl border border-white/10"><div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500"><span>Competitor</span><span>Status / ${isTrack(selectedEvent) ? 'Time' : selectedEvent.id === 'high-jump' ? 'Height' : 'Distance'}</span><span>Position</span></div>{selectedStageParticipants.length === 0 ? <div className="px-4 py-12 text-center text-sm text-slate-500">No students are enrolled for this round yet.</div> : filteredStageParticipants.map(({student,result,position}) => { const config=houseConfig(student.house); const status=result?.status || 'pending'; const statusStyle=status==='finished'?'text-emerald-300 border-emerald-400/20 bg-emerald-500/10':status==='absent'?'text-rose-300 border-rose-400/20 bg-rose-500/10':status==='dnf'?'text-amber-300 border-amber-400/20 bg-amber-500/10':status==='medically_excused'?'text-purple-300 border-purple-400/20 bg-purple-500/10':'text-slate-400 border-white/10 bg-white/[0.03]'; return <div key={stage + ':' + student.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0"><div className="min-w-0"><div className="truncate font-black text-white">{student.name}</div><div className="mt-0.5 text-[10px] text-slate-500">#{student.id} • Class {student.className}</div><span className={'mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ' + config.bg + '/20 ' + config.text + ' ' + config.border + '/30'}>{student.house}</span>{stage==='qualifying' && (result?.qualified===true || (selectedEvent.id === 'high-jump' && hasClearedHighJumpFirstBar(snapshot, category, student.id))) && <span className="ml-2 text-[9px] font-bold text-emerald-300">Qualified</span>}{position===1 && hasEventRecord(selectedEvent.id, student.id) && <span className="ml-2 mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-300"><Icon name="verified" size="11" /> New Record</span>}</div><div className="flex flex-col items-end gap-1"><span className={'rounded-full border px-2 py-0.5 text-[9px] font-black uppercase '+statusStyle}>{status.replace('_',' ')}</span><span className="font-mono text-sm font-black text-slate-200">{displayResult(selectedEvent,result, selectedEvent.id === 'high-jump' && stage === 'qualifying' ? highJumpBestClearedHeight(snapshot, category, student.id) : '')}</span></div><div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-black text-primary">{position ? '#'+position : '—'}</div></div>; })}</div>}
+                  {activeTab !== 'audit' && <div className="overflow-hidden rounded-2xl border border-white/10"><div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500"><span>Competitor</span><span>Status / ${isTrack(selectedEvent) ? 'Time' : selectedEvent.id === 'high-jump' ? 'Height' : 'Distance'}</span><button type="button" onClick={() => setPositionSort(current => current === 'ascending' ? 'none' : 'ascending')} className="text-right transition-colors hover:text-primary" aria-label="Sort students by position">Position {positionSort === 'ascending' ? '↑' : '↕'}</button></div>{selectedStageParticipants.length === 0 ? <div className="px-4 py-12 text-center text-sm text-slate-500">No students are enrolled for this round yet.</div> : displayedStageParticipants.map(({student,result,position}) => { const config=houseConfig(student.house); const status=result?.status || 'pending'; const statusStyle=status==='finished'?'text-emerald-300 border-emerald-400/20 bg-emerald-500/10':status==='absent'?'text-rose-300 border-rose-400/20 bg-rose-500/10':status==='dnf'?'text-amber-300 border-amber-400/20 bg-amber-500/10':status==='medically_excused'?'text-purple-300 border-purple-400/20 bg-purple-500/10':'text-slate-400 border-white/10 bg-white/[0.03]'; return <div key={stage + ':' + student.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0"><div className="min-w-0"><div className="truncate font-black text-white">{student.name}</div><div className="mt-0.5 text-[10px] text-slate-500">#{student.id} • Class {student.className}</div><span className={'mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ' + config.bg + '/20 ' + config.text + ' ' + config.border + '/30'}>{student.house}</span>{stage==='qualifying' && (result?.qualified===true || (selectedEvent.id === 'high-jump' && hasClearedHighJumpFirstBar(snapshot, category, student.id))) && <span className="ml-2 text-[9px] font-bold text-emerald-300">Qualified</span>}{position===1 && hasEventRecord(selectedEvent.id, student.id) && <span className="ml-2 mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-300"><Icon name="verified" size="11" /> New Record</span>}</div><div className="flex flex-col items-end gap-1"><span className={'rounded-full border px-2 py-0.5 text-[9px] font-black uppercase '+statusStyle}>{status.replace('_',' ')}</span><span className="font-mono text-sm font-black text-slate-200">{displayResult(selectedEvent,result, selectedEvent.id === 'high-jump' && stage === 'qualifying' ? highJumpBestClearedHeight(snapshot, category, student.id) : '')}</span></div><div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-black text-primary">{position ? '#'+position : '—'}</div></div>; })}</div>}
                   {activeTab === 'audit' &&                   <section className="overflow-hidden rounded-2xl border border-white/10">
                     <div className="border-b border-white/10 bg-white/[0.025] px-4 py-3"><h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">Athlete-by-athlete breakdown</h3><p className="mt-1 text-[10px] text-slate-500">Combined points for this event across qualifying and finals.</p></div>
                     <div className="overflow-x-auto">
