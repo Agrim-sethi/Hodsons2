@@ -105,6 +105,22 @@ export const hasClearedHighJumpFirstBar = (
   );
 };
 
+export const highJumpBestClearedHeight = (
+  snapshot: AthleticsSnapshot,
+  category: AthleticsCategory,
+  studentId: string,
+) => {
+  const config = snapshot.highJump?.find(
+    entry => entry.category === category && entry.stage === 'qualifying',
+  );
+  if (!config) return '';
+  const cleared = config.attempts
+    .filter(row => row.studentId === studentId && Array.isArray(row.attempts) && row.attempts.includes('cleared'))
+    .map(row => row.height)
+    .filter(Boolean);
+  return cleared.sort((a, b) => Number(b.replace(',', '.')) - Number(a.replace(',', '.')))[0] || '';
+};
+
 export const relayEligibleCategories = (relayCategory: AthleticsCategory): AthleticsCategory[] => {
   const department = relayCategory.startsWith('PDB') ? 'PDB' : relayCategory.startsWith('PDG') ? 'PDG' : relayCategory.startsWith('BD') ? 'BD' : 'GD';
   const ordered = RELAY_CATEGORY_ORDER[department] || [];
