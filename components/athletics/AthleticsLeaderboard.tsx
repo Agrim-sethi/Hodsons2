@@ -3,9 +3,9 @@ import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Re
 import * as XLSX from 'xlsx';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, relayHousePoints, isRelayEvent } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, relayHousePoints, isRelayEvent, rankedHighJumpStudents } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
-import { eventPointBreakdown, rankedHighJumpStudents } from '../../utils/athleticsScoring';
+import { eventPointBreakdown } from '../../utils/athleticsScoring';
 import { useToast } from '../ui/ToastProvider';
 import { eventPoints as sharedEventPoints, studentPointsAcrossEvents, sortIndividualChampionshipRows, topIndividualChampionshipRows } from '../../utils/athleticsScoring';
 
