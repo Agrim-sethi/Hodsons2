@@ -5,7 +5,7 @@ import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, relayHousePoints, isRelayEvent } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
-import { eventPointBreakdown } from '../../utils/athleticsScoring';
+import { eventPointBreakdown, rankedEventResults } from '../../utils/athleticsScoring';
 import { useToast } from '../ui/ToastProvider';
 import { eventPoints as sharedEventPoints, studentPointsAcrossEvents, sortIndividualChampionshipRows, topIndividualChampionshipRows } from '../../utils/athleticsScoring';
 
@@ -635,44 +635,58 @@ const highJumpTieIssues = (students: AthleticsStudent[], snapshot: AthleticsSnap
 
       const config = snapshot.highJump?.find(entry => entry.category === category && entry.stage === stage);
       const heights = [...(config?.heights || [])].sort((a, b) => numericHeight(a) - numericHeight(b));
+
+      // IMPORTANT: positions come from the shared scoring/ranking engine.
+      // This panel must never maintain a second High Jump ranking algorithm.
+      const ranked = rankedEventResults(
+        snapshot,
+        ATHLETICS_EVENTS.find(event => event.id === 'high-jump')!,
+        category,
+        students,
+        stage,
+      );
+      const rankedMap = new Map(ranked.map(row => [row.student.id, row.computedPosition]));
+
+      // This panel is specifically for genuinely identical attempt patterns.
+      // Countback differences are therefore not flagged as ties at all.
       const summaries = ids.map(studentId => {
         const rows = config?.attempts?.filter(row => row.studentId === studentId) || [];
         let bestHeight = '';
         let bestHeightValue = Number.NEGATIVE_INFINITY;
+
         heights.forEach(height => {
           const row = rows.find(item => item.height === height);
           if (row?.attempts?.includes('cleared')) {
             const value = numericHeight(height);
-            if (value > bestHeightValue) { bestHeightValue = value; bestHeight = height; }
+            if (value > bestHeightValue) {
+              bestHeightValue = value;
+              bestHeight = height;
+            }
           }
         });
+
         if (!bestHeight) return null;
-        const failureProfile = heights
-          .filter(height => numericHeight(height) < bestHeightValue)
-          .sort((a, b) => numericHeight(b) - numericHeight(a))
-          .map(height => {
-            const row = rows.find(item => item.height === height);
-            return Array.isArray(row?.attempts) ? row.attempts.filter(attempt => attempt === 'failed').length : 0;
-          });
+
         const pattern = heights
           .filter(height => numericHeight(height) <= bestHeightValue)
           .map(height => {
             const row = rows.find(item => item.height === height);
-            const attempts = Array.from({ length: 3 }, (_, index) => row?.attempts?.[index] || 'pending').join(',');
+            const attempts = Array.from(
+              { length: 3 },
+              (_, index) => row?.attempts?.[index] || 'pending',
+            ).join(',');
             return height + ':' + attempts;
-          }).join('|');
-        return { studentId, bestHeight, bestHeightValue, failureProfile, pattern, name: students.find(student => student.id === studentId)?.name || studentId };
-      }).filter((row): row is NonNullable<typeof row> => Boolean(row));
+          })
+          .join('|');
 
-      summaries.sort((a, b) => {
-        if (a.bestHeightValue !== b.bestHeightValue) return b.bestHeightValue - a.bestHeightValue;
-        for (let i = 0; i < Math.max(a.failureProfile.length, b.failureProfile.length); i += 1) {
-          const fa = a.failureProfile[i] || 0;
-          const fb = b.failureProfile[i] || 0;
-          if (fa !== fb) return fa - fb;
-        }
-        return a.name.localeCompare(b.name);
-      });
+        return {
+          studentId,
+          bestHeight,
+          bestHeightValue,
+          pattern,
+          name: students.find(student => student.id === studentId)?.name || studentId,
+        };
+      }).filter((row): row is NonNullable<typeof row> => Boolean(row));
 
       const counts = new Map<string, number>();
       summaries.forEach(row => {
@@ -680,34 +694,32 @@ const highJumpTieIssues = (students: AthleticsStudent[], snapshot: AthleticsSnap
         counts.set(key, (counts.get(key) || 0) + 1);
       });
 
-      const ranked = summaries.map((row, index) => {
+      const groups = new Map<string, typeof summaries>();
+      summaries.forEach(row => {
         const key = row.bestHeightValue + '|' + row.pattern;
-        return { ...row, position: index + 1, exactPatternTie: (counts.get(key) || 0) > 1, key };
-      });
-
-      const groups = new Map<string, typeof ranked>();
-      ranked.forEach(row => {
-        if (!row.exactPatternTie) return;
-        const list = groups.get(row.key) || [];
+        if ((counts.get(key) || 0) < 2) return;
+        const list = groups.get(key) || [];
         list.push(row);
-        groups.set(row.key, list);
+        groups.set(key, list);
       });
 
       groups.forEach(group => {
         if (group.length < 2) return;
-        const topFour = group.filter(row => row.position <= 4);
-        const winner = [...topFour].sort((a, b) => a.name.localeCompare(b.name))[0];
+
         issues.push({
           category,
           stage,
           bestHeight: group[0].bestHeight,
-          students: group.map(row => ({
-            id: row.studentId,
-            name: row.name,
-            house: students.find(student => student.id === row.studentId)?.house || '',
-            position: row.position,
-            receivesPlacementPoints: Boolean(winner && winner.studentId === row.studentId && row.position <= 4),
-          })),
+          students: group
+            .map(row => ({
+              id: row.studentId,
+              name: row.name,
+              house: students.find(student => student.id === row.studentId)?.house || '',
+              // Display the exact same position used everywhere else.
+              position: rankedMap.get(row.studentId) || 0,
+              receivesPlacementPoints: false,
+            }))
+            .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name)),
         });
       });
     });
@@ -715,7 +727,6 @@ const highJumpTieIssues = (students: AthleticsStudent[], snapshot: AthleticsSnap
 
   return issues;
 };
-
 const HighJumpTieReviewPanel: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
   const issues = React.useMemo(() => highJumpTieIssues(students, snapshot), [students, snapshot]);
   return (
