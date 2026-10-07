@@ -671,7 +671,7 @@ const AthleticsEventManager: React.FC<Props> = ({
       };
     });
 
-    const results = snapshot.results.map((result) => {
+    let results = snapshot.results.map((result) => {
       if (result.eventId !== event.id || result.category !== category) {
         return result;
       }
@@ -686,6 +686,52 @@ const AthleticsEventManager: React.FC<Props> = ({
           }
         : result;
     });
+
+    // In qualifying High Jump, clearing the FIRST bar is itself the
+    // qualification threshold. Automatically mark every athlete who clears
+    // that opening height as qualified. If the mark is later toggled back to
+    // pending, we leave any existing manual qualification untouched.
+    if (stage === 'qualifying' && nextHeights.length > 0) {
+      const firstHeight = [...nextHeights].sort(
+        (a, b) => parseFieldDistance(a) - parseFieldDistance(b),
+      )[0];
+
+      const qualifiedFromFirstBar = new Set(
+        nextAttempts
+          .filter((row) => row.height === firstHeight && row.attempts.includes('cleared'))
+          .map((row) => row.studentId),
+      );
+
+      const resultMap = new Map<string, AthleticsResult>();
+      results.forEach((result) => {
+        if (result.eventId === event.id && result.category === category && resultStageOf(result) === 'qualifying') {
+          resultMap.set(result.studentId, result);
+        }
+      });
+
+      qualifiedFromFirstBar.forEach((studentId) => {
+        const existing = resultMap.get(studentId) || {
+          eventId: event.id,
+          category,
+          studentId,
+          stage: 'qualifying' as AthleticsStage,
+          status: 'pending' as AthleticsResultStatus,
+          timing: '',
+          position: undefined,
+          qualified: false,
+          newResultAwarded: false,
+        };
+        resultMap.set(studentId, { ...existing, qualified: true });
+      });
+
+      results = [
+        ...results.filter(
+          (result) =>
+            !(result.eventId === event.id && result.category === category && resultStageOf(result) === 'qualifying'),
+        ),
+        ...Array.from(resultMap.values()),
+      ];
+    }
 
     saveSnapshot({ ...snapshot, highJump, results }, title, description);
   };
