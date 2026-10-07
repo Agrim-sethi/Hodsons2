@@ -227,9 +227,15 @@ export const eventPointBreakdown = (
       )
     : undefined;
 
-  // Qualification is a first-round achievement worth exactly +1. A finished
-  // but unqualified result earns no participation point.
-  const qualification = qualifying?.status === 'finished' && (qualifying.qualified === true || hasClearedHighJumpFirstBar(snapshot, category, student.id)) ? 1 : 0;
+  // Qualification is a first-round achievement worth exactly +1. For High Jump,
+  // clearing the opening bar is the qualification threshold even if the stored
+  // result row has not yet persisted qualified=true.
+  const highJumpAutoQualified = event.id === 'high-jump' &&
+    hasClearedHighJumpFirstBar(snapshot, category, student.id);
+  const qualifyingIsQualified =
+    qualifying?.qualified === true || highJumpAutoQualified;
+  const qualification =
+    qualifying?.status === 'finished' && qualifyingIsQualified ? 1 : 0;
   let placement = 0;
 
   if (finalsEnabled) {
@@ -240,8 +246,9 @@ export const eventPointBreakdown = (
         .find(row => row.studentId === student.id)?.computedPosition;
       if (finalPosition) placement += placementPoints(finalPosition);
     }
-  } else if (qualifying?.status === 'finished' && qualifying?.qualified === true) {
-    // Without finals, qualifying is the scored round.
+  } else if (qualifying?.status === 'finished' && qualifyingIsQualified) {
+    // Without finals, qualifying is the scored round. High Jump athletes who
+    // clear the first bar are eligible for placement points automatically.
     const qualifyingPosition = rankedResultRows(snapshot, event, category, 'qualifying')
       .find(row => row.studentId === student.id)?.computedPosition;
     if (qualifyingPosition) placement += placementPoints(qualifyingPosition);
