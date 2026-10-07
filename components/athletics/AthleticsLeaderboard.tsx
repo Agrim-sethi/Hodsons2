@@ -40,8 +40,12 @@ const eventAllowedForCategory = (event: AthleticsEvent, category: string) => {
   return !allowed || allowed.includes(category);
 };
 
-const eventPoints = (snapshot: AthleticsSnapshot, student: AthleticsStudent, event: AthleticsEvent) =>
-  sharedEventPoints(snapshot, student, event);
+const eventPoints = (
+  snapshot: AthleticsSnapshot,
+  student: AthleticsStudent,
+  event: AthleticsEvent,
+  allStudents: AthleticsStudent[],
+) => sharedEventPoints(snapshot, student, event, allStudents);
 
 const relayPointsForDepartment = (snapshot: AthleticsSnapshot, house: typeof HOUSES[number], department?: Department) => {
   if (!department) return relayHousePoints(snapshot, house);
@@ -51,7 +55,7 @@ const relayPointsForDepartment = (snapshot: AthleticsSnapshot, house: typeof HOU
 
 const buildHouseRows = (students: AthleticsStudent[], snapshot: AthleticsSnapshot, department?: Department) => HOUSES.map(house => {
   const inScope = students.filter(student => student.house === house && (!department || departmentOfCategory(student.category) === department));
-  const individualPoints = inScope.reduce((sum, student) => sum + ATHLETICS_EVENTS.reduce((eventSum, event) => eventSum + eventPoints(snapshot, student, event), 0), 0);
+  const individualPoints = inScope.reduce((sum, student) => sum + ATHLETICS_EVENTS.reduce((eventSum, event) => eventSum + eventPoints(snapshot, student, event, students), 0), 0);
   const points = individualPoints + relayPointsForDepartment(snapshot, house, department);
   return { name: house, house, points };
 }).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
@@ -111,6 +115,15 @@ type HouseIntegritySummary = {
       events: {
         event: AthleticsEvent;
         pts: number;
+        leaderboardPts: number;
+        auditPts: number;
+        difference: number;
+        contributors: {
+          student: AthleticsStudent;
+          leaderboardPts: number;
+          auditPts: number;
+          difference: number;
+        }[];
       }[];
       total: number;
       relayPts: number;
@@ -138,9 +151,29 @@ const buildIntegrityData = (
         const inScope = students.filter(s => s.house === house && s.category === category);
         const nonRelayEvents = ATHLETICS_EVENTS.filter(e => !isRelayEvent(e) && eventAllowedForCategory(e, category));
         const eventBreakdowns = nonRelayEvents.map(event => {
-          const pts = inScope.reduce((sum, s) => sum + eventPointBreakdown(snapshot, s, event, category, students).total, 0);
-          return { event, pts };
-        }).filter(e => e.pts > 0);
+          const contributors = inScope.map(student => {
+            const leaderboardPts = eventPoints(snapshot, student, event, students);
+            const auditPts = eventPointBreakdown(snapshot, student, event, category, students).total;
+            return {
+              student,
+              leaderboardPts,
+              auditPts,
+              difference: auditPts - leaderboardPts,
+            };
+          });
+
+          const leaderboardEventPts = contributors.reduce((sum, row) => sum + row.leaderboardPts, 0);
+          const auditEventPts = contributors.reduce((sum, row) => sum + row.auditPts, 0);
+
+          return {
+            event,
+            pts: auditEventPts,
+            leaderboardPts: leaderboardEventPts,
+            auditPts: auditEventPts,
+            difference: auditEventPts - leaderboardEventPts,
+            contributors: contributors.filter(row => row.difference !== 0),
+          };
+        }).filter(e => e.pts > 0 || e.leaderboardPts > 0 || e.difference !== 0);
         const individualTotal = eventBreakdowns.reduce((s, e) => s + e.pts, 0);
 
         // relay points for this category's department bucket
@@ -181,6 +214,42 @@ const buildIntegrityData = (
   });
 };
 
+type EventDiscrepancyRow = {
+  house: typeof HOUSES[number];
+  dept: Department;
+  category: AthleticsCategory;
+  event: AthleticsEvent;
+  leaderboardPts: number;
+  auditPts: number;
+  difference: number;
+  contributors: {
+    student: AthleticsStudent;
+    leaderboardPts: number;
+    auditPts: number;
+    difference: number;
+  }[];
+};
+
+const buildEventDiscrepancyRows = (data: HouseIntegritySummary[]): EventDiscrepancyRow[] =>
+  data.flatMap(house =>
+    house.departments.flatMap(dept =>
+      dept.categories.flatMap(category =>
+        category.events
+          .filter(event => event.difference !== 0)
+          .map(event => ({
+            house: house.house,
+            dept: dept.dept,
+            category: category.category,
+            event: event.event,
+            leaderboardPts: event.leaderboardPts,
+            auditPts: event.auditPts,
+            difference: event.difference,
+            contributors: event.contributors,
+          })),
+      ),
+    ),
+  );
+
 const ScoringIntegrityPanel: React.FC<{
   students: AthleticsStudent[];
   snapshot: AthleticsSnapshot;
@@ -198,6 +267,11 @@ const ScoringIntegrityPanel: React.FC<{
   const totalMismatches = data.reduce(
     (sum, h) => sum + h.departments.filter(d => !d.match).length,
     0,
+  );
+
+  const eventDiscrepancies = React.useMemo(
+    () => buildEventDiscrepancyRows(data),
+    [data],
   );
 
   const activeHouse = data.find(h => h.house === selectedHouse)!;
@@ -304,6 +378,86 @@ const ScoringIntegrityPanel: React.FC<{
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-rose-400/50" /> Mismatch detected</span>
               <span className="text-slate-700">Click a cell to inspect the breakdown</span>
             </div>
+          </div>
+
+          {/* ── Exact discrepancy finder: house × category × event ── */}
+          <div className="border-t border-white/10 p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="royal-kicker mb-1">Exact Discrepancy Finder</div>
+                <h4 className="text-base font-black text-white">Leaderboard vs Points Log · Event Level</h4>
+                <p className="mt-1 max-w-4xl text-[10px] leading-relaxed text-slate-500">
+                  This compares the exact house + age category + event totals produced by the live leaderboard path against the audit-log path.
+                  Open a row to see the individual students responsible for any difference.
+                </p>
+              </div>
+              <span className={`shrink-0 rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-wider ${
+                eventDiscrepancies.length
+                  ? 'border-rose-400/25 bg-rose-500/10 text-rose-300'
+                  : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300'
+              }`}>
+                {eventDiscrepancies.length ? `${eventDiscrepancies.length} event discrepancy${eventDiscrepancies.length === 1 ? '' : 'ies'}` : 'All event totals match'}
+              </span>
+            </div>
+
+            {eventDiscrepancies.length > 0 ? (
+              <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">
+                <table className="min-w-[920px] w-full text-[10px]">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/[0.025] text-[8px] font-black uppercase tracking-wider text-slate-600">
+                      <th className="px-3 py-2.5 text-left">House</th>
+                      <th className="px-3 py-2.5 text-left">Category</th>
+                      <th className="px-3 py-2.5 text-left">Event</th>
+                      <th className="px-3 py-2.5 text-right">Leaderboard</th>
+                      <th className="px-3 py-2.5 text-right">Audit</th>
+                      <th className="px-3 py-2.5 text-right">Δ</th>
+                      <th className="px-3 py-2.5 text-left">Cause</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eventDiscrepancies.map(row => {
+                      const cause =
+                        row.event.id === 'high-jump'
+                          ? 'High Jump ranking/input context'
+                          : 'Scoring-path input mismatch';
+                      return (
+                        <tr key={`${row.house}|${row.category}|${row.event.id}`} className="border-b border-white/5 last:border-0">
+                          <td className="px-3 py-2.5 font-black text-slate-200">{row.house}</td>
+                          <td className="px-3 py-2.5 font-bold text-slate-400">{row.category}</td>
+                          <td className="px-3 py-2.5 font-bold text-white">{row.event.name}</td>
+                          <td className="px-3 py-2.5 text-right font-black text-white">{row.leaderboardPts}</td>
+                          <td className="px-3 py-2.5 text-right font-black text-primary">{row.auditPts}</td>
+                          <td className={`px-3 py-2.5 text-right font-black ${row.difference > 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                            {row.difference > 0 ? '+' : ''}{row.difference}
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-500">
+                            <details>
+                              <summary className="cursor-pointer font-bold text-slate-300">Inspect · {cause}</summary>
+                              <div className="mt-2 space-y-1 rounded-lg border border-white/5 bg-black/10 p-2">
+                                {row.contributors.length > 0 ? row.contributors.map(contributor => (
+                                  <div key={contributor.student.id} className="flex items-center justify-between gap-3">
+                                    <span className="font-bold text-slate-300">{contributor.student.name} <span className="text-slate-600">#{contributor.student.id}</span></span>
+                                    <span className="font-mono text-[9px] text-slate-400">
+                                      LB {contributor.leaderboardPts} · Log {contributor.auditPts} · Δ {contributor.difference > 0 ? '+' : ''}{contributor.difference}
+                                    </span>
+                                  </div>
+                                )) : (
+                                  <span className="text-slate-600">No individual contributor mismatch, inspect the event inputs.</span>
+                                )}
+                              </div>
+                            </details>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border border-emerald-400/15 bg-emerald-500/[0.04] px-4 py-3 text-xs text-emerald-200">
+                The current leaderboard and audit-log scoring paths produce identical event totals.
+              </div>
+            )}
           </div>
 
           {/* ── Drill-down: house × dept breakdown ── */}
