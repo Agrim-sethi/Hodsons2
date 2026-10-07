@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { useToast } from '../ui/ToastProvider';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, AthleticsRelayTeam, RELAY_HOUSES, relayEligibleCategories } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, AthleticsRelayTeam, RELAY_HOUSES, relayEligibleCategories, hasClearedHighJumpFirstBar } from '../../utils/athleticsStorage';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
 
 type AthleticsStudent = {
@@ -195,6 +195,10 @@ const AthleticsEventManager: React.FC<Props> = ({
 
   const highJumpHeights = highJumpConfig?.heights || [];
   const highJumpAttemptRows = highJumpConfig?.attempts || [];
+  const highJumpFirstBar = [...highJumpHeights].sort(
+    (a, b) => parseFieldDistance(a) - parseFieldDistance(b),
+  )[0];
+
 
   const filteredStudents = React.useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1491,6 +1495,11 @@ const AthleticsEventManager: React.FC<Props> = ({
 
                           const config = houseConfig(student.house);
                           const result = getResult(studentId, stage);
+                          const highJumpQualified =
+                            stage === 'qualifying' &&
+                            isHighJump &&
+                            hasClearedHighJumpFirstBar(snapshot, category, studentId);
+                          const displayedQualified = result.qualified || highJumpQualified;
 
                           return (
                             <tr key={studentId}>
@@ -1571,9 +1580,9 @@ const AthleticsEventManager: React.FC<Props> = ({
                                     type="button"
                                     disabled={!isLoggedIn}
                                     onClick={() => toggleQualified(studentId)}
-                                    className={`rounded-lg border px-3 py-2 text-[10px] font-black uppercase ${result.qualified ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-200' : 'border-white/10 bg-white/[0.025] text-slate-400 hover:border-emerald-500/30 hover:text-emerald-300'}`}
+                                    className={`rounded-lg border px-3 py-2 text-[10px] font-black uppercase ${displayedQualified ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-200' : 'border-white/10 bg-white/[0.025] text-slate-400 hover:border-emerald-500/30 hover:text-emerald-300'}`}
                                   >
-                                    {result.qualified ? '✓ Qualified' : 'Qualified'}
+                                    {displayedQualified ? '✓ Qualified' : 'Qualified'}
                                   </button>
                                 </td>
                               )}
@@ -1607,7 +1616,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                     <th>Competitor</th>
                     <th>House</th>
                     <th>Status</th>
-                    <th>{event.kind === 'track' ? 'Time' : THREE_ATTEMPT_FIELD_EVENTS.has(event.id) ? 'Attempts (Best)' : 'Distance'}</th>
+                    <th>{event.kind === 'track' ? 'Time' : event.id === 'high-jump' ? 'Height' : THREE_ATTEMPT_FIELD_EVENTS.has(event.id) ? 'Attempts (Best)' : 'Distance'}</th>
                     <th>Position</th>
                     {stage === 'qualifying' && <th>Qualification</th>}
                     {stage === 'qualifying' && finalsEnabled && <th>Finals</th>}
