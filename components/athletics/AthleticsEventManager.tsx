@@ -917,22 +917,69 @@ const AthleticsEventManager: React.FC<Props> = ({
       return;
     }
 
-    const candidates = enrollment
-      .map((studentId) => getResult(studentId, 'qualifying'))
-      .filter(
-        (result) =>
-          result.qualified &&
-          result.status === 'finished' &&
-          Boolean(result.timing),
+    let candidates: AthleticsResult[];
+
+    if (isHighJump) {
+      // High Jump stores its performance in the height-ladder attempts rather
+      // than in result.timing until Auto-Rank is pressed. Build the finalists
+      // directly from the best cleared height so "Allot Top 4" works before or
+      // after ranking, and do not require a manually populated timing field.
+      const heightsAscending = [...highJumpHeights].sort(
+        (a, b) => parseFieldDistance(a) - parseFieldDistance(b),
       );
+      const summaries = activeEnrollmentIds
+        .map((studentId) => {
+          const rows = highJumpAttemptRows.filter((row) => row.studentId === studentId);
+          let bestHeightValue = Number.NEGATIVE_INFINITY;
+          let bestHeight = '';
+          let totalFailures = 0;
+          heightsAscending.forEach((height) => {
+            const row = rows.find((item) => item.height === height);
+            const attempts = row?.attempts || [];
+            totalFailures += attempts.filter((attempt) => attempt === 'failed').length;
+            if (attempts.includes('cleared')) {
+              const value = parseFieldDistance(height);
+              if (value > bestHeightValue) {
+                bestHeightValue = value;
+                bestHeight = height;
+              }
+            }
+          });
+          return { studentId, bestHeight, bestHeightValue, totalFailures };
+        })
+        .filter((summary) => summary.bestHeight)
+        .sort((a, b) =>
+          b.bestHeightValue - a.bestHeightValue ||
+          a.totalFailures - b.totalFailures ||
+          a.studentId.localeCompare(b.studentId)
+        );
 
-    candidates.sort((a, b) => {
-      if (event.kind === 'track') {
-        return parseTrackTiming(a.timing || '') - parseTrackTiming(b.timing || '');
-      }
+      candidates = summaries.slice(0, 4).map((summary) => ({
+        eventId: event.id,
+        category,
+        studentId: summary.studentId,
+        stage: 'qualifying',
+        status: 'finished',
+        timing: summary.bestHeight,
+        qualified: true,
+      }));
+    } else {
+      candidates = enrollment
+        .map((studentId) => getResult(studentId, 'qualifying'))
+        .filter(
+          (result) =>
+            result.qualified &&
+            result.status === 'finished' &&
+            Boolean(result.timing),
+        );
 
-      return parseFieldDistance(b.timing || '') - parseFieldDistance(a.timing || '');
-    });
+      candidates.sort((a, b) => {
+        if (event.kind === 'track') {
+          return parseTrackTiming(a.timing || '') - parseTrackTiming(b.timing || '');
+        }
+        return parseFieldDistance(b.timing || '') - parseFieldDistance(a.timing || '');
+      });
+    }
 
     saveSnapshot(
       {
@@ -1387,6 +1434,8 @@ const AthleticsEventManager: React.FC<Props> = ({
                           ))}
                           <th>Best</th>
                           <th>Position</th>
+                          {stage === 'qualifying' && <th>Qualification</th>}
+                          {stage === 'qualifying' && finalsEnabled && <th>Finals</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1470,6 +1519,30 @@ const AthleticsEventManager: React.FC<Props> = ({
                               <td>
                                 <span className="font-black text-white">{result.position || '—'}</span>
                               </td>
+                              {stage === 'qualifying' && (
+                                <td>
+                                  <button
+                                    type="button"
+                                    disabled={!isLoggedIn}
+                                    onClick={() => toggleQualified(studentId)}
+                                    className={`rounded-lg border px-3 py-2 text-[10px] font-black uppercase ${result.qualified ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-200' : 'border-white/10 bg-white/[0.025] text-slate-400 hover:border-emerald-500/30 hover:text-emerald-300'}`}
+                                  >
+                                    {result.qualified ? '✓ Qualified' : 'Qualified'}
+                                  </button>
+                                </td>
+                              )}
+                              {stage === 'qualifying' && finalsEnabled && (
+                                <td>
+                                  <button
+                                    type="button"
+                                    disabled={!isLoggedIn}
+                                    onClick={() => toggleFinalist(studentId)}
+                                    className={`rounded-lg border px-3 py-2 text-[10px] font-black uppercase ${finalistIds.includes(studentId) ? 'border-primary/40 bg-primary/10 text-primary' : 'border-white/10 bg-white/[0.025] text-slate-300 hover:border-primary/30 hover:text-primary'}`}
+                                  >
+                                    {finalistIds.includes(studentId) ? '✓ In Finals' : 'Add to Finals'}
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
