@@ -172,7 +172,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
 
     ATHLETICS_CATEGORIES.forEach(cat => {
       const inCategory = filteredStudents.filter(student => student.category === cat);
-      const individualPoints = inCategory.reduce((sum, student) => sum + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS), 0);
+      const individualPoints = inCategory.reduce((sum, student) => sum + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS, students), 0);
       const relayPoints = snapshot.relayTeams.reduce((sum, team) => {
         if (team.category !== cat || team.status !== 'finished') return sum;
         if (houseFilter !== 'All' && team.house !== houseFilter) return sum;
