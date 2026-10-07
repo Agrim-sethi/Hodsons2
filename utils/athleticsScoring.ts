@@ -108,16 +108,47 @@ const rankHighJumpInternal = (
       }
     });
 
+    // High Jump uses a countback tie-break, not alphabetical ordering:
+    // 1. Compare the number of failed attempts at the immediately previous
+    //    bar that was cleared, then progressively lower bars.
+    // 2. If there is no lower cleared bar (for example, both athletes' best
+    //    height is the opening bar), compare failures at the best/current bar.
+    // 3. Only if the complete attempt pattern is identical do we invoke the
+    //    temporary alphabetical rule used for scoring.
+    //
+    // The previous implementation omitted the current/best bar from the
+    // countback profile. That meant two athletes whose best height was the
+    // first bar were ranked alphabetically, even when one cleared it on the
+    // first attempt and the other needed multiple attempts. This was exactly
+    // the Advaith Yadav vs Agastya Ghai case.
     const lowerHeights = heights
       .filter(height => parseFieldDistance(height) < bestHeightValue)
       .sort((a, b) => parseFieldDistance(b) - parseFieldDistance(a));
 
-    const failureProfile = lowerHeights.map(height => {
-      const row = rows.find(item => item.height === height);
-      return Array.isArray(row?.attempts)
-        ? row.attempts.filter(attempt => attempt === 'failed').length
-        : 0;
-    });
+    const countbackHeights = lowerHeights.length > 0
+      ? lowerHeights
+      : heights.filter(height => parseFieldDistance(height) === bestHeightValue);
+
+    const failureProfile = [
+      ...countbackHeights.map(height => {
+        const row = rows.find(item => item.height === height);
+        return Array.isArray(row?.attempts)
+          ? row.attempts.filter(attempt => attempt === 'failed').length
+          : 0;
+      }),
+    ];
+
+    // If there are lower bars to use for countback and all of them are equal,
+    // the best-height attempts are the final countback layer. This also makes
+    // the opening-bar case deterministic.
+    if (lowerHeights.length > 0) {
+      const bestRow = rows.find(item => item.height === bestHeight);
+      failureProfile.push(
+        Array.isArray(bestRow?.attempts)
+          ? bestRow.attempts.filter(attempt => attempt === 'failed').length
+          : 0,
+      );
+    }
 
     const exactPatternKey = heights
       .filter(height => parseFieldDistance(height) <= bestHeightValue)
