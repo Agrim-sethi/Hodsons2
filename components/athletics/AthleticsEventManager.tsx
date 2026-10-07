@@ -2,9 +2,8 @@ import React from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { useToast } from '../ui/ToastProvider';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, AthleticsRelayTeam, RELAY_HOUSES, relayEligibleCategories, hasClearedHighJumpFirstBar } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, AthleticsRelayTeam, RELAY_HOUSES, relayEligibleCategories, hasClearedHighJumpFirstBar, rankedHighJumpStudents } from '../../utils/athleticsStorage';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
-import { rankedHighJumpStudents } from '../../utils/athleticsScoring';
 
 type AthleticsStudent = {
   id: string;
