@@ -84,6 +84,27 @@ export const isRelayEvent = (event: AthleticsEvent | string) =>
     ? RELAY_EVENT_IDS.includes(event as typeof RELAY_EVENT_IDS[number])
     : event.kind === 'relay';
 
+export const hasClearedHighJumpFirstBar = (
+  snapshot: AthleticsSnapshot,
+  category: AthleticsCategory,
+  studentId: string,
+) => {
+  const config = snapshot.highJump?.find(
+    entry => entry.category === category && entry.stage === 'qualifying',
+  );
+  if (!config || config.heights.length === 0) return false;
+  const firstHeight = [...config.heights].sort(
+    (a, b) => Number(a.replace(',', '.')) - Number(b.replace(',', '.')),
+  )[0];
+  return config.attempts.some(
+    row =>
+      row.studentId === studentId &&
+      row.height === firstHeight &&
+      Array.isArray(row.attempts) &&
+      row.attempts.includes('cleared'),
+  );
+};
+
 export const relayEligibleCategories = (relayCategory: AthleticsCategory): AthleticsCategory[] => {
   const department = relayCategory.startsWith('PDB') ? 'PDB' : relayCategory.startsWith('PDG') ? 'PDG' : relayCategory.startsWith('BD') ? 'BD' : 'GD';
   const ordered = RELAY_CATEGORY_ORDER[department] || [];
