@@ -3,7 +3,7 @@ import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Re
 import * as XLSX from 'xlsx';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, relayHousePoints, isRelayEvent, rankedHighJumpStudents } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsSnapshot, AthleticsStudent, relayHousePoints, isRelayEvent } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
 import { eventPointBreakdown } from '../../utils/athleticsScoring';
 import { useToast } from '../ui/ToastProvider';
@@ -181,61 +181,6 @@ const buildIntegrityData = (
   });
 };
 
-type HighJumpTieIntegrityIssue = {
-  category: AthleticsCategory;
-  stage: 'qualifying' | 'finals';
-  bestHeight: string;
-  students: Array<{ id: string; name: string; house: string; position: number; receivesPlacementPoints: boolean }>;
-};
-
-const buildHighJumpTieIntegrityIssues = (
-  students: AthleticsStudent[],
-  snapshot: AthleticsSnapshot,
-): HighJumpTieIntegrityIssue[] => {
-  const issues: HighJumpTieIntegrityIssue[] = [];
-  ATHLETICS_CATEGORIES.forEach(category => {
-    (['qualifying', 'finals'] as const).forEach(stage => {
-      const source = stage === 'qualifying'
-        ? snapshot.enrollments.find(entry => entry.eventId === 'high-jump' && entry.category === category)
-        : snapshot.finals.find(entry => entry.eventId === 'high-jump' && entry.category === category);
-      const ids = [...new Set(source?.studentIds || [])];
-      if (ids.length < 2) return;
-      const ranked = rankedHighJumpStudents(snapshot, category, ids, students, stage);
-      const groups = new Map<string, typeof ranked>();
-      ranked.forEach(row => {
-        const list = groups.get(row.exactPatternKey) || [];
-        list.push(row);
-        groups.set(row.exactPatternKey, list);
-      });
-      groups.forEach(group => {
-        if (group.length < 2) return;
-        const studentRows = group
-          .map(row => {
-            const student = students.find(item => item.id === row.studentId);
-            return student ? {
-              id: student.id,
-              name: student.name,
-              house: student.house,
-              position: row.position,
-              receivesPlacementPoints: row.temporaryPointWinner && row.position <= 4,
-            } : null;
-          })
-          .filter((row): row is NonNullable<typeof row> => Boolean(row))
-          .sort((a, b) => a.position - b.position);
-        if (studentRows.length >= 2) {
-          issues.push({
-            category,
-            stage,
-            bestHeight: group[0].bestHeight,
-            students: studentRows,
-          });
-        }
-      });
-    });
-  });
-  return issues;
-};
-
 const ScoringIntegrityPanel: React.FC<{
   students: AthleticsStudent[];
   snapshot: AthleticsSnapshot;
@@ -248,11 +193,6 @@ const ScoringIntegrityPanel: React.FC<{
   const data = React.useMemo(
     () => buildIntegrityData(students, snapshot, leaderboardRows),
     [students, snapshot, leaderboardRows],
-  );
-
-  const highJumpTieIssues = React.useMemo(
-    () => buildHighJumpTieIntegrityIssues(students, snapshot),
-    [students, snapshot],
   );
 
   const totalMismatches = data.reduce(
@@ -295,50 +235,6 @@ const ScoringIntegrityPanel: React.FC<{
 
       {open && (
         <div className="border-t border-white/10">
-          <div className="border-b border-white/10 p-4 sm:p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Icon name="height" size="17" className="text-amber-300" />
-                  <h4 className="text-sm font-black text-white">High Jump Tie Review</h4>
-                </div>
-                <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-                  No shared High Jump positions are allowed. Equal best heights are resolved by failures at the immediately previous bar, then progressively lower bars. Exact matching jump patterns are flagged and temporarily award placement points only to the alphabetically first athlete in the top four.
-                </p>
-              </div>
-              <span className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider ${highJumpTieIssues.length ? 'border-amber-400/25 bg-amber-500/10 text-amber-300' : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300'}`}>
-                {highJumpTieIssues.length ? `${highJumpTieIssues.length} flagged` : 'No flags'}
-              </span>
-            </div>
-            {highJumpTieIssues.length > 0 ? (
-              <div className="mt-4 space-y-2">
-                {highJumpTieIssues.map((issue, index) => (
-                  <details key={issue.category + ':' + issue.stage + ':' + issue.bestHeight + ':' + index} className="overflow-hidden rounded-xl border border-amber-400/15 bg-amber-500/[0.035]">
-                    <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-xs font-black text-slate-200">
-                      <span>{issue.category} · {issue.stage === 'qualifying' ? 'Qualifying' : 'Finals'} · Best {issue.bestHeight}m</span>
-                      <span className="text-[9px] text-amber-300">{issue.students.length} identical pattern{issue.students.length === 1 ? '' : 's'}</span>
-                    </summary>
-                    <div className="border-t border-white/5 px-4 py-3">
-                      {issue.students.map(student => (
-                        <div key={student.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 py-2 last:border-0">
-                          <div><span className="font-bold text-slate-200">{student.name}</span><span className="ml-2 text-[9px] text-slate-600">#{student.id} · {student.house}</span></div>
-                          <div className="flex items-center gap-2 text-[9px] font-black uppercase">
-                            <span className="text-slate-500">Position {student.position}</span>
-                            {student.position <= 4 && <span className={student.receivesPlacementPoints ? 'text-emerald-300' : 'text-amber-300'}>{student.receivesPlacementPoints ? 'Temporary points winner' : 'Points withheld'}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 rounded-xl border border-emerald-400/15 bg-emerald-500/[0.04] px-4 py-3 text-xs text-emerald-200">
-                No exact-pattern High Jump ties require a temporary alphabetical points decision.
-              </div>
-            )}
-          </div>
-
           {/* ── Quick overview: all houses × all depts ── */}
           <div className="p-4 sm:p-5">
             <p className="mb-4 text-[10px] leading-relaxed text-slate-500">
@@ -564,6 +460,153 @@ const ScoringIntegrityPanel: React.FC<{
   );
 };
 
+type HighJumpTieIssue = {
+  category: AthleticsCategory;
+  stage: 'qualifying' | 'finals';
+  bestHeight: string;
+  students: Array<{ id: string; name: string; house: string; position: number; receivesPlacementPoints: boolean }>;
+};
+
+const highJumpTieIssues = (students: AthleticsStudent[], snapshot: AthleticsSnapshot): HighJumpTieIssue[] => {
+  const issues: HighJumpTieIssue[] = [];
+  const numericHeight = (height: string) => Number(height.replace(',', '.'));
+
+  ATHLETICS_CATEGORIES.forEach(category => {
+    (['qualifying', 'finals'] as const).forEach(stage => {
+      const source = stage === 'qualifying'
+        ? snapshot.enrollments.find(entry => entry.eventId === 'high-jump' && entry.category === category)
+        : snapshot.finals.find(entry => entry.eventId === 'high-jump' && entry.category === category);
+      const ids = [...new Set(source?.studentIds || [])];
+      if (ids.length < 2) return;
+
+      const config = snapshot.highJump?.find(entry => entry.category === category && entry.stage === stage);
+      const heights = [...(config?.heights || [])].sort((a, b) => numericHeight(a) - numericHeight(b));
+      const summaries = ids.map(studentId => {
+        const rows = config?.attempts?.filter(row => row.studentId === studentId) || [];
+        let bestHeight = '';
+        let bestHeightValue = Number.NEGATIVE_INFINITY;
+        heights.forEach(height => {
+          const row = rows.find(item => item.height === height);
+          if (row?.attempts?.includes('cleared')) {
+            const value = numericHeight(height);
+            if (value > bestHeightValue) { bestHeightValue = value; bestHeight = height; }
+          }
+        });
+        if (!bestHeight) return null;
+        const failureProfile = heights
+          .filter(height => numericHeight(height) < bestHeightValue)
+          .sort((a, b) => numericHeight(b) - numericHeight(a))
+          .map(height => {
+            const row = rows.find(item => item.height === height);
+            return Array.isArray(row?.attempts) ? row.attempts.filter(attempt => attempt === 'failed').length : 0;
+          });
+        const pattern = heights
+          .filter(height => numericHeight(height) <= bestHeightValue)
+          .map(height => {
+            const row = rows.find(item => item.height === height);
+            const attempts = Array.from({ length: 3 }, (_, index) => row?.attempts?.[index] || 'pending').join(',');
+            return height + ':' + attempts;
+          }).join('|');
+        return { studentId, bestHeight, bestHeightValue, failureProfile, pattern, name: students.find(student => student.id === studentId)?.name || studentId };
+      }).filter((row): row is NonNullable<typeof row> => Boolean(row));
+
+      summaries.sort((a, b) => {
+        if (a.bestHeightValue !== b.bestHeightValue) return b.bestHeightValue - a.bestHeightValue;
+        for (let i = 0; i < Math.max(a.failureProfile.length, b.failureProfile.length); i += 1) {
+          const fa = a.failureProfile[i] || 0;
+          const fb = b.failureProfile[i] || 0;
+          if (fa !== fb) return fa - fb;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      const counts = new Map<string, number>();
+      summaries.forEach(row => {
+        const key = row.bestHeightValue + '|' + row.pattern;
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+
+      const ranked = summaries.map((row, index) => {
+        const key = row.bestHeightValue + '|' + row.pattern;
+        return { ...row, position: index + 1, exactPatternTie: (counts.get(key) || 0) > 1, key };
+      });
+
+      const groups = new Map<string, typeof ranked>();
+      ranked.forEach(row => {
+        if (!row.exactPatternTie) return;
+        const list = groups.get(row.key) || [];
+        list.push(row);
+        groups.set(row.key, list);
+      });
+
+      groups.forEach(group => {
+        if (group.length < 2) return;
+        const topFour = group.filter(row => row.position <= 4);
+        const winner = [...topFour].sort((a, b) => a.name.localeCompare(b.name))[0];
+        issues.push({
+          category,
+          stage,
+          bestHeight: group[0].bestHeight,
+          students: group.map(row => ({
+            id: row.studentId,
+            name: row.name,
+            house: students.find(student => student.id === row.studentId)?.house || '',
+            position: row.position,
+            receivesPlacementPoints: Boolean(winner && winner.studentId === row.studentId && row.position <= 4),
+          })),
+        });
+      });
+    });
+  });
+
+  return issues;
+};
+
+const HighJumpTieReviewPanel: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot }> = ({ students, snapshot }) => {
+  const issues = React.useMemo(() => highJumpTieIssues(students, snapshot), [students, snapshot]);
+  return (
+    <section className="overflow-hidden rounded-[24px] border border-amber-400/20 bg-amber-500/[0.03]">
+      <div className="flex items-center justify-between gap-4 p-4 sm:p-5">
+        <div>
+          <div className="flex items-center gap-2">
+            <Icon name="height" size="17" className="text-amber-300" />
+            <h3 className="text-sm font-black text-white">High Jump Tie Review</h3>
+          </div>
+          <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+            High Jump positions are always unique. Equal best heights are resolved by failures at the previous bar, then progressively lower bars. Exact matching jump patterns are flagged here.
+          </p>
+        </div>
+        <span className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider ${issues.length ? 'border-amber-400/25 bg-amber-500/10 text-amber-300' : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300'}`}>
+          {issues.length ? `${issues.length} flagged` : 'No flags'}
+        </span>
+      </div>
+      {issues.length > 0 && (
+        <div className="space-y-2 border-t border-white/10 p-4 sm:p-5">
+          {issues.map((issue, index) => (
+            <details key={issue.category + ':' + issue.stage + ':' + issue.bestHeight + ':' + index} className="overflow-hidden rounded-xl border border-amber-400/15 bg-black/10">
+              <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-xs font-black text-slate-200">
+                <span>{issue.category} · {issue.stage === 'qualifying' ? 'Qualifying' : 'Finals'} · Best {issue.bestHeight}m</span>
+                <span className="text-[9px] text-amber-300">{issue.students.length} identical patterns</span>
+              </summary>
+              <div className="border-t border-white/5 px-4 py-3">
+                {issue.students.map(student => (
+                  <div key={student.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 py-2 last:border-0">
+                    <div><span className="font-bold text-slate-200">{student.name}</span><span className="ml-2 text-[9px] text-slate-600">#{student.id} · {student.house}</span></div>
+                    <div className="flex items-center gap-3 text-[9px] font-black uppercase">
+                      <span className="text-slate-500">Position {student.position}</span>
+                      {student.position <= 4 && <span className={student.receivesPlacementPoints ? 'text-emerald-300' : 'text-amber-300'}>{student.receivesPlacementPoints ? 'Temporary points winner' : 'Points withheld'}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+};
+
 const HousePerformance: React.FC<{ students: AthleticsStudent[]; snapshot: AthleticsSnapshot; isLoggedIn: boolean }> = ({ students, snapshot, isLoggedIn }) => {
   const overall = buildHouseRows(students, snapshot);
   const bd = buildHouseRows(students, snapshot, 'BD');
@@ -575,7 +618,10 @@ const HousePerformance: React.FC<{ students: AthleticsStudent[]; snapshot: Athle
     <section className="space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><div className="royal-kicker mb-1">Athletics Championship</div><h2 className="text-3xl font-black text-white tracking-tight">Championship Leaderboards</h2><p className="mt-1 max-w-3xl text-sm text-slate-400">House race across every eligible event, with separate BD, GD, and PD department standings.</p></div><div className="rounded-xl border border-primary/10 bg-primary/[0.04] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{maxOverall} pts leading house</div></div>
       {isLoggedIn && (
-        <ScoringIntegrityPanel students={students} snapshot={snapshot} leaderboardRows={leaderboardRows} />
+        <>
+          <ScoringIntegrityPanel students={students} snapshot={snapshot} leaderboardRows={leaderboardRows} />
+          <HighJumpTieReviewPanel students={students} snapshot={snapshot} />
+        </>
       )}
       <AthleticsRaceChart title="Overall House Standings" subtitle="Cumulative championship points across all Athletics events" data={overall} featured />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5"><AthleticsRaceChart title="BD Department Standings" subtitle="Boys Department race across eligible categories" data={bd} /><AthleticsRaceChart title="GD Department Standings" subtitle="Girls Department race across eligible categories" data={gd} /><AthleticsRaceChart title="PD Department Standings" subtitle="Prep Department race across PDB + PDG" data={pd} /></div>
@@ -590,7 +636,7 @@ const IndividualPerformance: React.FC<{ students: AthleticsStudent[]; snapshot: 
   const [search, setSearch] = React.useState('');
   const [paradeHouseFilter, setParadeHouseFilter] = React.useState('All');
   const [paradeCategoryFilter, setParadeCategoryFilter] = React.useState('All');
-  const individuals = React.useMemo(() => students.map(student => ({ student, points: studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS, students) })).filter(row => row.points > 0).sort((a,b) => b.points-a.points || a.student.name.localeCompare(b.student.name)), [students, snapshot]);
+  const individuals = React.useMemo(() => students.map(student => ({ student, points: studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS) })).filter(row => row.points > 0).sort((a,b) => b.points-a.points || a.student.name.localeCompare(b.student.name)), [students, snapshot]);
   const topByCategory = React.useMemo(() => ATHLETICS_CATEGORIES.map(category => {
     const categoryRows = topIndividualChampionshipRows(snapshot, individuals.filter(row => row.student.category === category));
     return { category, top: categoryRows.slice(0, 3) };
