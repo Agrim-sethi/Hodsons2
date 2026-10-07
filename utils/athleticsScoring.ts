@@ -173,9 +173,16 @@ export const rankedHighJumpStudents = (
   return summaries.map((row, index) => {
     const key = row.bestHeightValue + '|' + row.exactPatternKey;
     const exactPatternTie = (exactPatternCounts.get(key) || 0) > 1;
-    const alphabeticalWinner = exactPatternTie && summaries
-      .filter(other => other.bestHeightValue === row.bestHeightValue && other.exactPatternKey === row.exactPatternKey)
-      .sort((a, b) => a.name.localeCompare(b.name))[0]?.studentId === row.studentId;
+    const topFourTieMembers = exactPatternTie
+      ? summaries.filter(other =>
+          other.bestHeightValue === row.bestHeightValue &&
+          other.exactPatternKey === row.exactPatternKey &&
+          summaries.indexOf(other) < 4
+        )
+      : [];
+    const alphabeticalWinner = exactPatternTie && topFourTieMembers.length > 0
+      ? [...topFourTieMembers].sort((a, b) => a.name.localeCompare(b.name))[0]?.studentId === row.studentId
+      : true;
 
     return {
       studentId: row.studentId,
