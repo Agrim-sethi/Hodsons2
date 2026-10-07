@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
-import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent, relayHousePoints, rankedRelayTeams, relayPointsForPosition, getAthleticsDepartment } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsSnapshot, AthleticsStudent, AthleticsEvent, relayHousePoints, rankedRelayTeams, relayPointsForPosition, getAthleticsDepartment, hasClearedHighJumpFirstBar } from '../../utils/athleticsStorage';
 import { ATHLETICS_CATEGORIES, AthleticsCategory } from '../../utils/athleticsCategories';
 import { studentPointsAcrossEvents, eventPointBreakdown } from '../../utils/athleticsScoring';
 
@@ -116,7 +116,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
           (r.stage || 'qualifying') === 'qualifying'
         );
 
-        if (qualifyingResult?.status === 'finished' && qualifyingResult.qualified === true) {
+        if (qualifyingResult?.status === 'finished' && (qualifyingResult.qualified === true || hasClearedHighJumpFirstBar(snapshot, entry.category, sid))) {
           addQualified(stu);
           if (categoryStats) categoryStats.qualified += 1;
         }
@@ -204,7 +204,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
           result.eventId === event.id && result.category === entry.category &&
           result.studentId === sid && (result.stage || 'qualifying') === 'qualifying'
         );
-        if (qualifying?.status === 'finished' && qualifying.qualified === true) stats.qualified += 1;
+        if (qualifying?.status === 'finished' && (qualifying.qualified === true || hasClearedHighJumpFirstBar(snapshot, entry.category, sid))) stats.qualified += 1;
         const status = statusForParticipation(snapshot, event.id, entry.category, sid);
         stats.points += eventPointBreakdown(snapshot, student, event, entry.category).total;
       });
