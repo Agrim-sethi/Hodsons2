@@ -185,13 +185,12 @@ const AthleticsEventManager: React.FC<Props> = ({
   const activeEnrollmentIds = [...new Set(enrollment)].filter(id => eligibleStudentIds.has(id));
   const activeFinalistIds = [...new Set(finalistIds)].filter(id => eligibleStudentIds.has(id));
   const currentIds = stage === 'finals' ? activeFinalistIds : activeEnrollmentIds;
-  const highJumpRankings = React.useMemo(
-    () => isHighJump ? rankedHighJumpStudents(snapshot, category, currentIds, students, stage) : [],
-    [snapshot, category, currentIds, students, stage],
-  );
-
   const isHighJump = event.id === 'high-jump';
   const isRelay = event.kind === 'relay';
+  const highJumpRankings = React.useMemo(
+    () => isHighJump ? rankedHighJumpStudents(snapshot, category, currentIds, students, stage) : [],
+    [snapshot, category, currentIds, students, stage, isHighJump],
+  );
 
   const highJumpConfig = React.useMemo(() => {
     return snapshot.highJump?.find((entry) => entry.category === category && entry.stage === stage);
