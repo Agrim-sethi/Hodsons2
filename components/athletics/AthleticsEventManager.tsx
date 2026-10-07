@@ -675,26 +675,74 @@ const AthleticsEventManager: React.FC<Props> = ({
       };
     });
 
-    let results = snapshot.results.map((result) => {
-      if (result.eventId !== event.id || result.category !== category) {
-        return result;
-      }
+    const resultsForOtherRecords = snapshot.results.filter(
+      (result) =>
+        !(result.eventId === event.id &&
+          result.category === category &&
+          resultStageOf(result) === stage),
+    );
 
-      return resultStageOf(result) === stage
-        ? {
-            ...result,
-            status: result.status === 'finished' ? 'pending' as AthleticsResultStatus : result.status,
-            timing: '',
-            position: undefined,
-            newResultAwarded: false,
-          }
-        : result;
+    const currentResults = new Map<string, AthleticsResult>();
+    snapshot.results.forEach(result => {
+      if (
+        result.eventId === event.id &&
+        result.category === category &&
+        resultStageOf(result) === stage
+      ) {
+        currentResults.set(result.studentId, result);
+      }
     });
 
-    // In qualifying High Jump, clearing the FIRST bar is itself the
-    // qualification threshold. Automatically mark every athlete who clears
-    // that opening height as qualified. If the mark is later toggled back to
-    // pending, we leave any existing manual qualification untouched.
+    // Any recorded High Jump attempt means the athlete has participated in
+    // the event. Create/update the corresponding result row immediately and
+    // mark it Finished, regardless of whether the attempt was cleared or failed.
+    const attemptedStudentIds = new Set(
+      nextAttempts
+        .filter(row =>
+          Array.isArray(row.attempts) &&
+          row.attempts.some(attempt => attempt === 'cleared' || attempt === 'failed'),
+        )
+        .map(row => row.studentId),
+    );
+
+    attemptedStudentIds.forEach(studentId => {
+      const existing = currentResults.get(studentId) || {
+        eventId: event.id,
+        category,
+        studentId,
+        stage,
+        status: 'pending' as AthleticsResultStatus,
+        timing: '',
+        position: undefined,
+        qualified: false,
+        newResultAwarded: false,
+      };
+
+      currentResults.set(studentId, {
+        ...existing,
+        status: 'finished' as AthleticsResultStatus,
+      });
+    });
+
+    // If an automatically-created High Jump result no longer has any recorded
+    // attempts, return it to Pending. Other manually selected statuses remain
+    // untouched.
+    currentResults.forEach((result, studentId) => {
+      const stillHasAttempt = attemptedStudentIds.has(studentId);
+      if (!stillHasAttempt && result.status === 'finished') {
+        currentResults.set(studentId, {
+          ...result,
+          status: 'pending' as AthleticsResultStatus,
+          timing: '',
+          position: undefined,
+          newResultAwarded: false,
+        });
+      }
+    });
+
+    // In qualifying High Jump, clearing the FIRST bar is the qualification
+    // threshold. Mark every athlete who clears that opening height as
+    // qualified, while leaving manual qualification choices intact.
     if (stage === 'qualifying' && nextHeights.length > 0) {
       const firstHeight = [...nextHeights].sort(
         (a, b) => parseFieldDistance(a) - parseFieldDistance(b),
@@ -706,15 +754,8 @@ const AthleticsEventManager: React.FC<Props> = ({
           .map((row) => row.studentId),
       );
 
-      const resultMap = new Map<string, AthleticsResult>();
-      results.forEach((result) => {
-        if (result.eventId === event.id && result.category === category && resultStageOf(result) === 'qualifying') {
-          resultMap.set(result.studentId, result);
-        }
-      });
-
       qualifiedFromFirstBar.forEach((studentId) => {
-        const existing = resultMap.get(studentId) || {
+        const existing = currentResults.get(studentId) || {
           eventId: event.id,
           category,
           studentId,
@@ -725,18 +766,18 @@ const AthleticsEventManager: React.FC<Props> = ({
           qualified: false,
           newResultAwarded: false,
         };
-        resultMap.set(studentId, { ...existing, qualified: true });
-      });
 
-      results = [
-        ...results.filter(
-          (result) =>
-            !(result.eventId === event.id && result.category === category && resultStageOf(result) === 'qualifying'),
-        ),
-        ...Array.from(resultMap.values()),
-      ];
+        currentResults.set(studentId, {
+          ...existing,
+          qualified: true,
+        });
+      });
     }
 
+    const results = [
+      ...resultsForOtherRecords,
+      ...Array.from(currentResults.values()),
+    ];
     saveSnapshot({ ...snapshot, highJump, results }, title, description);
   };
 
@@ -1479,6 +1520,7 @@ const AthleticsEventManager: React.FC<Props> = ({
                         <tr>
                           <th className="sticky left-0 z-10 bg-[#0b1220]">Competitor</th>
                           <th>House</th>
+                          <th>Status</th>
                           {highJumpHeights.map((height) => (
                             <th key={height} className="text-center">{height}m</th>
                           ))}
@@ -1511,6 +1553,24 @@ const AthleticsEventManager: React.FC<Props> = ({
                                 <span className={`inline-flex items-center rounded-full border px-2 py-1 text-[9px] font-bold ${config.bg}/20 ${config.text} ${config.border}/30`}>
                                   {student.house}
                                 </span>
+                              </td>
+                              <td>
+                                <select
+                                  disabled={!isLoggedIn}
+                                  value={result.status}
+                                  onChange={(eventObject) =>
+                                    updateResult(student.id, stage, {
+                                      status: eventObject.target.value as AthleticsResultStatus,
+                                    })
+                                  }
+                                  className={`royal-input rounded-lg px-2 py-2 text-xs ${statusStyle(result.status)}`}
+                                >
+                                  {RESULT_STATUSES.map((status) => (
+                                    <option key={status} value={status}>
+                                      {statusLabel(status)}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
                               {highJumpHeights.map((height) => {
                                 const row = highJumpAttemptRows.find((r) => r.studentId === studentId && r.height === height);
