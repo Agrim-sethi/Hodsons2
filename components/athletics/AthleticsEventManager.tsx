@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '../Icon';
 import { HOUSE_COLORS } from '../../constants';
 import { useToast } from '../ui/ToastProvider';
-import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, AthleticsRelayTeam, RELAY_HOUSES, relayEligibleCategories, hasClearedHighJumpFirstBar, rankedHighJumpStudents } from '../../utils/athleticsStorage';
+import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, AthleticsRelayTeam, RELAY_HOUSES, relayEligibleCategories, hasClearedHighJumpFirstBar } from '../../utils/athleticsStorage';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
 
 type AthleticsStudent = {
@@ -185,12 +185,65 @@ const AthleticsEventManager: React.FC<Props> = ({
   const activeEnrollmentIds = [...new Set(enrollment)].filter(id => eligibleStudentIds.has(id));
   const activeFinalistIds = [...new Set(finalistIds)].filter(id => eligibleStudentIds.has(id));
   const currentIds = stage === 'finals' ? activeFinalistIds : activeEnrollmentIds;
+
   const isHighJump = event.id === 'high-jump';
   const isRelay = event.kind === 'relay';
-  const highJumpRankings = React.useMemo(
-    () => isHighJump ? rankedHighJumpStudents(snapshot, category, currentIds, students, stage) : [],
-    [snapshot, category, currentIds, students, stage, isHighJump],
-  );
+
+  const highJumpRankings = React.useMemo(() => {
+    if (!isHighJump) return [];
+    const config = snapshot.highJump?.find(entry => entry.category === category && entry.stage === stage);
+    const heights = [...(config?.heights || [])].sort((a, b) => parseFieldDistance(a) - parseFieldDistance(b));
+
+    const summaries = [...new Set(currentIds)].map(studentId => {
+      const rows = config?.attempts?.filter(row => row.studentId === studentId) || [];
+      let bestHeight = '';
+      let bestHeightValue = Number.NEGATIVE_INFINITY;
+      heights.forEach(height => {
+        const row = rows.find(item => item.height === height);
+        if (row?.attempts?.includes('cleared')) {
+          const value = parseFieldDistance(height);
+          if (value > bestHeightValue) {
+            bestHeightValue = value;
+            bestHeight = height;
+          }
+        }
+      });
+
+      const failureProfile = heights
+        .filter(height => parseFieldDistance(height) < bestHeightValue)
+        .sort((a, b) => parseFieldDistance(b) - parseFieldDistance(a))
+        .map(height => {
+          const row = rows.find(item => item.height === height);
+          return Array.isArray(row?.attempts)
+            ? row.attempts.filter(attempt => attempt === 'failed').length
+            : 0;
+        });
+
+      return {
+        studentId,
+        bestHeight,
+        bestHeightValue,
+        failureProfile,
+        name: students.find(student => student.id === studentId)?.name || studentId,
+      };
+    }).filter(row => row.bestHeight);
+
+    summaries.sort((a, b) => {
+      if (a.bestHeightValue !== b.bestHeightValue) return b.bestHeightValue - a.bestHeightValue;
+      for (let index = 0; index < Math.max(a.failureProfile.length, b.failureProfile.length); index += 1) {
+        const failureA = a.failureProfile[index] || 0;
+        const failureB = b.failureProfile[index] || 0;
+        if (failureA !== failureB) return failureA - failureB;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return summaries.map((row, index) => ({
+      studentId: row.studentId,
+      position: index + 1,
+      bestHeight: row.bestHeight,
+    }));
+  }, [isHighJump, snapshot, category, currentIds, students, stage]);
 
   const highJumpConfig = React.useMemo(() => {
     return snapshot.highJump?.find((entry) => entry.category === category && entry.stage === stage);
@@ -855,29 +908,18 @@ const AthleticsEventManager: React.FC<Props> = ({
    * exactly as it does for every other event, with no changes on their end.
    */
   const computeHighJumpRanking = () => {
-    if (!isLoggedIn) {
-      return;
-    }
+    if (!isLoggedIn) return;
 
-    const rankings = rankedHighJumpStudents(
-      snapshot,
-      category,
-      currentIds,
-      students,
-      stage,
-    );
-
-    const rankMap = new Map(rankings.map(row => [row.studentId, row.position]));
-    const heightMap = new Map(rankings.map(row => [row.studentId, row.bestHeight]));
+    const rankMap = new Map(highJumpRankings.map(row => [row.studentId, row.position]));
+    const heightMap = new Map(highJumpRankings.map(row => [row.studentId, row.bestHeight]));
 
     const resultsForOtherStudents = snapshot.results.filter(
-      (result) => !(result.eventId === event.id && result.category === category && resultStageOf(result) === stage),
+      result => !(result.eventId === event.id && result.category === category && resultStageOf(result) === stage),
     );
 
-    const resultsForCurrentIds = currentIds.map((studentId) => {
+    const resultsForCurrentIds = currentIds.map(studentId => {
       const existing = getResult(studentId, stage);
       const bestHeight = heightMap.get(studentId);
-
       return {
         ...existing,
         status: bestHeight ? ('finished' as AthleticsResultStatus) : existing.status,
@@ -888,12 +930,9 @@ const AthleticsEventManager: React.FC<Props> = ({
     });
 
     saveSnapshot(
-      {
-        ...snapshot,
-        results: [...resultsForOtherStudents, ...resultsForCurrentIds],
-      },
+      { ...snapshot, results: [...resultsForOtherStudents, ...resultsForCurrentIds] },
       'Positions Calculated',
-      `${rankings.length} ${stage} high jumpers ranked by best height and prior-bar failures.`,
+      `${highJumpRankings.length} ${stage} high jumpers ranked by best height and prior-bar failures.`,
     );
   };
 
