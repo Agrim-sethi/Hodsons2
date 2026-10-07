@@ -150,7 +150,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
     HOUSES_LIST.forEach(house => {
       if (houseFilter !== 'All' && house !== houseFilter) return;
       const inScope = students.filter(student => student.house === house && (deptFilter === 'All' || departmentOfStudent(student) === deptFilter));
-      const individualPoints = inScope.reduce((sum, student) => sum + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS), 0);
+      const individualPoints = inScope.reduce((sum, student) => sum + studentPointsAcrossEvents(snapshot, student, ATHLETICS_EVENTS, students), 0);
       const relayPoints = deptFilter === 'PD'
         ? relayHousePoints(snapshot, house, 'PDB') + relayHousePoints(snapshot, house, 'PDG')
         : deptFilter === 'All' ? relayHousePoints(snapshot, house) : relayHousePoints(snapshot, house, deptFilter);
@@ -206,7 +206,7 @@ export const AthleticsAnalytics: React.FC<{ students: AthleticsStudent[]; snapsh
         );
         if (qualifying?.status === 'finished' && (qualifying.qualified === true || hasClearedHighJumpFirstBar(snapshot, entry.category, sid))) stats.qualified += 1;
         const status = statusForParticipation(snapshot, event.id, entry.category, sid);
-        stats.points += eventPointBreakdown(snapshot, student, event, entry.category).total;
+        stats.points += eventPointBreakdown(snapshot, student, event, entry.category, students).total;
       });
     });
 
