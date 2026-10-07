@@ -72,6 +72,122 @@ const positionsAreComplete = (positions: Array<number | undefined>) => {
   return sorted.every((position, index) => position === index + 1);
 };
 
+export type HighJumpRankedRow = {
+  studentId: string;
+  bestHeight: string;
+  bestHeightValue: number;
+  position: number;
+  exactPatternKey: string;
+  temporaryPointWinner: boolean;
+};
+
+const highJumpAttemptSignature = (row: { attempts?: string[] } | undefined) =>
+  Array.from({ length: 3 }, (_, index) => row?.attempts?.[index] || 'pending').join(',');
+
+export const rankedHighJumpStudents = (
+  snapshot: AthleticsSnapshot,
+  category: AthleticsStudent['category'],
+  studentIds: string[],
+  students: AthleticsStudent[],
+  stage: 'qualifying' | 'finals' = 'qualifying',
+): HighJumpRankedRow[] => {
+  const config = snapshot.highJump?.find(
+    entry => entry.category === category && entry.stage === stage,
+  );
+  const heights = [...(config?.heights || [])].sort(
+    (a, b) => parseFieldDistance(a) - parseFieldDistance(b),
+  );
+  const studentMap = new Map(students.map(student => [student.id, student]));
+
+  const summaries = [...new Set(studentIds)].map(studentId => {
+    const rows = config?.attempts?.filter(row => row.studentId === studentId) || [];
+    let bestHeight = '';
+    let bestHeightValue = Number.NEGATIVE_INFINITY;
+
+    heights.forEach(height => {
+      const row = rows.find(item => item.height === height);
+      if (row?.attempts?.includes('cleared')) {
+        const value = parseFieldDistance(height);
+        if (value > bestHeightValue) {
+          bestHeightValue = value;
+          bestHeight = height;
+        }
+      }
+    });
+
+    const lowerHeights = heights
+      .filter(height => parseFieldDistance(height) < bestHeightValue)
+      .sort((a, b) => parseFieldDistance(b) - parseFieldDistance(a));
+    const failureProfile = lowerHeights.map(height => {
+      const row = rows.find(item => item.height === height);
+      return Array.isArray(row?.attempts)
+        ? row.attempts.filter(attempt => attempt === 'failed').length
+        : 0;
+    });
+
+    // The pattern covers every bar up to the athlete's best cleared height.
+    // Missing rows are represented as three pending attempts, so a different
+    // attempt history is never silently treated as an exact duplicate.
+    const exactPatternKey = heights
+      .filter(height => parseFieldDistance(height) <= bestHeightValue)
+      .map(height => {
+        const row = rows.find(item => item.height === height);
+        return height + ':' + highJumpAttemptSignature(row);
+      })
+      .join('|');
+
+    return {
+      studentId,
+      bestHeight,
+      bestHeightValue,
+      failureProfile,
+      exactPatternKey,
+      name: studentMap.get(studentId)?.name || studentId,
+    };
+  }).filter(row => row.bestHeight);
+
+  summaries.sort((a, b) => {
+    if (a.bestHeightValue !== b.bestHeightValue) return b.bestHeightValue - a.bestHeightValue;
+
+    // Official High Jump tie-break: inspect the immediately previous bar,
+    // then the bar before that, etc. Fewer failures wins.
+    const maxLen = Math.max(a.failureProfile.length, b.failureProfile.length);
+    for (let index = 0; index < maxLen; index += 1) {
+      const failureA = a.failureProfile[index] || 0;
+      const failureB = b.failureProfile[index] || 0;
+      if (failureA !== failureB) return failureA - failureB;
+    }
+
+    // No shared positions are allowed. This fallback only determines a
+    // deterministic temporary order if the specified jump history cannot
+    // separate the athletes.
+    return a.name.localeCompare(b.name);
+  });
+
+  const exactPatternCounts = new Map<string, number>();
+  summaries.forEach(row => {
+    const key = row.bestHeightValue + '|' + row.exactPatternKey;
+    exactPatternCounts.set(key, (exactPatternCounts.get(key) || 0) + 1);
+  });
+
+  return summaries.map((row, index) => {
+    const key = row.bestHeightValue + '|' + row.exactPatternKey;
+    const exactPatternTie = (exactPatternCounts.get(key) || 0) > 1;
+    const alphabeticalWinner = exactPatternTie && summaries
+      .filter(other => other.bestHeightValue === row.bestHeightValue && other.exactPatternKey === row.exactPatternKey)
+      .sort((a, b) => a.name.localeCompare(b.name))[0]?.studentId === row.studentId;
+
+    return {
+      studentId: row.studentId,
+      bestHeight: row.bestHeight,
+      bestHeightValue: row.bestHeightValue,
+      position: index + 1,
+      exactPatternKey: key,
+      temporaryPointWinner: !exactPatternTie || alphabeticalWinner,
+    };
+  });
+};
+
 type RankedResultRow = {
   studentId: string;
   result: AthleticsResult;
@@ -83,56 +199,61 @@ const rankedResultRows = (
   event: AthleticsEvent,
   category: AthleticsStudent['category'],
   stage: 'qualifying' | 'finals',
+  students: AthleticsStudent[] = [],
 ): RankedResultRow[] => {
   if (isRelayEvent(event)) return [];
 
   const source = stage === 'finals'
     ? snapshot.finals.find(finals => finals.eventId === event.id && finals.category === category)
     : snapshot.enrollments.find(enrollment => enrollment.eventId === event.id && enrollment.category === category);
-  const ids = source?.studentIds || [];
+  const ids = [...new Set(source?.studentIds || [])];
+
+  if (event.id === 'high-jump') {
+    const ranked = rankedHighJumpStudents(snapshot, category, ids, students, stage);
+    return ranked.map(row => {
+      const stored = snapshot.results.find(item =>
+        item.eventId === event.id &&
+        item.category === category &&
+        item.studentId === row.studentId &&
+        resultStageOf(item) === stage
+      );
+      const result: AthleticsResult = {
+        ...(stored || {
+          eventId: event.id,
+          category,
+          studentId: row.studentId,
+          stage,
+          status: 'finished',
+          timing: row.bestHeight,
+          qualified: stage === 'qualifying',
+        }),
+        status: 'finished',
+        timing: row.bestHeight,
+        position: row.position,
+        qualified: stage === 'qualifying' ? true : stored?.qualified,
+      };
+      return { studentId: row.studentId, result, computedPosition: row.position };
+    });
+  }
 
   const rows = ids
-    .map(studentId => {
-      const stored = snapshot.results.find(item =>
+    .map(studentId => ({
+      studentId,
+      result: snapshot.results.find(item =>
         item.eventId === event.id &&
         item.category === category &&
         item.studentId === studentId &&
         resultStageOf(item) === stage
-      );
-      const derivedHighJumpHeight =
-        event.id === 'high-jump' && stage === 'qualifying'
-          ? highJumpBestClearedHeight(snapshot, category, studentId)
-          : '';
-      const result = stored || (derivedHighJumpHeight ? {
-        eventId: event.id,
-        category,
-        studentId,
-        stage,
-        status: 'finished' as const,
-        timing: derivedHighJumpHeight,
-        qualified: true,
-      } : undefined);
-      const effectiveResult = result && event.id === 'high-jump' && stage === 'qualifying' && derivedHighJumpHeight
-        ? { ...result, status: 'finished' as const, timing: derivedHighJumpHeight, qualified: true }
-        : result;
-      return { studentId, result: effectiveResult };
-    })
+      ),
+    }))
     .filter((item): item is { studentId: string; result: AthleticsResult } =>
       Boolean(item.result && item.result.status === 'finished' && item.result.timing)
     );
 
-  // Qualifying positions are awarded to explicitly qualified competitors,
-  // or automatically to High Jump athletes who cleared the first bar.
   const eligible = stage === 'qualifying'
-    ? rows.filter(item => item.result.qualified === true || (
-        event.id === 'high-jump' && hasClearedHighJumpFirstBar(snapshot, category, item.studentId)
-      ))
+    ? rows.filter(item => item.result.qualified === true)
     : rows;
 
-  // A complete, valid set of stored positions is authoritative. This keeps
-  // manually corrected/auto-ranked results identical across Manager, Summary,
-  // View Events, and scoring. If positions are missing, duplicated, or contain
-  // gaps, rebuild the order from the recorded performance.
   if (positionsAreComplete(eligible.map(item => item.result.position))) {
     eligible.sort((a, b) => (a.result.position || Number.MAX_SAFE_INTEGER) - (b.result.position || Number.MAX_SAFE_INTEGER));
   } else {
@@ -156,21 +277,7 @@ const rankedResultRows = (
   return ranked;
 };
 
-export type RankedAthleticsResult = {
-  student: AthleticsStudent;
-  result: AthleticsResult;
-  computedPosition: number;
-};
-
-export const rankedEventResults = (
-  snapshot: AthleticsSnapshot,
-  event: AthleticsEvent,
-  category: AthleticsStudent['category'],
-  students: AthleticsStudent[],
-  stage: 'qualifying' | 'finals',
-): RankedAthleticsResult[] => {
-  const studentMap = new Map(students.map(student => [student.id, student]));
-  return rankedResultRows(snapshot, event, category, stage)
+  return rankedResultRows(snapshot, event, category, stage, students)
     .map(row => {
       const student = studentMap.get(row.studentId);
       return student ? { ...row, student } : null;
@@ -185,6 +292,7 @@ export const eventPointBreakdown = (
   student: AthleticsStudent,
   event: AthleticsEvent,
   categoryOverride?: AthleticsStudent['category'],
+  allStudents: AthleticsStudent[] = [student],
 ): EventPointBreakdown => {
   const category = categoryOverride || resolveStudentEventCategory(snapshot, student, event);
   // Relay points are house/team points only. They never enter an individual's
@@ -242,16 +350,42 @@ export const eventPointBreakdown = (
     // Finals award only placement points. There is no additional +1 for
     // appearing in, finishing, or qualifying for the second round.
     if (finals?.status === 'finished') {
-      const finalPosition = rankedResultRows(snapshot, event, category, 'finals')
+      const finalPosition = rankedResultRows(snapshot, event, category, 'finals', allStudents)
         .find(row => row.studentId === student.id)?.computedPosition;
-      if (finalPosition) placement += placementPoints(finalPosition);
+      if (finalPosition) {
+        const highJumpRow = event.id === 'high-jump'
+          ? rankedHighJumpStudents(
+              snapshot,
+              category,
+              snapshot.finals.find(entry => entry.eventId === event.id && entry.category === category)?.studentIds || [],
+              allStudents,
+              'finals',
+            ).find(row => row.studentId === student.id)
+          : undefined;
+        if (!highJumpRow || highJumpRow.temporaryPointWinner) {
+          placement += placementPoints(finalPosition);
+        }
+      }
     }
   } else if (qualifying?.status === 'finished' && qualifyingIsQualified) {
     // Without finals, qualifying is the scored round. High Jump athletes who
     // clear the first bar are eligible for placement points automatically.
-    const qualifyingPosition = rankedResultRows(snapshot, event, category, 'qualifying')
+    const qualifyingPosition = rankedResultRows(snapshot, event, category, 'qualifying', allStudents)
       .find(row => row.studentId === student.id)?.computedPosition;
-    if (qualifyingPosition) placement += placementPoints(qualifyingPosition);
+    if (qualifyingPosition) {
+      const highJumpRow = event.id === 'high-jump'
+        ? rankedHighJumpStudents(
+            snapshot,
+            category,
+            snapshot.enrollments.find(entry => entry.eventId === event.id && entry.category === category)?.studentIds || [],
+            allStudents,
+            'qualifying',
+          ).find(row => row.studentId === student.id)
+        : undefined;
+      if (!highJumpRow || highJumpRow.temporaryPointWinner) {
+        placement += placementPoints(qualifyingPosition);
+      }
+    }
   }
 
   // New Record is one bonus per athlete per event, not one bonus per stage.
@@ -262,14 +396,15 @@ export const eventPointBreakdown = (
   return { qualification, placement, newRecord, total: qualification + placement + newRecord };
 };
 
-export const eventPoints = (snapshot: AthleticsSnapshot, student: AthleticsStudent, event: AthleticsEvent) =>
-  eventPointBreakdown(snapshot, student, event).total;
+export const eventPoints = (snapshot: AthleticsSnapshot, student: AthleticsStudent, event: AthleticsEvent, allStudents: AthleticsStudent[] = [student]) =>
+  eventPointBreakdown(snapshot, student, event, undefined, allStudents).total;
 
 export const studentPointsAcrossEvents = (
   snapshot: AthleticsSnapshot,
   student: AthleticsStudent,
   events: AthleticsEvent[],
-) => events.reduce((sum, event) => sum + eventPoints(snapshot, student, event), 0);
+  allStudents: AthleticsStudent[] = [student],
+) => events.reduce((sum, event) => sum + eventPoints(snapshot, student, event, allStudents), 0);
 
 export const houseChampionshipPoints = (snapshot: AthleticsSnapshot, house: AthleticsHouse, department?: AthleticsDepartment) => {
   return relayHousePoints(snapshot, house, department);
