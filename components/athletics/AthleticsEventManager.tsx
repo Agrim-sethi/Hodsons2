@@ -4,6 +4,7 @@ import { HOUSE_COLORS } from '../../constants';
 import { useToast } from '../ui/ToastProvider';
 import { ATHLETICS_EVENTS, AthleticsEvent, AthleticsHighJumpAttempt, AthleticsHighJumpAttemptResult, AthleticsResult, AthleticsResultStatus, AthleticsSnapshot, AthleticsStage, AthleticsRelayTeam, RELAY_HOUSES, relayEligibleCategories, hasClearedHighJumpFirstBar } from '../../utils/athleticsStorage';
 import { AthleticsCategory } from '../../utils/athleticsCategories';
+import { rankedHighJumpStudents } from '../../utils/athleticsScoring';
 
 type AthleticsStudent = {
   id: string;
@@ -856,53 +857,16 @@ const AthleticsEventManager: React.FC<Props> = ({
       return;
     }
 
-    const heightsAscending = [...highJumpHeights].sort(
-      (a, b) => parseFieldDistance(a) - parseFieldDistance(b),
+    const rankings = rankedHighJumpStudents(
+      snapshot,
+      category,
+      currentIds,
+      students,
+      stage,
     );
 
-    const summaries = currentIds
-      .map((studentId) => {
-        const rows = highJumpAttemptRows.filter((row) => row.studentId === studentId);
-
-        let bestHeight = '';
-        let bestHeightValue = Number.NEGATIVE_INFINITY;
-        let failuresAtBest = 0;
-        let totalFailures = 0;
-
-        heightsAscending.forEach((height) => {
-          const row = rows.find((r) => r.height === height);
-          const attempts = row?.attempts || [];
-          const failures = attempts.filter((a) => a === 'failed').length;
-          const cleared = attempts.includes('cleared');
-
-          totalFailures += failures;
-
-          if (cleared) {
-            const value = parseFieldDistance(height);
-            if (value > bestHeightValue) {
-              bestHeightValue = value;
-              bestHeight = height;
-              failuresAtBest = failures;
-            }
-          }
-        });
-
-        return { studentId, bestHeight, bestHeightValue, failuresAtBest, totalFailures };
-      })
-      .filter((summary) => summary.bestHeight);
-
-    summaries.sort((a, b) => {
-      if (a.bestHeightValue !== b.bestHeightValue) {
-        return b.bestHeightValue - a.bestHeightValue;
-      }
-      if (a.failuresAtBest !== b.failuresAtBest) {
-        return a.failuresAtBest - b.failuresAtBest;
-      }
-      return a.totalFailures - b.totalFailures;
-    });
-
-    const rankMap = new Map(summaries.map((summary, index) => [summary.studentId, index + 1]));
-    const heightMap = new Map(summaries.map((summary) => [summary.studentId, summary.bestHeight]));
+    const rankMap = new Map(rankings.map(row => [row.studentId, row.position]));
+    const heightMap = new Map(rankings.map(row => [row.studentId, row.bestHeight]));
 
     const resultsForOtherStudents = snapshot.results.filter(
       (result) => !(result.eventId === event.id && result.category === category && resultStageOf(result) === stage),
@@ -910,13 +874,14 @@ const AthleticsEventManager: React.FC<Props> = ({
 
     const resultsForCurrentIds = currentIds.map((studentId) => {
       const existing = getResult(studentId, stage);
-      const cleared = heightMap.get(studentId);
+      const bestHeight = heightMap.get(studentId);
 
       return {
         ...existing,
-        status: cleared ? ('finished' as AthleticsResultStatus) : existing.status,
-        timing: cleared || existing.timing,
+        status: bestHeight ? ('finished' as AthleticsResultStatus) : existing.status,
+        timing: bestHeight || existing.timing,
         position: rankMap.get(studentId),
+        ...(stage === 'qualifying' && bestHeight ? { qualified: true } : {}),
       };
     });
 
@@ -926,7 +891,7 @@ const AthleticsEventManager: React.FC<Props> = ({
         results: [...resultsForOtherStudents, ...resultsForCurrentIds],
       },
       'Positions Calculated',
-      `${summaries.length} ${stage} high jumpers ranked by best height cleared.`,
+      `${rankings.length} ${stage} high jumpers ranked by best height and prior-bar failures.`,
     );
   };
 
