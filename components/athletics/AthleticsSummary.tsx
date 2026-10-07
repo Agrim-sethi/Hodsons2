@@ -124,7 +124,7 @@ const calculateCategoryTopScorers = (
     snapshot,
     categoryStudents.map(student => ({
       student,
-      points: studentPointsAcrossEvents(snapshot, student, categoryEvents.map(summary => summary.event)),
+      points: studentPointsAcrossEvents(snapshot, student, categoryEvents.map(summary => summary.event), categoryStudents),
     })).filter(row => row.points > 0),
   );
 };
