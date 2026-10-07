@@ -1,4 +1,4 @@
-import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, isRelayEvent, relayHousePoints, hasClearedHighJumpFirstBar, highJumpBestClearedHeight, rankedHighJumpStudents } from './athleticsStorage';
+import { AthleticsEvent, AthleticsResult, AthleticsSnapshot, AthleticsStudent, AthleticsHouse, AthleticsDepartment, isRelayEvent, relayHousePoints, hasClearedHighJumpFirstBar, highJumpBestClearedHeight } from './athleticsStorage';
 
 export const placementPoints = (position?: number) =>
   position === 1 ? 4 :
@@ -72,6 +72,113 @@ const positionsAreComplete = (positions: Array<number | undefined>) => {
   return sorted.every((position, index) => position === index + 1);
 };
 
+type HighJumpRankedInternal = {
+  studentId: string;
+  bestHeight: string;
+  bestHeightValue: number;
+  position: number;
+  exactPatternKey: string;
+  temporaryPointWinner: boolean;
+};
+
+const rankHighJumpInternal = (
+  snapshot: AthleticsSnapshot,
+  category: AthleticsStudent['category'],
+  studentIds: string[],
+  students: AthleticsStudent[],
+  stage: 'qualifying' | 'finals',
+): HighJumpRankedInternal[] => {
+  const config = snapshot.highJump?.find(entry => entry.category === category && entry.stage === stage);
+  const heights = [...(config?.heights || [])].sort((a, b) => parseFieldDistance(a) - parseFieldDistance(b));
+  const studentMap = new Map(students.map(student => [student.id, student]));
+
+  const summaries = [...new Set(studentIds)].map(studentId => {
+    const rows = config?.attempts?.filter(row => row.studentId === studentId) || [];
+    let bestHeight = '';
+    let bestHeightValue = Number.NEGATIVE_INFINITY;
+
+    heights.forEach(height => {
+      const row = rows.find(item => item.height === height);
+      if (row?.attempts?.includes('cleared')) {
+        const value = parseFieldDistance(height);
+        if (value > bestHeightValue) {
+          bestHeightValue = value;
+          bestHeight = height;
+        }
+      }
+    });
+
+    const lowerHeights = heights
+      .filter(height => parseFieldDistance(height) < bestHeightValue)
+      .sort((a, b) => parseFieldDistance(b) - parseFieldDistance(a));
+
+    const failureProfile = lowerHeights.map(height => {
+      const row = rows.find(item => item.height === height);
+      return Array.isArray(row?.attempts)
+        ? row.attempts.filter(attempt => attempt === 'failed').length
+        : 0;
+    });
+
+    const exactPatternKey = heights
+      .filter(height => parseFieldDistance(height) <= bestHeightValue)
+      .map(height => {
+        const row = rows.find(item => item.height === height);
+        const attempts = Array.from({ length: 3 }, (_, index) => row?.attempts?.[index] || 'pending').join(',');
+        return height + ':' + attempts;
+      })
+      .join('|');
+
+    return {
+      studentId,
+      bestHeight,
+      bestHeightValue,
+      failureProfile,
+      exactPatternKey,
+      name: studentMap.get(studentId)?.name || studentId,
+    };
+  }).filter(row => row.bestHeight);
+
+  summaries.sort((a, b) => {
+    if (a.bestHeightValue !== b.bestHeightValue) return b.bestHeightValue - a.bestHeightValue;
+    for (let index = 0; index < Math.max(a.failureProfile.length, b.failureProfile.length); index += 1) {
+      const failureA = a.failureProfile[index] || 0;
+      const failureB = b.failureProfile[index] || 0;
+      if (failureA !== failureB) return failureA - failureB;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  const patternCounts = new Map<string, number>();
+  summaries.forEach(row => {
+    const key = row.bestHeightValue + '|' + row.exactPatternKey;
+    patternCounts.set(key, (patternCounts.get(key) || 0) + 1);
+  });
+
+  return summaries.map((row, index) => {
+    const key = row.bestHeightValue + '|' + row.exactPatternKey;
+    const exactPatternTie = (patternCounts.get(key) || 0) > 1;
+    const topFourMembers = exactPatternTie
+      ? summaries.filter(other =>
+          other.bestHeightValue === row.bestHeightValue &&
+          other.exactPatternKey === row.exactPatternKey &&
+          summaries.indexOf(other) < 4
+        )
+      : [];
+    const alphabeticalWinner = exactPatternTie && topFourMembers.length > 0
+      ? [...topFourMembers].sort((a, b) => a.name.localeCompare(b.name))[0]?.studentId === row.studentId
+      : true;
+
+    return {
+      studentId: row.studentId,
+      bestHeight: row.bestHeight,
+      bestHeightValue: row.bestHeightValue,
+      position: index + 1,
+      exactPatternKey: key,
+      temporaryPointWinner: !exactPatternTie || alphabeticalWinner,
+    };
+  });
+};
+
 type RankedResultRow = {
   studentId: string;
   result: AthleticsResult;
@@ -93,8 +200,7 @@ const rankedResultRows = (
   const ids = [...new Set(source?.studentIds || [])];
 
   if (event.id === 'high-jump') {
-    const ranked = rankedHighJumpStudents(snapshot, category, ids, students, stage);
-    return ranked.map(row => {
+    return rankHighJumpInternal(snapshot, category, ids, students, stage).map(row => {
       const stored = snapshot.results.find(item =>
         item.eventId === event.id &&
         item.category === category &&
@@ -161,6 +267,20 @@ const rankedResultRows = (
   return ranked;
 };
 
+export type RankedAthleticsResult = {
+  student: AthleticsStudent;
+  result: AthleticsResult;
+  computedPosition: number;
+};
+
+export const rankedEventResults = (
+  snapshot: AthleticsSnapshot,
+  event: AthleticsEvent,
+  category: AthleticsStudent['category'],
+  students: AthleticsStudent[],
+  stage: 'qualifying' | 'finals',
+): RankedAthleticsResult[] => {
+  const studentMap = new Map(students.map(student => [student.id, student]));
   return rankedResultRows(snapshot, event, category, stage, students)
     .map(row => {
       const student = studentMap.get(row.studentId);
@@ -237,8 +357,8 @@ export const eventPointBreakdown = (
       const finalPosition = rankedResultRows(snapshot, event, category, 'finals', allStudents)
         .find(row => row.studentId === student.id)?.computedPosition;
       if (finalPosition) {
-        const highJumpRow = event.id === 'high-jump'
-          ? rankedHighJumpStudents(
+        const tieRow = event.id === 'high-jump'
+          ? rankHighJumpInternal(
               snapshot,
               category,
               snapshot.finals.find(entry => entry.eventId === event.id && entry.category === category)?.studentIds || [],
@@ -246,9 +366,7 @@ export const eventPointBreakdown = (
               'finals',
             ).find(row => row.studentId === student.id)
           : undefined;
-        if (!highJumpRow || highJumpRow.temporaryPointWinner) {
-          placement += placementPoints(finalPosition);
-        }
+        if (!tieRow || tieRow.temporaryPointWinner) placement += placementPoints(finalPosition);
       }
     }
   } else if (qualifying?.status === 'finished' && qualifyingIsQualified) {
@@ -257,8 +375,8 @@ export const eventPointBreakdown = (
     const qualifyingPosition = rankedResultRows(snapshot, event, category, 'qualifying', allStudents)
       .find(row => row.studentId === student.id)?.computedPosition;
     if (qualifyingPosition) {
-      const highJumpRow = event.id === 'high-jump'
-        ? rankedHighJumpStudents(
+      const tieRow = event.id === 'high-jump'
+        ? rankHighJumpInternal(
             snapshot,
             category,
             snapshot.enrollments.find(entry => entry.eventId === event.id && entry.category === category)?.studentIds || [],
@@ -266,9 +384,7 @@ export const eventPointBreakdown = (
             'qualifying',
           ).find(row => row.studentId === student.id)
         : undefined;
-      if (!highJumpRow || highJumpRow.temporaryPointWinner) {
-        placement += placementPoints(qualifyingPosition);
-      }
+      if (!tieRow || tieRow.temporaryPointWinner) placement += placementPoints(qualifyingPosition);
     }
   }
 
